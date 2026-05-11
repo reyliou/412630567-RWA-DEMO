@@ -32,7 +32,8 @@ export function InvestorMarket({ onSelectProperty }: InvestorMarketProps) {
   useEffect(() => {
     const loadMockData = async () => {
       try {
-        const response = await fetch('/src/mock_sql/properties.json');
+        // 修正：從 public 根目錄讀取以符合部署後的路徑
+        const response = await fetch('/mock_sql/properties.json');
         if (response.ok) {
           const data = await response.json();
           setProperties(data);

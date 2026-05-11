@@ -4,8 +4,8 @@ import os
 import re
 from playwright.async_api import async_playwright
 
-# 設定 JSON 儲存路徑
-OUTPUT_PATH = os.path.join("..", "src", "mock_sql", "properties.json")
+# 設定 JSON 儲存路徑 (指向前端的 public/mock_sql)
+OUTPUT_PATH = os.path.join("..", "public", "mock_sql", "properties.json")
 
 # 根據您提供的圖片，建立台灣縣市清單 (加入「臺」的容錯寫法)
 TAIWAN_CITIES = [

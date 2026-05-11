@@ -1,0 +1,44 @@
+[
+    {
+        "id": 140249,
+        "name": "御心綻",
+        "city_tag": "台北市",
+        "price_display": "130~140",
+        "price": 1822.5,
+        "size": 135.0,
+        "unit_price": 135.0,
+        "total_value": 182250000.0,
+        "change": "+0.00",
+        "addr": "台北市南港區經貿段77-1地號>",
+        "img": "https://img1.591.com.tw/house/2025/10/17/176068803628714408.jpg!fit.730x460.jpg",
+        "last_updated": "226438.8906675"
+    },
+    {
+        "id": 139920,
+        "name": "中工雋詠",
+        "city_tag": "台北市",
+        "price_display": "127~141",
+        "price": 1795.6,
+        "size": 134.0,
+        "unit_price": 134.0,
+        "total_value": 179560000.0,
+        "change": "+0.00",
+        "addr": "台北市南港區重陽路與重陽路18巷交叉口>",
+        "img": "https://img2.591.com.tw/house/2025/08/28/175634851245564007.jpg!fit.730x460.jpg",
+        "last_updated": "226444.851946"
+    },
+    {
+        "id": 138981,
+        "name": "潤泰之森",
+        "city_tag": "台北市",
+        "price_display": "135~155",
+        "price": 2102.5,
+        "size": 145.0,
+        "unit_price": 145.0,
+        "total_value": 210250000.0,
+        "change": "+0.00",
+        "addr": "台北市北投區文林北路77號旁>",
+        "img": "https://img1.591.com.tw/house/2025/08/27/175628921782552706.jpg!fit.730x460.jpg",
+        "last_updated": "226451.1267347"
+    }
+]
