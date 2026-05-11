@@ -45,77 +45,111 @@ export function UserManagementCard() {
   const getTxStatusBadge = (status: UserData["txStatus"]) => {
     switch (status) {
       case "正常": 
-        return <span className="px-5 py-2 bg-green-50 text-green-600 rounded-xl text-sm font-black uppercase tracking-widest shadow-sm">正常</span>;
+        return <span className="px-3 py-1.5 bg-green-50 text-green-600 rounded-lg text-xs font-black">正常</span>;
       case "交易異常": 
-        return <span className="px-5 py-2 bg-orange-50 text-orange-600 rounded-xl text-sm font-black uppercase animate-pulse shadow-sm">交易異常!</span>;
+        return <span className="px-3 py-1.5 bg-orange-50 text-orange-600 rounded-lg text-xs font-black animate-pulse">交易異常!</span>;
       case "無法交易": 
-        return <span className="px-5 py-2 bg-red-50 text-red-600 rounded-xl text-sm font-black uppercase tracking-tighter shadow-sm">無法交易</span>;
+        return <span className="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-black">無法交易</span>;
     }
   };
 
   return (
-    <div className="bg-white border border-border rounded-[3rem] shadow-sm overflow-hidden flex flex-col transition-all duration-500 ring-1 ring-slate-100/50">
-      <div className="p-10 border-b border-border bg-slate-50 flex items-center justify-between">
-        <h3 className="font-black flex items-center gap-4 text-slate-800 text-2xl uppercase tracking-tight">
-          <Users className="w-10 h-10 text-blue-600" />
+    <div className="bg-white border border-border rounded-[2.5rem] shadow-sm flex flex-col transition-all duration-500 ring-1 ring-slate-100 relative">
+      <div className="p-8 border-b border-border bg-slate-50 flex items-center justify-between rounded-t-[2.5rem]">
+        <h3 className="font-black flex items-center gap-3 text-slate-800 text-xl uppercase tracking-tight">
+          <Users className="w-8 h-8 text-blue-600" />
           KYC 已認證用戶註冊表
         </h3>
         <div className="relative group">
-          <Search className="absolute left-5 top-5 w-6 h-6 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
+          <Search className="absolute left-4 top-3.5 w-5 h-5 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
           <input 
             type="text" 
             placeholder="搜尋用戶姓名或 Email..." 
-            className="pl-14 pr-8 py-5 bg-white border border-slate-200 rounded-2xl text-base outline-none focus:ring-4 focus:ring-blue-600/10 transition-all font-black text-slate-700 w-96"
+            className="pl-12 pr-6 py-3 bg-white border border-slate-200 rounded-2xl text-sm outline-none focus:ring-4 focus:ring-blue-600/10 transition-all font-black text-slate-700 w-80 shadow-sm"
           />
         </div>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-left">
-          <thead className="bg-slate-50/80 border-b border-border">
+      <div className="overflow-visible"> {/* 關鍵修正：改為 overflow-visible 避免遮擋選單 */}
+        <table className="w-full text-left border-collapse">
+          <thead className="bg-slate-50/50 border-b border-border">
             <tr>
-              <th className="px-12 py-8 text-sm font-black text-slate-400 uppercase tracking-[0.2em]">用戶 ID</th>
-              <th className="px-12 py-8 text-sm font-black text-slate-400 uppercase tracking-[0.2em]">姓名</th>
-              <th className="px-12 py-8 text-sm font-black text-slate-400 uppercase tracking-[0.2em]">電子郵件</th>
-              <th className="px-12 py-8 text-sm font-black text-slate-400 uppercase tracking-[0.2em] text-center">認證狀態</th>
-              <th className="px-12 py-8 text-sm font-black text-slate-400 uppercase tracking-[0.2em] text-center">交易狀態</th>
-              <th className="px-12 py-8 text-sm font-black text-slate-400 uppercase tracking-[0.2em] text-right">操作</th>
+              <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">用戶 ID</th>
+              <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">姓名</th>
+              <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">電子郵件</th>
+              <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">認證狀態</th>
+              <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">交易狀態</th>
+              <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-right pr-12">操作</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {users.map((user) => (
-              <tr key={user.id} className="hover:bg-slate-50 transition-colors group">
-                <td className="px-12 py-10 font-mono text-sm font-black text-slate-400 tracking-wider">{user.id}</td>
-                <td className="px-12 py-10">
-                  <div className="font-black text-slate-800 text-2xl tracking-tighter">{user.name}</div>
+              <tr key={user.id} className="hover:bg-slate-50/80 transition-all group">
+                <td className="px-8 py-8 font-mono text-xs font-black text-slate-400 uppercase">{user.id}</td>
+                <td className="px-8 py-8">
+                  {/* 關鍵修正：whitespace-nowrap 確保姓名不換行 */}
+                  <div className="font-black text-slate-800 text-lg whitespace-nowrap">{user.name}</div>
                 </td>
-                <td className="px-12 py-10">
-                   <div className="flex items-center gap-3 text-base font-bold text-slate-500">
-                      <Mail className="w-5 h-5 opacity-40 text-blue-600" />
+                <td className="px-8 py-8">
+                   <div className="flex items-center gap-2 text-sm font-bold text-slate-500">
+                      <Mail className="w-4 h-4 opacity-30" />
                       {user.email}
                    </div>
                 </td>
-                <td className="px-12 py-10 text-center">
-                  <div className={`inline-flex items-center gap-3 text-sm font-black px-6 py-2.5 rounded-full shadow-sm ${user.status === 'Whitelisted' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
-                    {user.status === 'Whitelisted' ? <ShieldCheck className="w-5 h-5" /> : <ShieldAlert className="w-5 h-5" />}
+                <td className="px-8 py-8 text-center">
+                  <div className={`inline-flex items-center gap-2 text-xs font-black px-4 py-2 rounded-full border ${user.status === 'Whitelisted' ? 'bg-green-50 text-green-600 border-green-100' : 'bg-red-50 text-red-600 border-red-100'}`}>
+                    {user.status === 'Whitelisted' ? <ShieldCheck className="w-4 h-4" /> : <ShieldAlert className="w-4 h-4" />}
                     {user.status}
                   </div>
                 </td>
-                <td className="px-12 py-10 text-center">
+                <td className="px-8 py-8 text-center">
                    {getTxStatusBadge(user.txStatus)}
                 </td>
-                <td className="px-12 py-10 text-right relative">
+                <td className="px-8 py-8 text-right pr-12 relative">
                   <button 
                     onClick={() => setOpenMenuMenuId(openMenuId === user.id ? null : user.id)}
-                    className="p-4 hover:bg-slate-200 rounded-2xl transition-all text-slate-400 group-hover:text-slate-800"
+                    className="p-3 hover:bg-slate-200 rounded-xl transition-all text-slate-400 group-hover:text-slate-800"
                   >
-                    <MoreVertical className="w-8 h-8" />
+                    <MoreVertical className="w-6 h-6" />
                   </button>
+
+                  {/* 關鍵修正：提高 z-index 並調整位置 */}
+                  {openMenuId === user.id && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setOpenMenuMenuId(null)} />
+                      <div className="absolute right-12 top-20 w-60 bg-white border border-border shadow-2xl rounded-[1.5rem] z-50 p-3 animate-in zoom-in-95 duration-200 ring-1 ring-slate-100">
+                         <div className="text-[9px] font-black text-slate-300 uppercase tracking-widest px-4 py-2 border-b border-slate-50 mb-2">Security Control</div>
+                         <button 
+                           onClick={() => toggleStatus(user.id)}
+                           className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-black transition-all ${
+                             user.status === 'Whitelisted' 
+                               ? 'text-red-600 hover:bg-red-50' 
+                               : 'text-green-600 hover:bg-green-50'
+                           }`}
+                         >
+                           {user.status === 'Whitelisted' ? (
+                             <><UserMinus className="w-5 h-5" /> 設為黑名單</>
+                           ) : (
+                             <><UserCheck className="w-5 h-5" /> 移回白名單</>
+                           )}
+                         </button>
+                         <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-black text-slate-400 hover:bg-slate-50 mt-1">
+                            <Activity className="w-5 h-5" /> 用戶交易分析
+                         </button>
+                      </div>
+                    </>
+                  )}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+      </div>
+      
+      <div className="p-6 bg-slate-50/50 border-t border-border rounded-b-[2.5rem] text-center">
+         <button className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] hover:text-blue-600 transition-colors">
+            End of User Registry
+         </button>
       </div>
     </div>
   );
