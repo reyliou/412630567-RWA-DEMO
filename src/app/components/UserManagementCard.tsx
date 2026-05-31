@@ -17,28 +17,61 @@ export function UserManagementCard() {
   useEffect(() => {
     const loadUsers = async () => {
       try {
-        const response = await fetch('/mock_sql/users.json');
+        const response = await fetch('http://localhost:3001/api/users');
         if (response.ok) {
           const data = await response.json();
-          setUsers(data);
+          // 資料庫欄位對齊：將 is_whitelisted 映射到 status
+          const mappedData = data.map((u: any) => ({
+            id: u.id.toString(),
+            name: u.username,
+            email: u.email || 'N/A',
+            status: u.is_whitelisted ? "Whitelisted" : "Blacklisted",
+            txStatus: u.is_whitelisted ? "正常" : "無法交易",
+            joined: "2026-04-20" // 這裡可以根據實務需求從資料庫抓取
+          }));
+          setUsers(mappedData);
         }
       } catch (e) {
-        console.error("無法加載用戶資料");
+        console.error("無法加載真實用戶資料，請確保後端伺服器已啟動");
       }
     };
     loadUsers();
   }, []);
 
-  const toggleStatus = (id: string) => {
-    setUsers(prevUsers => 
-      prevUsers.map(user => {
-        if (user.id === id) {
-          const newStatus = user.status === "Whitelisted" ? "Blacklisted" : "Whitelisted";
-          return { ...user, status: newStatus };
-        }
-        return user;
-      })
-    );
+  const toggleStatus = async (id: string) => {
+    const user = users.find(u => u.id === id);
+    if (!user) return;
+
+    const newWhitelisted = user.status === "Blacklisted";
+    
+    try {
+      // 呼叫後端 API 進行真實更新，這會觸發 ISO 合規日誌
+      const response = await fetch(`http://localhost:3001/api/users/${id}/whitelist`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          is_whitelisted: newWhitelisted,
+          reason: "Manual review by Banker Admin" // 符合 ISO 溯源要求
+        })
+      });
+
+      if (response.ok) {
+        setUsers(prevUsers => 
+          prevUsers.map(u => {
+            if (u.id === id) {
+              return { 
+                ...u, 
+                status: newWhitelisted ? "Whitelisted" : "Blacklisted",
+                txStatus: newWhitelisted ? "正常" : "無法交易"
+              };
+            }
+            return u;
+          })
+        );
+      }
+    } catch (e) {
+      alert("資料庫更新失敗");
+    }
     setOpenMenuMenuId(null);
   };
 

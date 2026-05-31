@@ -1,31 +1,50 @@
-import { Bell, CheckCircle2, TrendingUp, TrendingDown, X, Building2 } from "lucide-react";
-import { useState } from "react";
+import { Bell, CheckCircle2, TrendingUp, TrendingDown, X, Building2, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useHeartbeat } from "../context/SystemHeartbeatContext";
 
-export function NotificationCenter() {
+export function NotificationCenter({ userId }: { userId: number }) {
+  const { tick } = useHeartbeat();
   const [isOpen, setIsOpen] = useState(false);
-  const [notifications, setNotifications] = useState([
-    { 
-      id: 1, 
-      type: "BUY_MATCH", 
-      title: "限價買入委託已成交", 
-      content: "您委託以 $17540.82 買入 曉陽明2 的 12 枚代幣已全部成交。", 
-      time: "10 分鐘前", 
-      unread: true 
-    },
-    { 
-      id: 2, 
-      type: "SELL_MATCH", 
-      title: "限價賣出委託已成交", 
-      content: "您委託以 $1822.50 賣出 東騰元町 的 5 枚代幣已完成撮合。", 
-      time: "2 小時前", 
-      unread: false 
-    }
-  ]);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const unreadCount = notifications.filter(n => n.unread).length;
+  const fetchNotifications = async () => {
+    try {
+      const response = await fetch(`http://localhost:3001/api/notifications/${userId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setNotifications(data);
+      }
+    } catch (e) {
+      console.error("無法同步通知數據");
+    }
+  };
+
+  // 每 3 秒同步一次通知 (滿足即時性要求)
+  useEffect(() => {
+    if (tick % 3 === 0) {
+      fetchNotifications();
+    }
+  }, [tick]);
+
+  const handleMarkAllRead = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`http://localhost:3001/api/notifications/${userId}/read`, { method: 'PATCH' });
+      if (response.ok) {
+        setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+      }
+    } catch (e) {
+      console.error("標記已讀失敗");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const unreadCount = notifications.filter(n => !n.is_read).length;
 
   return (
-    <div className="relative">
+    <div className="relative font-sans text-slate-800">
       <button 
         onClick={() => setIsOpen(!isOpen)}
         className="p-2.5 bg-muted/50 rounded-xl hover:bg-slate-200 transition-all relative group"
@@ -43,29 +62,43 @@ export function NotificationCenter() {
           <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
           <div className="absolute right-0 mt-4 w-96 bg-white border border-border rounded-[2.5rem] shadow-2xl z-50 overflow-hidden animate-in slide-in-from-top-4 duration-300">
             <div className="p-6 border-b border-border bg-slate-50/50 flex justify-between items-center">
-               <h3 className="font-black text-sm text-slate-800 uppercase tracking-widest">系統通知中心</h3>
-               <button onClick={() => setNotifications(n => n.map(x => ({...x, unread: false})))} className="text-[10px] font-black text-blue-600 hover:underline">全部標記已讀</button>
+               <div className="flex items-center gap-2">
+                  <h3 className="font-black text-sm text-slate-800 uppercase tracking-widest">通知中心</h3>
+                  <span className="text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-lg font-black uppercase tracking-tighter animate-pulse">Live Tick</span>
+               </div>
+               <button 
+                onClick={handleMarkAllRead} 
+                disabled={isLoading || unreadCount === 0}
+                className="text-[10px] font-black text-blue-600 hover:underline disabled:text-slate-300"
+               >
+                 {isLoading ? "處理中..." : "全部標記已讀"}
+               </button>
             </div>
             
-            <div className="max-h-[400px] overflow-y-auto divide-y divide-slate-50">
-               {notifications.map(n => (
-                 <div key={n.id} className={`p-6 hover:bg-slate-50 transition-colors flex gap-4 ${n.unread ? 'bg-blue-50/30' : ''}`}>
-                    <div className={`w-10 h-10 rounded-xl shrink-0 flex items-center justify-center ${n.type === 'BUY_MATCH' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
-                       {n.type === 'BUY_MATCH' ? <TrendingUp className="w-5 h-5" /> : <TrendingDown className="w-5 h-5" />}
+            <div className="max-h-[400px] overflow-y-auto divide-y divide-slate-50 text-slate-800">
+               {notifications.length > 0 ? notifications.map(n => (
+                 <div key={n.id} className={`p-6 hover:bg-slate-50 transition-colors flex gap-4 ${!n.is_read ? 'bg-blue-50/30' : ''}`}>
+                    <div className={`w-10 h-10 rounded-xl shrink-0 flex items-center justify-center ${n.title.includes('買') ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
+                       {n.title.includes('買') ? <TrendingUp className="w-5 h-5" /> : <TrendingDown className="w-5 h-5" />}
                     </div>
                     <div className="space-y-1">
-                       <div className="flex justify-between items-start">
-                          <p className="font-black text-sm text-slate-800 leading-none">{n.title}</p>
-                          <span className="text-[9px] font-bold text-slate-400 uppercase">{n.time}</span>
+                       <div className="flex justify-between items-start text-slate-800">
+                          <p className="font-black text-sm leading-none">{n.title}</p>
+                          <span className="text-[9px] font-bold text-slate-400 uppercase">{new Date(n.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                        </div>
-                       <p className="text-xs text-slate-500 leading-relaxed">{n.content}</p>
+                       <p className="text-xs text-slate-500 leading-relaxed font-medium">{n.message}</p>
                     </div>
                  </div>
-               ))}
+               )) : (
+                 <div className="p-20 text-center text-slate-300">
+                    <Bell className="w-10 h-10 mx-auto mb-4 opacity-20" />
+                    <div className="font-black text-xs uppercase tracking-widest">目前尚無系統通知</div>
+                 </div>
+               )}
             </div>
 
             <div className="p-4 bg-slate-50 border-t border-border text-center">
-               <button className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] hover:text-slate-800">查看所有歷史通知</button>
+               <button className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] hover:text-slate-800 italic">Centralized Heartbeat Enabled</button>
             </div>
           </div>
         </>

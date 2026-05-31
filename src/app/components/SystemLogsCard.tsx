@@ -1,5 +1,6 @@
 import { Terminal, AlertCircle, CheckCircle, Info, XCircle } from "lucide-react";
-import { useState, useImperativeHandle, forwardRef } from "react";
+import { useState, useImperativeHandle, forwardRef, useEffect } from "react";
+import { useHeartbeat } from "../context/SystemHeartbeatContext";
 
 interface LogEntry {
   id: number;
@@ -13,16 +14,40 @@ export interface SystemLogsCardHandle {
 }
 
 export const SystemLogsCard = forwardRef<SystemLogsCardHandle>((props, ref) => {
+  const { tick } = useHeartbeat();
   const [logs, setLogs] = useState<LogEntry[]>([
-    { id: 1, timestamp: new Date(), type: "info", message: "系統底層終端已啟動。等待技術指令..." },
+    { id: 1, timestamp: new Date(), type: "info", message: "系統稽核引擎已啟動，等待全域心跳信號..." },
   ]);
+
+  const fetchLogs = async () => {
+    try {
+      const response = await fetch('http://localhost:3001/api/system-alerts');
+      if (response.ok) {
+        const data = await response.json();
+        const mappedLogs = data.map((item: any) => ({
+          id: item.id,
+          timestamp: new Date(item.created_at),
+          type: item.severity === 'ERROR' ? 'error' : item.severity === 'WARNING' ? 'warning' : 'info',
+          message: item.message,
+        }));
+        setLogs(mappedLogs);
+      }
+    } catch (e) {
+      console.warn("無法同步日誌");
+    }
+  };
+
+  // 每 5 秒執行一次日誌同步
+  useEffect(() => {
+    if (tick % 5 === 0) {
+      fetchLogs();
+    }
+  }, [tick]);
 
   useImperativeHandle(ref, () => ({
     addLog(type: LogEntry["type"], message: string) {
-      setLogs((prev) => [
-        { id: Date.now(), timestamp: new Date(), type, message },
-        ...prev.slice(0, 99),
-      ]);
+      const newLog: LogEntry = { id: Date.now(), timestamp: new Date(), type, message };
+      setLogs((prev) => [newLog, ...prev].slice(0, 99));
     }
   }));
 
@@ -36,24 +61,24 @@ export const SystemLogsCard = forwardRef<SystemLogsCardHandle>((props, ref) => {
   };
 
   return (
-    <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden flex flex-col">
+    <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden flex flex-col font-sans text-slate-800 font-black">
       <div className="p-3 border-b border-border bg-muted/20 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Terminal className="w-4 h-4 text-primary" />
-          <span className="text-xs font-bold uppercase tracking-widest text-foreground">底層核心稽核日誌 (Live Audit)</span>
+          <Terminal className="w-4 h-4 text-blue-600" />
+          <span className="text-xs font-black uppercase tracking-widest text-slate-800">底層核心稽核日誌 (Live Audit)</span>
         </div>
         <div className="flex items-center gap-1.5">
-           <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-           <span className="text-[9px] font-bold text-muted-foreground uppercase">Stream Active</span>
+           <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+           <span className="text-[9px] font-black text-muted-foreground uppercase italic tracking-tighter">Tick Synchronized</span>
         </div>
       </div>
 
       <div className="bg-black p-4 h-[300px] overflow-y-auto font-mono text-[11px] leading-5">
         <div className="space-y-0.5">
           {logs.map((log) => (
-            <div key={log.id} className="flex items-start gap-2 hover:bg-white/5 px-1 py-0.5 rounded transition-colors">
+            <div key={log.id} className="flex items-start gap-2 hover:bg-white/5 px-1 py-0.5 rounded transition-colors text-slate-800">
               {getLogIcon(log.type)}
-              <span className="text-gray-500 shrink-0">[{log.timestamp.toLocaleTimeString()}]</span>
+              <span className="text-gray-500 shrink-0 font-bold">[{log.timestamp.toLocaleTimeString()}]</span>
               <span className={
                 log.type === "success" ? "text-green-400" : 
                 log.type === "warning" ? "text-yellow-400" : 

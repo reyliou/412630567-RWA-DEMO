@@ -32,14 +32,26 @@ export function InvestorMarket({ onSelectProperty }: InvestorMarketProps) {
   useEffect(() => {
     const loadMockData = async () => {
       try {
-        // 修正：從 public 根目錄讀取以符合部署後的路徑
-        const response = await fetch('/mock_sql/properties.json');
+        // 從後端 API 獲取真實資料庫數據
+        const response = await fetch('http://localhost:3001/api/properties');
         if (response.ok) {
           const data = await response.json();
-          setProperties(data);
+          // 資料庫欄位對齊：將 title 映射到 name，complete_address 映射到 addr 等
+          const mappedData = data.map((p: any) => ({
+            id: p.id,
+            name: p.title,
+            addr: p.complete_address,
+            price: parseFloat(p.current_price),
+            change: p.status === '交易中' ? '+0.00' : '-0.00',
+            img: p.main_image || "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=400",
+            city_tag: p.location,
+            total_supply: parseFloat(p.total_supply_x || "100000"), // 抓取資料庫中的總量
+            total_value: parseFloat(p.current_price) * parseFloat(p.total_supply_x || "100000") // 動態計算總值
+          }));
+          setProperties(mappedData);
         }
       } catch (e) {
-        console.log("讀取資料失敗");
+        console.error("連線 API 失敗，請確保後端伺服器已啟動");
       }
     };
     loadMockData();
