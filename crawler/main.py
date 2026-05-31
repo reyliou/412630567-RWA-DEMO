@@ -6,12 +6,12 @@ import psycopg2
 import requests
 from playwright.async_api import async_playwright
 
-# 資料庫連線設定
+# 資料庫連線設定 (已切換為 Supabase 雲端版)
 DB_CONFIG = {
-    "dbname": "rwa_bank",
+    "dbname": "postgres",
     "user": "postgres",
-    "password": "S6202963",
-    "host": "localhost",
+    "password": "newsun87S6202963",
+    "host": "db.uowremtggfpoxxruiccw.supabase.co",
     "port": "5432"
 }
 
@@ -34,7 +34,6 @@ async def crawl_property(page, url):
     url_id_match = re.search(r"/(\d+)", url)
     property_id = int(url_id_match.group(1)) if url_id_match else 999999
 
-    # 旗標檢查 (Flag Checks) - 確保每個欄位只算一次分
     has_title = False
     has_price = False
     has_size = False
@@ -92,12 +91,9 @@ async def crawl_property(page, url):
             has_image = True
     except: pass
 
-    # RWA Math
     total_value = size_ping * extracted_price * 10000
     token_price = round(total_value / 100000, 2)
     symbol = "".join(re.findall(r'[A-Z]', title))[:4] or title[:3].upper()
-
-    # 精確計算得分 (上限為 6/6 = 100%)
     score = sum([has_title, has_price, has_size, has_address, has_city, has_image])
     data_integrity = (score / 6) * 100
 
@@ -117,6 +113,7 @@ async def crawl_property(page, url):
     }
 
 async def run_crawler():
+    print(f"📡 正在連線至雲端資料庫: {DB_CONFIG['host']}...")
     conn = psycopg2.connect(**DB_CONFIG)
     cur = conn.cursor()
     
@@ -142,7 +139,7 @@ async def run_crawler():
                 
                 total_integrity += data["integrity"]
                 success_count += 1
-                print(f"✅ 同步成功: {data['title']} (完整度: {data['integrity']:.1f}%)")
+                print(f"✅ 雲端同步成功: {data['title']} (完整度: {data['integrity']:.1f}%)")
 
             except Exception as e:
                 fail_count += 1
@@ -152,19 +149,18 @@ async def run_crawler():
         cur.close()
         conn.close()
 
-        # 計算平均值
         avg_integrity = (total_integrity / success_count) if success_count > 0 else 0
         report_data = {
             "failures": fail_count,
-            "integrity": min(100.0, round(avg_integrity, 2)), # 強制封頂 100%
+            "integrity": min(100.0, round(avg_integrity, 2)),
             "status": "HEALTHY" if fail_count == 0 else "WARNING"
         }
         
         try:
             requests.post(REPORT_URL, json=report_data)
-            print(f"\n📊 爬蟲績效已修正並回報: 完整度 {report_data['integrity']:.1f}%")
+            print(f"\n📊 雲端績效回報完畢: 完整度 {report_data['integrity']:.1f}%")
         except:
-            print("\n⚠️ 報告上傳失敗")
+            print("\n⚠️ 性能指標回報至本地 API 失敗")
 
 if __name__ == "__main__":
     asyncio.run(run_crawler())
