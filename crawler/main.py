@@ -5,14 +5,18 @@ import re
 import psycopg2
 import requests
 from playwright.async_api import async_playwright
+from dotenv import load_dotenv
 
-# 資料庫連線設定 (Supabase 雲端)
+# 載入環境變數
+load_dotenv(os.path.join(os.path.dirname(__dirname), 'server', '.env'))
+
+# 資料庫連線設定 (改用環境變數，解決密碼明文問題)
 DB_CONFIG = {
-    "dbname": "postgres",
-    "user": "postgres",
-    "password": "newsun87S6202963",
-    "host": "db.uowremtggfpoxxruiccw.supabase.co",
-    "port": "5432"
+    "dbname": os.environ.get("DB_DATABASE", "postgres"),
+    "user": os.environ.get("DB_USER", "postgres.uowremtggfpoxxruiccw"),
+    "password": os.environ.get("DB_PASSWORD", ""),
+    "host": os.environ.get("DB_HOST", "aws-1-ap-southeast-2.pooler.supabase.com"),
+    "port": os.environ.get("DB_PORT", "6543")
 }
 
 # 這裡是本地開發用的，部署後會失效，所以我們優先用 SQL 寫入

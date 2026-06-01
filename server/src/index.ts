@@ -55,8 +55,13 @@ app.get('/api/system/performance', async (req, res) => {
 
 // 2. 獲取房產清單
 app.get('/api/properties', async (req, res) => {
-  const result = await pool.query('SELECT * FROM properties ORDER BY id DESC');
-  res.json(result.rows);
+  try {
+    const result = await pool.query('SELECT * FROM properties ORDER BY id DESC');
+    res.json(result.rows);
+  } catch (err: any) {
+    console.error(`[API ERROR] /api/properties:`, err.message);
+    res.status(500).json({ error: 'DB Error' });
+  }
 });
 
 // 3. 獲取用戶資產
@@ -71,28 +76,48 @@ app.get('/api/portfolio/:userId', async (req, res) => {
       WHERE h.user_id = $1 AND h.balance > 0
     `, [userId]);
     res.json({ summary: userRes.rows[0], holdings: holdingsRes.rows });
-  } catch (err) { res.status(500).json({ error: 'DB Error' }); }
+  } catch (err: any) { 
+    console.error(`[API ERROR] /api/portfolio:`, err.message);
+    res.status(500).json({ error: 'DB Error' }); 
+  }
 });
 
 // 4. 獲取交易紀錄
 app.get('/api/transactions/:userId', async (req, res) => {
-  const result = await pool.query(`
-    SELECT t.*, p.title as property_name FROM transactions t 
-    JOIN properties p ON t.property_id = p.id 
-    WHERE t.user_id = $1 ORDER BY t.created_at DESC
-  `, [req.params.userId]);
-  res.json(result.rows);
+  try {
+    const result = await pool.query(`
+      SELECT t.*, p.title as property_name FROM transactions t 
+      JOIN properties p ON t.property_id = p.id 
+      WHERE t.user_id = $1 ORDER BY t.created_at DESC
+    `, [req.params.userId]);
+    res.json(result.rows);
+  } catch (err: any) {
+    console.error(`[API ERROR] /api/transactions/:userId:`, err.message);
+    res.status(500).json({ error: 'DB Error' });
+  }
 });
 
 // 5. 獲取通知中心訊息
 app.get('/api/notifications/:userId', async (req, res) => {
-  const result = await pool.query('SELECT * FROM user_notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 20', [req.params.userId]);
-  res.json(result.rows);
+  try {
+    const result = await pool.query('SELECT * FROM user_notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 20', [req.params.userId]);
+    res.json(result.rows);
+  } catch (err: any) {
+    console.error(`[API ERROR] /api/notifications/:userId:`, err.message);
+    res.status(500).json({ error: 'DB Error' });
+  }
 });
 
 // 6. 核心交易處理 (10 秒延時撮合)
 app.post('/api/transactions', async (req, res) => {
   const { user_id, property_id, tx_type, order_type, token_amount, price_per_token } = req.body;
+  
+  // 安全性修復：輸入驗證 (防止負數刷錢)
+  const amount = parseFloat(token_amount);
+  const price = parseFloat(price_per_token);
+  if (isNaN(amount) || amount <= 0 || isNaN(price) || price <= 0) {
+    return res.status(400).json({ success: false, message: '無效的交易數量或價格' });
+  }
   
   const executeTrade = async () => {
     const client = await pool.connect();
