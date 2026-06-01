@@ -1,6 +1,7 @@
 import { Bell, CheckCircle2, TrendingUp, TrendingDown, X, Building2, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useHeartbeat } from "../context/SystemHeartbeatContext";
+import { API_BASE_URL } from "../config";
 
 export function NotificationCenter({ userId }: { userId: number }) {
   const { tick } = useHeartbeat();
@@ -10,7 +11,7 @@ export function NotificationCenter({ userId }: { userId: number }) {
 
   const fetchNotifications = async () => {
     try {
-      const response = await fetch(`http://localhost:3001/api/notifications/${userId}`);
+      const response = await fetch(`${API_BASE_URL}/api/notifications/${userId}`);
       if (response.ok) {
         const data = await response.json();
         setNotifications(data);
@@ -30,7 +31,7 @@ export function NotificationCenter({ userId }: { userId: number }) {
   const handleMarkAllRead = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(`http://localhost:3001/api/notifications/${userId}/read`, { method: 'PATCH' });
+      const response = await fetch(`${API_BASE_URL}/api/notifications/${userId}/read`, { method: 'PATCH' });
       if (response.ok) {
         setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
       }

@@ -2,6 +2,7 @@ import { Activity, Database, Server, AlertCircle, CheckCircle2, HardDrive, FileT
 import { useState, useEffect } from "react";
 import { SystemHealthLogModal } from "./SystemHealthLogModal";
 import { useHeartbeat } from "../context/SystemHeartbeatContext"; // 訂閱心跳
+import { API_BASE_URL } from "../config";
 
 export function SystemHealthCard() {
   const { tick } = useHeartbeat(); // 獲取全域 tick
@@ -16,7 +17,7 @@ export function SystemHealthCard() {
   const fetchPerformance = async () => {
     const startTime = Date.now();
     try {
-      const response = await fetch('http://localhost:3001/api/system/performance');
+      const response = await fetch(`${API_BASE_URL}/api/system/performance`);
       if (response.ok) {
         const data = await response.json();
         setMetrics({

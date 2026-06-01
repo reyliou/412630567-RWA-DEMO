@@ -1,6 +1,7 @@
 import { Wallet, TrendingUp, Building2, PieChart, ArrowUpRight, Clock, TrendingDown, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useHeartbeat } from "../context/SystemHeartbeatContext";
+import { API_BASE_URL } from "../config";
 
 export function InvestorPortfolio({ userId, userName }: { userId: number, userName: string }) {
   const { tick } = useHeartbeat();
@@ -9,7 +10,7 @@ export function InvestorPortfolio({ userId, userName }: { userId: number, userNa
 
   const fetchPortfolio = async () => {
     try {
-      const response = await fetch(`http://localhost:3001/api/portfolio/${userId}`);
+      const response = await fetch(`${API_BASE_URL}/api/portfolio/${userId}`);
       if (response.ok) {
         const res = await response.json();
         setData(res);
@@ -29,7 +30,6 @@ export function InvestorPortfolio({ userId, userName }: { userId: number, userNa
     if (tick % 30 === 0) fetchPortfolio();
   }, [tick]);
 
-  // 防崩潰處理：如果 data 還沒回來，顯示載入中
   if (isLoading && !data) {
     return (
       <div className="p-40 flex flex-col items-center justify-center text-slate-300 gap-4">
@@ -39,7 +39,6 @@ export function InvestorPortfolio({ userId, userName }: { userId: number, userNa
     );
   }
 
-  // 確保數值存在，若為 NULL 則給予預設值 0
   const todayTotal = parseFloat(data?.summary?.total_asset_value || "0");
   const unrealizedPnL = parseFloat(data?.summary?.total_profit_loss || "0");
   const todayProfit = unrealizedPnL * 0.01;
@@ -48,12 +47,10 @@ export function InvestorPortfolio({ userId, userName }: { userId: number, userNa
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto animate-in fade-in duration-500 font-sans text-slate-800 font-black">
-      
       <div className="px-4">
         <h2 className="text-3xl font-black tracking-tighter uppercase italic">Account Dashboard</h2>
         <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mt-1 opacity-60">Welcome back, {userName}</p>
       </div>
-
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 px-2">
         <div className="md:col-span-2 bg-blue-600 text-white p-8 rounded-[2rem] shadow-xl relative overflow-hidden flex flex-col justify-between min-h-[220px]">
           <div className="relative z-10">
@@ -71,7 +68,6 @@ export function InvestorPortfolio({ userId, userName }: { userId: number, userNa
           </div>
           <PieChart className="absolute -right-6 -bottom-6 w-40 h-48 opacity-10 text-white rotate-12" />
         </div>
-
         <div className="bg-white border border-slate-200 p-8 rounded-[2rem] shadow-sm flex flex-col justify-between min-h-[220px]">
            <div>
               <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 text-slate-800">累計損益 (PROFIT/LOSS)</div>
@@ -84,7 +80,6 @@ export function InvestorPortfolio({ userId, userName }: { userId: number, userNa
            </div>
         </div>
       </div>
-
       <div className="bg-white border border-slate-200 rounded-[2rem] shadow-sm overflow-hidden mx-2 text-slate-800">
         <div className="p-6 border-b border-slate-100 flex items-center justify-between">
           <h3 className="font-black text-lg tracking-tight flex items-center gap-2">
@@ -93,7 +88,6 @@ export function InvestorPortfolio({ userId, userName }: { userId: number, userNa
           </h3>
           <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest border border-slate-100 px-3 py-1 rounded-lg">Real-time Verified</span>
         </div>
-        
         <div className="divide-y divide-slate-50 text-slate-800">
           {holdings.length > 0 ? holdings.map((item: any) => (
             <div key={item.id} className="p-6 flex items-center justify-between hover:bg-slate-50/50 transition-colors">

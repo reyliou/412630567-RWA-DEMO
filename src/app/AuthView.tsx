@@ -2,8 +2,10 @@ import { Shield, LogIn, UserPlus, Upload, CheckCircle, ArrowRight, User, Fingerp
 import { useState, useEffect } from "react";
 import { AppMode } from "./App";
 
+import { API_BASE_URL } from "./config";
+
 interface AuthViewProps {
-  onLogin: (mode: AppMode, name: string) => void;
+  onLogin: (mode: AppMode, name: string, id?: number) => void;
 }
 
 export function AuthView({ onLogin }: AuthViewProps) {

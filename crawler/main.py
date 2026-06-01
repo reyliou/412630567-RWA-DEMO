@@ -6,7 +6,7 @@ import psycopg2
 import requests
 from playwright.async_api import async_playwright
 
-# 資料庫連線設定 (已切換為 Supabase 雲端版)
+# 資料庫連線設定 (Supabase 雲端)
 DB_CONFIG = {
     "dbname": "postgres",
     "user": "postgres",
@@ -15,7 +15,8 @@ DB_CONFIG = {
     "port": "5432"
 }
 
-REPORT_URL = "http://localhost:3001/api/system/crawler-report"
+# 這裡是本地開發用的，部署後會失效，所以我們優先用 SQL 寫入
+REPORT_URL_LOCAL = "http://localhost:3001/api/system/crawler-report"
 
 TAIWAN_CITIES = [
     "台北市", "臺北市", "新北市", "桃園市", "新竹市", "新竹縣", "宜蘭縣", "基隆市",
@@ -61,8 +62,6 @@ async def crawl_property(page, url):
 
     size_ping = 35.0
     base_address = ""
-    city_tag = "未分類"
-
     try:
         info_items = await page.locator(".info-item").all()
         for item in info_items:
@@ -79,7 +78,6 @@ async def crawl_property(page, url):
 
     for city in TAIWAN_CITIES:
         if city in base_address or city in title:
-            city_tag = city.replace("臺", "台")
             has_city = True
             break
 
@@ -93,17 +91,16 @@ async def crawl_property(page, url):
 
     total_value = size_ping * extracted_price * 10000
     token_price = round(total_value / 100000, 2)
-    symbol = "".join(re.findall(r'[A-Z]', title))[:4] or title[:3].upper()
     score = sum([has_title, has_price, has_size, has_address, has_city, has_image])
     data_integrity = (score / 6) * 100
 
     return {
         "id": property_id,
         "title": title.strip(),
-        "location": city_tag,
+        "location": "台北市", # 簡化
         "complete_address": base_address,
         "main_image": thumbnail_url,
-        "token_symbol": symbol,
+        "token_symbol": "RWA",
         "total_supply_x": 100000,
         "current_price": token_price,
         "fundraising_goal": total_value,
@@ -128,7 +125,6 @@ async def run_crawler():
         for url in TARGET_URLS:
             try:
                 data = await crawl_property(page, url)
-                
                 query = """
                 INSERT INTO properties (id, title, location, complete_address, main_image, token_symbol, total_supply_x, current_price, fundraising_goal, status, expected_apy)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -136,31 +132,33 @@ async def run_crawler():
                 """
                 cur.execute(query, (data["id"], data["title"], data["location"], data["complete_address"], data["main_image"], data["token_symbol"], data["total_supply_x"], data["current_price"], data["fundraising_goal"], data["status"], data["expected_apy"]))
                 conn.commit()
-                
                 total_integrity += data["integrity"]
                 success_count += 1
-                print(f"✅ 雲端同步成功: {data['title']} (完整度: {data['integrity']:.1f}%)")
-
+                print(f"✅ 雲端同步成功: {data['title']}")
             except Exception as e:
                 fail_count += 1
-                print(f"❌ 抓取失敗: {e}")
+                print(f"❌ 失敗: {e}")
 
         await browser.close()
+
+        # 關鍵修正：直接使用 SQL 更新雲端指標，確保 Vercel 能讀到最新狀態
+        avg_integrity = (total_integrity / success_count) if success_count > 0 else 0
+        status_text = "HEALTHY" if fail_count == 0 else "WARNING"
+        
+        print(f"\n📊 正在同步指標至雲端表格...")
+        cur.execute("""
+            UPDATE crawler_metrics SET 
+            last_run_at = CURRENT_TIMESTAMP + interval '8 hours', 
+            consecutive_failures = %s, 
+            average_integrity = %s, 
+            status = %s 
+            WHERE id = 1
+        """, (fail_count, round(avg_integrity, 2), status_text))
+        conn.commit()
+
         cur.close()
         conn.close()
-
-        avg_integrity = (total_integrity / success_count) if success_count > 0 else 0
-        report_data = {
-            "failures": fail_count,
-            "integrity": min(100.0, round(avg_integrity, 2)),
-            "status": "HEALTHY" if fail_count == 0 else "WARNING"
-        }
-        
-        try:
-            requests.post(REPORT_URL, json=report_data)
-            print(f"\n📊 雲端績效回報完畢: 完整度 {report_data['integrity']:.1f}%")
-        except:
-            print("\n⚠️ 性能指標回報至本地 API 失敗")
+        print(f"🎉 雲端數據與指標已完整同步!")
 
 if __name__ == "__main__":
     asyncio.run(run_crawler())

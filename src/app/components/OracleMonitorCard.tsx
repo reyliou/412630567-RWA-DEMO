@@ -2,6 +2,7 @@ import { Activity, Database, Server, AlertCircle, CheckCircle2, HardDrive, FileT
 import { useState, useEffect } from "react";
 import { OracleMonitorLogModal } from "./OracleMonitorLogModal";
 import { useHeartbeat } from "../context/SystemHeartbeatContext";
+import { API_BASE_URL } from "../config";
 
 export function OracleMonitorCard() {
   const { tick } = useHeartbeat();
@@ -15,7 +16,7 @@ export function OracleMonitorCard() {
 
   const fetchCrawlerStatus = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/system/crawler-status');
+      const response = await fetch(`${API_BASE_URL}/api/system/crawler-status`);
       if (response.ok) {
         const data = await response.json();
         setMetrics({

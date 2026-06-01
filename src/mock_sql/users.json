@@ -1,6 +1,0 @@
-[
-  { "id": "U001", "name": "翁國祥", "role": "投資人", "status": "Whitelisted", "joined": "2026-04-20" },
-  { "id": "U002", "name": "李小華", "role": "投資人", "status": "Whitelisted", "joined": "2026-04-22" },
-  { "id": "U003", "name": "張大同", "role": "投資人", "status": "Blacklisted", "joined": "2026-03-15" },
-  { "id": "U004", "name": "王美麗", "role": "投資人", "status": "Whitelisted", "joined": "2026-04-25" }
-]

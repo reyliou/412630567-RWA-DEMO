@@ -1,5 +1,6 @@
 import { ArrowUpRight, ArrowDownRight, Search, Filter, Calendar, History, Building2, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { API_BASE_URL } from "../config";
 
 interface Transaction {
   id: string;
@@ -24,7 +25,7 @@ export function InvestorTransactions({ userId }: InvestorTransactionsProps) {
     const fetchTx = async () => {
       setIsLoading(true);
       try {
-        const response = await fetch(`http://localhost:3001/api/transactions/${userId}`);
+        const response = await fetch(`${API_BASE_URL}/api/transactions/${userId}`);
         if (response.ok) {
           const data = await response.json();
           setTransactions(data);
