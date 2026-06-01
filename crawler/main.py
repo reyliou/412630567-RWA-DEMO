@@ -80,8 +80,10 @@ async def crawl_property(page, url):
                 if base_address: has_address = True
     except: pass
 
+    city_tag = "未分類"
     for city in TAIWAN_CITIES:
         if city in base_address or city in title:
+            city_tag = city.replace("臺", "台")
             has_city = True
             break
 
@@ -101,7 +103,7 @@ async def crawl_property(page, url):
     return {
         "id": property_id,
         "title": title.strip(),
-        "location": "台北市", # 簡化
+        "location": city_tag, # 修正：使用真實解析出的城市標籤
         "complete_address": base_address,
         "main_image": thumbnail_url,
         "token_symbol": "RWA",
