@@ -16,6 +16,9 @@ const pool = new Pool({
   password: process.env.DB_PASSWORD,
   port: parseInt(process.env.DB_PORT || '5432'),
   connectionTimeoutMillis: 5000, // 5秒超時，避免無限卡死
+  ssl: {
+    rejectUnauthorized: false, // 允許雲端資料庫的自簽章憑證
+  }
 });
 
 pool.on('error', (err, client) => {
