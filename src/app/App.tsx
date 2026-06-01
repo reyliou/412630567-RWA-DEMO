@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { SystemHealthCard } from "./components/SystemHealthCard";
 import { OracleMonitorCard } from "./components/OracleMonitorCard";
 import { ContractControlCard } from "./components/ContractControlCard";
@@ -16,7 +16,9 @@ import { NotificationCenter } from "./components/NotificationCenter";
 import { AuthView } from "./AuthView";
 import { SettingsModal } from "./components/SettingsModal";
 import { HeartbeatProvider } from "./context/SystemHeartbeatContext";
-import { Shield, Bell, User, LogOut, Settings, History, PieChart, Landmark } from "lucide-react";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import { SystemControlProvider, useSystemControl } from "./context/SystemControlContext";
+import { Shield, LogOut, Settings, History, PieChart, Landmark } from "lucide-react";
 
 export type RequestType = "NONE" | "PAUSE_REQUEST" | "UNPAUSE_REQUEST";
 export type AppMode = "TECHNICAL" | "BUSINESS" | "INVESTOR";
@@ -25,65 +27,39 @@ export type InvestorSubMode = "PORTFOLIO" | "MARKET" | "TRANSACTIONS";
 export default function App() {
   return (
     <HeartbeatProvider>
-      <AppContent />
+      <AuthProvider>
+        <SystemControlProvider>
+          <AppContent />
+        </SystemControlProvider>
+      </AuthProvider>
     </HeartbeatProvider>
   );
 }
 
 function AppContent() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userName, setUserName] = useState("");
-  const [userId, setUserId] = useState<number | null>(null);
-  const [appMode, setAppMode] = useState<AppMode>("TECHNICAL");
-  const [investorSubMode, setInvestorSubMode] = useState<InvestorSubMode>("PORTFOLIO");
+  const { isLoggedIn, userName, userId, appMode, login, logout } = useAuth();
+  const { 
+    isPaused, throttleStartTime, isModalOpen, activeRequest, requestReason, unreadCount,
+    openChat, closeChat, triggerRequest, executeOperation
+  } = useSystemControl();
   
-  const [isPaused, setIsPaused] = useState(false);
-  const [throttleStartTime, setThrottleStartTime] = useState<Date | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [investorSubMode, setInvestorSubMode] = useState<InvestorSubMode>("PORTFOLIO");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState<any>(null);
-  
-  const [activeRequest, setActiveRequest] = useState<RequestType>("NONE");
-  const [requestReason, setRequestReason] = useState("");
-  const [unreadCount, setUnreadCount] = useState(0);
 
   const logRef = useRef<SystemLogsCardHandle>(null);
 
-  const handleLogin = (mode: AppMode, name: string, dbId?: number) => {
-    setUserName(name);
-    setUserId(dbId || null);
-    setAppMode(mode);
-    setIsLoggedIn(true);
+  const handleConfirmAction = () => {
+    executeOperation((type, msg) => logRef.current?.addLog(type, msg));
   };
 
-  const handleOpenChat = () => {
-    setIsModalOpen(true);
-    setUnreadCount(0);
-  };
-
-  const handleTriggerRequestFromBanker = (type: RequestType, reason: string) => {
-    setActiveRequest(type);
-    setRequestReason(reason);
-    if (!isModalOpen) setUnreadCount(prev => prev + 1);
+  const handleTriggerFromBanker = (type: RequestType, reason: string) => {
+    triggerRequest(type, reason);
     logRef.current?.addLog(type === "PAUSE_REQUEST" ? "error" : "info", `⚠️ 跨部門請求：${reason}`);
   };
 
-  const handleExecuteOperation = () => {
-    if (activeRequest === "PAUSE_REQUEST") {
-      setIsPaused(true);
-      setThrottleStartTime(null);
-      logRef.current?.addLog("warning", `技術負責人已授權：合約正式暫停。`);
-    } else if (activeRequest === "UNPAUSE_REQUEST") {
-      setIsPaused(false);
-      setThrottleStartTime(new Date());
-      logRef.current?.addLog("success", `技術負責人已授權：系統恢復交易。`);
-    }
-    setActiveRequest("NONE");
-    setIsModalOpen(false);
-  };
-
   if (!isLoggedIn) {
-    return <AuthView onLogin={(mode, name, id) => handleLogin(mode, name, id)} />;
+    return <AuthView onLogin={(mode, name, id) => login(mode, name, id)} />;
   }
 
   return (
@@ -103,7 +79,7 @@ function AppContent() {
              </div>
              <div className="flex items-center gap-2">
                 <button onClick={() => setIsSettingsOpen(true)} className="p-2.5 hover:bg-slate-100 rounded-xl transition-colors text-slate-400 hover:text-slate-800"><Settings className="w-6 h-6" /></button>
-                <button onClick={() => setIsLoggedIn(false)} className="p-2.5 bg-red-50 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all shadow-sm"><LogOut className="w-6 h-6" /></button>
+                <button onClick={() => logout()} className="p-2.5 bg-red-50 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all shadow-sm"><LogOut className="w-6 h-6" /></button>
              </div>
           </div>
         </div>
@@ -115,14 +91,14 @@ function AppContent() {
             {activeRequest !== "NONE" && (
               <div className={`${activeRequest === 'PAUSE_REQUEST' ? 'bg-red-600' : 'bg-blue-600'} text-white p-5 rounded-[2rem] flex items-center justify-between animate-pulse shadow-2xl`}>
                 <div className="flex items-center gap-5 font-black uppercase">🚨 收到業務請求：【{activeRequest === 'PAUSE_REQUEST' ? '暫停' : '恢復'}】</div>
-                <button onClick={handleOpenChat} className="bg-white text-slate-900 px-8 py-3 rounded-2xl text-sm font-black hover:bg-gray-100 transition-all shadow-xl uppercase">立即處理</button>
+                <button onClick={openChat} className="bg-white text-slate-900 px-8 py-3 rounded-2xl text-sm font-black hover:bg-gray-100 transition-all shadow-xl uppercase">立即處理</button>
               </div>
             )}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
               <SystemHealthCard />
               <OracleMonitorCard />
-              <ContractControlCard onPauseToggle={handleOpenChat} isPaused={isPaused} />
-              <StaffStatusCard onOpenChat={handleOpenChat} hasRequest={activeRequest !== "NONE"} unreadCount={unreadCount} userName={userName} requestType={activeRequest} />
+              <ContractControlCard onPauseToggle={openChat} isPaused={isPaused} />
+              <StaffStatusCard onOpenChat={openChat} hasRequest={activeRequest !== "NONE"} unreadCount={unreadCount} userName={userName} requestType={activeRequest} />
             </div>
             <ThrottleTimerCard isActive={!isPaused} startTime={throttleStartTime} />
             <div className="pt-6 border-t border-border/50"><SystemLogsCard ref={logRef} /></div>
@@ -133,7 +109,7 @@ function AppContent() {
           <div className="space-y-10 animate-in fade-in duration-500 text-slate-800">
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
                <div className="lg:col-span-3"><PropertyOversightCard /></div>
-               <div className="lg:col-span-1"><StaffStatusCard onOpenChat={handleOpenChat} hasRequest={activeRequest !== "NONE"} isBankerView={true} userName={userName} requestType={activeRequest} /></div>
+               <div className="lg:col-span-1"><StaffStatusCard onOpenChat={openChat} hasRequest={activeRequest !== "NONE"} isBankerView={true} userName={userName} requestType={activeRequest} /></div>
             </div>
             <ThrottleTimerCard isActive={!isPaused} startTime={throttleStartTime} />
             <UserManagementCard />
@@ -168,7 +144,7 @@ function AppContent() {
         )}
       </main>
 
-      <StaffChatModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onConfirm={handleExecuteOperation} activeRequest={activeRequest} requestReason={requestReason} appMode={appMode} isPaused={isPaused} onTriggerRequest={handleTriggerRequestFromBanker} />
+      <StaffChatModal isOpen={isModalOpen} onClose={closeChat} onConfirm={handleConfirmAction} activeRequest={activeRequest} requestReason={requestReason} appMode={appMode} isPaused={isPaused} onTriggerRequest={handleTriggerFromBanker} />
       <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} userName={userName} />
     </div>
   );
