@@ -20,6 +20,11 @@ const pool = new Pool({
 app.use(cors());
 app.use(express.json());
 
+// 0. 健康檢查 (供 Render 部署監控使用)
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ status: 'OK', message: 'RWA Server is healthy' });
+});
+
 // 1. 系統性能指標 (真實測量)
 app.get('/api/system/performance', async (req, res) => {
   const start = Date.now();
