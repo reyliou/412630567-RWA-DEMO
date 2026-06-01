@@ -8,7 +8,8 @@ from playwright.async_api import async_playwright
 from dotenv import load_dotenv
 
 # 載入環境變數
-load_dotenv(os.path.join(os.path.dirname(__dirname), 'server', '.env'))
+env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'server', '.env')
+load_dotenv(env_path)
 
 # 資料庫連線設定 (改用環境變數，解決密碼明文問題)
 DB_CONFIG = {
@@ -154,7 +155,7 @@ async def run_crawler():
         print(f"\n📊 正在同步指標至雲端表格...")
         cur.execute("""
             UPDATE crawler_metrics SET 
-            last_run_at = CURRENT_TIMESTAMP + interval '8 hours', 
+            last_run_at = CURRENT_TIMESTAMP, 
             consecutive_failures = %s, 
             average_integrity = %s, 
             status = %s 
