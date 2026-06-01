@@ -56,6 +56,7 @@ export function AuthView({ onLogin }: AuthViewProps) {
 
     setIsLoggingIn(true);
     try {
+      console.log(`[DEBUG] Attempting to login using API_BASE_URL: ${API_BASE_URL}`);
       const response = await fetch(`${API_BASE_URL}/api/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
