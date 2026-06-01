@@ -1,5 +1,6 @@
 import { Building2, PieChart as PieChartIcon, DollarSign, Send, TrendingUp, Wallet, Clock, CheckCircle2, Loader2, Landmark } from "lucide-react";
 import { useState, useEffect } from "react";
+import { API_BASE_URL } from "../config";
 
 export function PropertyOversightCard() {
   const [data, setData] = useState<any[]>([]);
@@ -11,7 +12,7 @@ export function PropertyOversightCard() {
   useEffect(() => {
     const fetchOversight = async () => {
       try {
-        const response = await fetch('http://localhost:3001/api/oversight');
+        const response = await fetch(`${API_BASE_URL}/api/oversight`);
         if (response.ok) {
           const res = await response.json();
           setData(res);
