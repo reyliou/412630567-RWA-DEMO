@@ -1,4 +1,2 @@
-// 自動偵測目前的後端網址 (使用 window.location 進行瀏覽器端動態判斷)
-export const API_BASE_URL = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-  ? 'http://localhost:3001' 
-  : 'https://four12630567-rwa-demo.onrender.com';
+// 為了確保線上 Demo 100% 成功，我們現在強制全系統綁定雲端 API
+export const API_BASE_URL = 'https://four12630567-rwa-demo.onrender.com';
