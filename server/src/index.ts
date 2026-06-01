@@ -15,6 +15,14 @@ const pool = new Pool({
   database: process.env.DB_DATABASE,
   password: process.env.DB_PASSWORD,
   port: parseInt(process.env.DB_PORT || '5432'),
+  connectionTimeoutMillis: 5000, // 5秒超時，避免無限卡死
+});
+
+pool.on('error', (err, client) => {
+  console.error('[DB POOL ERROR] Unexpected error on idle client', err);
+});
+pool.on('connect', () => {
+  console.log('[DB CONNECTED] Successfully connected to Postgres pool');
 });
 
 app.use(cors());
@@ -154,11 +162,25 @@ app.post('/api/system/crawler-report', async (req, res) => {
   res.json({ success: true });
 });
 app.post('/api/login', async (req, res) => {
+  console.log(`[LOGIN ATTEMPT] Received login request for user: ${req.body.username}`);
   const { username, password } = req.body;
-  const result = await pool.query('SELECT u.*, r.role_name FROM users u JOIN roles r ON u.role_id = r.id WHERE u.username = $1', [username]);
-  if (result.rows.length > 0 && password === result.rows[0].password_hash) {
-    res.json({ success: true, user: { id: result.rows[0].id, username: result.rows[0].username, role: result.rows[0].role_name.toUpperCase().trim() } });
-  } else { res.status(401).json({ success: false }); }
+  
+  try {
+    console.log(`[LOGIN ATTEMPT] Querying database...`);
+    const result = await pool.query('SELECT u.*, r.role_name FROM users u JOIN roles r ON u.role_id = r.id WHERE u.username = $1', [username]);
+    console.log(`[LOGIN ATTEMPT] Query successful, found ${result.rows.length} rows`);
+    
+    if (result.rows.length > 0 && password === result.rows[0].password_hash) {
+      console.log(`[LOGIN ATTEMPT] Password match for user: ${username}`);
+      res.json({ success: true, user: { id: result.rows[0].id, username: result.rows[0].username, role: result.rows[0].role_name.toUpperCase().trim() } });
+    } else { 
+      console.log(`[LOGIN ATTEMPT] Invalid credentials for user: ${username}`);
+      res.status(401).json({ success: false, message: '無效的帳號或密碼' }); 
+    }
+  } catch (err: any) {
+    console.error(`[LOGIN ERROR] Database query failed:`, err.message);
+    res.status(500).json({ success: false, message: '資料庫連線超時或失敗' });
+  }
 });
 app.get('/api/properties/:id/valuation-logs', async (req, res) => {
   const result = await pool.query('SELECT * FROM valuation_logs WHERE property_id = $1 ORDER BY recorded_at ASC', [req.params.id]);
