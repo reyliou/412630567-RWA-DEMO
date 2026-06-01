@@ -123,17 +123,28 @@ app.post('/api/transactions', async (req, res) => {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      const totalTwdValue = parseFloat(token_amount) * parseFloat(price_per_token);
+      
+      // 🛡️ 資安防禦：零信任架構 (Zero Trust) - 防止 Burp Suite 竄改攻擊
+      // 絕對不信任前端傳來的價格，強制由後端去資料庫查詢真實定價
+      const propRes = await client.query('SELECT title, current_price FROM properties WHERE id = $1', [property_id]);
+      if (propRes.rows.length === 0) throw new Error("建案不存在");
+      
+      const realProperty = propRes.rows[0];
+      const propTitle = realProperty.title;
+      
+      // 如果是市價單，強制覆寫為資料庫最新價格；限價單則尊重使用者輸入 (但已在上方防呆驗證過)
+      const finalExecutionPrice = order_type === 'MARKET' ? parseFloat(realProperty.current_price) : price;
+      const totalTwdValue = amount * finalExecutionPrice;
 
-      // A. 寫入交易歷史
+      // A. 寫入交易歷史 (使用覆寫後的安全價格 finalExecutionPrice)
       await client.query(
         `INSERT INTO transactions (user_id, property_id, tx_type, order_type, token_amount, price_per_token, status) 
          VALUES ($1, $2, $3, $4, $5, $6, 'SUCCESS')`,
-        [user_id, property_id, tx_type, order_type, token_amount, price_per_token]
+        [user_id, property_id, tx_type, order_type, amount, finalExecutionPrice]
       );
 
       // B. 更新餘額 (UPSERT)
-      const change = tx_type === 'BUY' ? token_amount : -token_amount;
+      const change = tx_type === 'BUY' ? amount : -amount;
       await client.query(`
         INSERT INTO user_holdings (user_id, property_id, balance) VALUES ($1, $2, $3)
         ON CONFLICT (user_id, property_id) DO UPDATE SET balance = user_holdings.balance + $3
@@ -142,25 +153,23 @@ app.post('/api/transactions', async (req, res) => {
       // C. 更新總資產
       await client.query(`
         UPDATE users SET total_asset_value = COALESCE(total_asset_value, 0) + ($1::numeric * $2::numeric) WHERE id = $3
-      `, [change, price_per_token, user_id]);
+      `, [change, finalExecutionPrice, user_id]);
 
       // D. 產生詳細通知
-      const propRes = await client.query('SELECT title FROM properties WHERE id = $1', [property_id]);
-      const propTitle = propRes.rows[0].title;
       const typeLabel = tx_type === 'BUY' ? '買入' : '賣出';
-      const msg = `您對 ${propTitle} 的委託已成交。數量：${parseFloat(token_amount).toLocaleString()} 枚，總額：$${totalTwdValue.toLocaleString()} TWD。`;
+      const msg = `您對 ${propTitle} 的委託已成交。數量：${amount.toLocaleString()} 枚，總額：$${totalTwdValue.toLocaleString()} TWD。`;
       await client.query(`INSERT INTO user_notifications (user_id, title, message, is_read) VALUES ($1, $2, $3, false)`, 
         [user_id, `成交回報: ${typeLabel}成功`, msg]);
 
       // E. 寫入系統稽核日誌
       await client.query('INSERT INTO system_alerts (alert_type, severity, message) VALUES ($1, $2, $3)',
-        ['ORDER_MATCH', 'INFO', `Matched ${order_type} ${tx_type} for UID ${user_id}`]);
+        ['ORDER_MATCH', 'INFO', `Matched ${order_type} ${tx_type} for UID ${user_id} at price ${finalExecutionPrice}`]);
 
       await client.query('COMMIT');
-      console.log(`✅ [TRADE EXECUTED] User ${user_id} matched.`);
-    } catch (e) {
+      console.log(`✅ [TRADE EXECUTED] User ${user_id} matched at secure price.`);
+    } catch (e: any) {
       await client.query('ROLLBACK');
-      console.error("Trade Error:", e);
+      console.error("Trade Error:", e.message);
     } finally { client.release(); }
   };
 
