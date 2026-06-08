@@ -67,6 +67,21 @@ app.get('/api/health', (req, res) => {
 });
 
 let lastCpuIdle = 0; let lastCpuTick = 0;
+// 簡易記憶體聊天紀錄 (供展示用)
+let globalChatMessages: any[] = [{ id: 1, sender: 'system', content: '💬 跨部門協作頻道已建立', timestamp: new Date() }];
+
+app.get('/api/chat', (req, res) => {
+  res.json(globalChatMessages);
+});
+
+app.post('/api/chat', (req, res) => {
+  const { sender, content } = req.body;
+  const newMessage = { id: Date.now(), sender, content, timestamp: new Date() };
+  globalChatMessages.push(newMessage);
+  if (globalChatMessages.length > 100) globalChatMessages.shift(); // 保持最多 100 筆
+  res.json({ success: true, message: newMessage });
+});
+
 app.get('/api/system/performance', async (req, res) => {
   const start = Date.now();
   try {
