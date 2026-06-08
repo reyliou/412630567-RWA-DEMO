@@ -52,7 +52,10 @@ const authenticateToken = (req: any, res: any, next: any) => {
   if (!token) return res.status(401).json({ error: '拒絕存取：未提供授權憑證' });
 
   jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
-    if (err) return res.status(403).json({ error: '憑證無效或已過期' });
+    if (err) {
+      console.error('[JWT VERIFY ERROR]', err.message);
+      return res.status(403).json({ error: '憑證無效或已過期', details: err.message });
+    }
     req.user = user;
     next();
   });
@@ -152,9 +155,8 @@ app.post('/api/login', loginLimiter, async (req, res) => {
 // 🔒 Protected Routes (需要 JWT Token)
 // ==========================================
 
-// 🛡️ 系統狀態同步 API (僅限技術員與業務員)
+// 🛡️ 系統狀態同步 API (所有登入用戶皆可讀取，以便前端判斷是否暫停)
 app.get('/api/system/state', authenticateToken, (req: any, res: any) => {
-  if (req.user.role !== 'TECHNICAL' && req.user.role !== 'BUSINESS') return res.status(403).json({ error: '權限不足' });
   res.json(globalSystemState);
 });
 
