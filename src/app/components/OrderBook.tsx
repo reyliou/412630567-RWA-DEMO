@@ -1,25 +1,41 @@
 import { TrendingUp, TrendingDown } from "lucide-react";
+import { useMemo } from "react";
 
 interface OrderBookProps {
-  onPriceSelect?: (price: number) => void; // 新增：回傳點選的價格
+  currentPrice: number;
+  onPriceSelect?: (price: number) => void;
 }
 
-export function OrderBook({ onPriceSelect }: OrderBookProps) {
-  const bids = [
-    { price: 40.89, qty: 73, ratio: 40 },
-    { price: 40.88, qty: 78, ratio: 45 },
-    { price: 40.87, qty: 51, ratio: 30 },
-    { price: 40.86, qty: 267, ratio: 70 },
-    { price: 40.85, qty: 489, ratio: 95 },
-  ];
+export function OrderBook({ currentPrice, onPriceSelect }: OrderBookProps) {
+  // 動態生成五檔報價
+  const { bids, asks } = useMemo(() => {
+    const b = [];
+    const a = [];
+    let bidTotal = 0;
+    let askTotal = 0;
 
-  const asks = [
-    { price: 40.90, qty: 54, ratio: 35 },
-    { price: 40.91, qty: 31, ratio: 20 },
-    { price: 40.92, qty: 37, ratio: 25 },
-    { price: 40.93, qty: 46, ratio: 30 },
-    { price: 40.94, qty: 6, ratio: 5 },
-  ];
+    for (let i = 1; i <= 5; i++) {
+      // 買價比現價低
+      const bPrice = currentPrice - (i * 0.01);
+      const bQty = Math.floor(Math.random() * 500) + 50;
+      bidTotal += bQty;
+      b.push({ price: bPrice, qty: bQty, ratio: Math.min(100, Math.floor(bQty / 5)) });
+
+      // 賣價比現價高
+      const aPrice = currentPrice + (i * 0.01);
+      const aQty = Math.floor(Math.random() * 200) + 10;
+      askTotal += aQty;
+      a.push({ price: aPrice, qty: aQty, ratio: Math.min(100, Math.floor(aQty / 2)) });
+    }
+
+    return { bids: b, asks: a, bidTotal, askTotal };
+  }, [currentPrice]); // 當價格改變時重新生成
+
+  const bidTotal = bids.reduce((acc, b) => acc + b.qty, 0);
+  const askTotal = asks.reduce((acc, a) => acc + a.qty, 0);
+  const total = bidTotal + askTotal;
+  const bidRatio = total > 0 ? (bidTotal / total) * 100 : 50;
+  const askRatio = 100 - bidRatio;
 
   return (
     <div className="bg-white border border-border rounded-[3rem] p-10 shadow-2xl flex flex-col ring-1 ring-slate-100">
@@ -29,16 +45,16 @@ export function OrderBook({ onPriceSelect }: OrderBookProps) {
 
       <div className="mb-8 space-y-3">
         <div className="flex justify-between text-[11px] font-black uppercase tracking-widest px-1">
-          <span className="text-red-600 font-bold">委買 85%</span>
-          <span className="text-green-600 font-bold">委賣 15%</span>
+          <span className="text-red-600 font-bold">委買 {bidRatio.toFixed(0)}%</span>
+          <span className="text-green-600 font-bold">委賣 {askRatio.toFixed(0)}%</span>
         </div>
         <div className="h-4 w-full bg-slate-100 rounded-full overflow-hidden flex shadow-inner">
-          <div className="h-full bg-red-500 transition-all duration-1000 shadow-[0_0_10px_rgba(239,68,68,0.3)]" style={{ width: '85%' }} />
-          <div className="h-full bg-green-500 transition-all duration-1000 shadow-[0_0_10px_rgba(34,197,94,0.3)]" style={{ width: '15%' }} />
+          <div className="h-full bg-red-500 transition-all duration-1000 shadow-[0_0_10px_rgba(239,68,68,0.3)]" style={{ width: `${bidRatio}%` }} />
+          <div className="h-full bg-green-500 transition-all duration-1000 shadow-[0_0_10px_rgba(34,197,94,0.3)]" style={{ width: `${askRatio}%` }} />
         </div>
         <div className="flex justify-between text-[10px] font-black text-slate-400 px-1 uppercase tracking-tighter">
-          <span>Total Bids: 958</span>
-          <span>Total Asks: 174</span>
+          <span>Total Bids: {bidTotal.toLocaleString()}</span>
+          <span>Total Asks: {askTotal.toLocaleString()}</span>
         </div>
       </div>
 

@@ -15,6 +15,7 @@ export function InvestorPropertyDetail({ userId, property, onBack }: PropertyDet
   const { apiFetch } = useAuth();
   const [vLogs, setVLogs] = useState<any[]>([]);
   const [isLoadingLogs, setIsLoadingLogs] = useState(true);
+  const [selectedOrderPrice, setSelectedOrderPrice] = useState<number | null>(null);
 
   // 模擬市場數據
   const marketStats = { high: (property.price * 1.05).toFixed(2), low: (property.price * 0.95).toFixed(2), vol: "1.2M" };
@@ -58,8 +59,8 @@ export function InvestorPropertyDetail({ userId, property, onBack }: PropertyDet
           </div>
         </div>
         <div className="lg:col-span-4 space-y-8">
-          <OrderEntryForm userId={userId} property={property} />
-          <OrderBook onPriceSelect={() => {}} />
+          <OrderEntryForm userId={userId} property={property} selectedPrice={selectedOrderPrice} />
+          <OrderBook currentPrice={property.price} onPriceSelect={(p) => setSelectedOrderPrice(p)} />
         </div>
       </div>
     </div>

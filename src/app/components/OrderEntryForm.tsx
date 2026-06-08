@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ShieldAlert } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useSystemControl } from "../context/SystemControlContext";
@@ -7,9 +7,10 @@ import { TransactionSuccessModal } from "./TransactionSuccessModal";
 interface OrderEntryFormProps {
   userId: number;
   property: any;
+  selectedPrice?: number | null;
 }
 
-export function OrderEntryForm({ userId, property }: OrderEntryFormProps) {
+export function OrderEntryForm({ userId, property, selectedPrice }: OrderEntryFormProps) {
   const { apiFetch } = useAuth();
   const { isPaused } = useSystemControl(); // 取得系統暫停狀態
   const [orderType, setOrderType] = useState<"market" | "limit">("market");
@@ -18,6 +19,14 @@ export function OrderEntryForm({ userId, property }: OrderEntryFormProps) {
   const [txType, setTxType] = useState<"BUY" | "SELL">("BUY");
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
+
+  // 當使用者在 OrderBook 點擊價格時，自動切換至限價單並填入價格
+  useEffect(() => {
+    if (selectedPrice !== undefined && selectedPrice !== null) {
+      setOrderType("limit");
+      setLimitTokenPrice(selectedPrice.toFixed(2));
+    }
+  }, [selectedPrice]);
 
   const totalTwdValue = parseFloat(tokenAmount || "0") * (orderType === "market" ? property.price : parseFloat(limitTokenPrice || "0"));
 
