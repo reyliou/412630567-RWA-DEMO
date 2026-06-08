@@ -4,6 +4,7 @@ import { OrderBook } from "./OrderBook";
 import { useAuth } from "../context/AuthContext";
 import { API_BASE_URL } from "../config";
 import { OrderEntryForm } from "./OrderEntryForm";
+import { KLineChart } from "./KLineChart";
 
 interface PropertyDetailProps {
   userId: number;
@@ -33,8 +34,6 @@ export function InvestorPropertyDetail({ userId, property, onBack }: PropertyDet
     fetchLogs();
   }, [property.id]);
 
-  const chartBars = vLogs.length > 0 ? vLogs.map(l => parseFloat(l.market_value_k)) : [40, 65, 50, 80, 55, 90, 70, 85, 65, 50, 75];
-
   return (
     <div className="max-w-7xl mx-auto animate-in fade-in duration-300 pb-20 text-slate-800 font-black">
       <div className="flex items-center justify-between mb-8 px-4">
@@ -48,8 +47,8 @@ export function InvestorPropertyDetail({ userId, property, onBack }: PropertyDet
             <div className="flex items-center gap-8 mb-10">
                <div className="flex flex-col"><span className="text-[10px] text-slate-400 uppercase tracking-widest">Price</span><span className="font-mono text-blue-600 text-5xl tracking-tighter">${property.price}</span></div>
             </div>
-            <div className="aspect-[21/9] bg-slate-950 rounded-[2.5rem] relative flex items-end p-8 gap-2 overflow-hidden">
-               {chartBars.map((h, i) => (<div key={i} className="flex-1 bg-blue-500/20 border-t-2 border-blue-400/50" style={{ height: `${(h / 100) * 100}%` }} />))}
+            <div className="aspect-[21/9] bg-white border border-slate-100 rounded-[2.5rem] relative flex items-center justify-center p-2 overflow-hidden shadow-inner">
+               <KLineChart currentPrice={property.price} dataLogs={vLogs} />
             </div>
           </div>
           <div className="grid grid-cols-3 gap-6">
