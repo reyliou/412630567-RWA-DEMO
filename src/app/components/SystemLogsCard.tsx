@@ -26,12 +26,15 @@ export const SystemLogsCard = forwardRef<SystemLogsCardHandle>((props, ref) => {
       const response = await apiFetch(`/api/system-alerts`);
       if (response.ok) {
         const data = await response.json();
-        const mappedLogs = data.map((item: any) => ({
-          id: item.id,
-          timestamp: new Date(item.created_at),
-          type: item.severity === 'ERROR' ? 'error' : item.severity === 'WARNING' ? 'warning' : 'info',
-          message: item.message,
-        }));
+        // 🛡️ 關鍵修正：底層稽核日誌過濾掉性能與爬蟲，專注於業務邏輯 (交易與安全)
+        const mappedLogs = data
+          .filter((item: any) => item.alert_type !== 'CRAWLER_REPORT' && item.alert_type !== 'SYSTEM_HEALTH')
+          .map((item: any) => ({
+            id: item.id,
+            timestamp: new Date(item.created_at),
+            type: item.severity === 'ERROR' ? 'error' : item.severity === 'WARNING' ? 'warning' : 'info',
+            message: item.message,
+          }));
         setLogs(mappedLogs);
       }
     } catch (e) {

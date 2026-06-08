@@ -94,6 +94,8 @@ let globalSystemState = {
   requestReason: ""
 };
 
+let healthCheckCounter = 0; // 用於計數，不要每秒都寫入資料庫
+
 app.get('/api/system/performance', async (req, res) => {
   const start = Date.now();
   try {
@@ -112,8 +114,22 @@ app.get('/api/system/performance', async (req, res) => {
       if (totalDiff > 0) cpuLoad = 100 - ~~(100 * idleDiff / totalDiff);
     }
     lastCpuIdle = currentIdle; lastCpuTick = currentTick;
-    res.json({ status: 'OK', dbLatency, cpuLoad: Math.max(1.2, cpuLoad + (Math.random()*2-1)), serverTime: new Date() });
-  } catch (err) { res.status(500).json({ error: 'Check Failed' }); }
+
+    const result = { status: 'OK', dbLatency, cpuLoad: Math.max(1.2, cpuLoad + (Math.random()*2-1)), serverTime: new Date() };
+
+    // 🛡️ 實時紀錄系統健康日誌到資料庫 (每 10 次請求紀錄一次，或當延遲過高時紀錄)
+    healthCheckCounter++;
+    if (healthCheckCounter % 10 === 0 || dbLatency > 200) {
+       const severity = dbLatency > 200 ? 'WARNING' : 'INFO';
+       const msg = `系統性能查核：DB 延遲 ${dbLatency}ms, CPU 負載 ${result.cpuLoad.toFixed(1)}%`;
+       await pool.query('INSERT INTO system_alerts (alert_type, severity, message) VALUES ($1, $2, $3)', ['SYSTEM_HEALTH', severity, msg]);
+    }
+
+    res.json(result);
+  } catch (err: any) { 
+    console.error('[DB ERROR /api/system/performance]', err.message);
+    res.status(500).json({ error: 'Check Failed' }); 
+  }
 });
 
 app.get('/api/system/crawler-status', async (req, res) => {
