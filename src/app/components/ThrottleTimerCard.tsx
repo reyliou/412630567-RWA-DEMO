@@ -63,8 +63,8 @@ export function ThrottleTimerCard({ isActive, startTime }: ThrottleTimerProps) {
     return resumeTime.toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" });
   };
 
-  const currentLimit = isActive && progress < 100 ? "1%" : "5%";
-  const isThrottled = isActive && progress < 100;
+  const currentLimit = (isActive && startTime && progress < 100) ? "1%" : "5%";
+  const isThrottled = !!(isActive && startTime && progress < 100);
 
   return (
     <div className="bg-card rounded-lg border border-border p-6">
