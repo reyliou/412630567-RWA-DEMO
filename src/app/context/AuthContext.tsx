@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
 import { AppMode } from '../App';
 import { API_BASE_URL } from '../config';
 
@@ -48,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('rwa_user', JSON.stringify({ id: dbId, username: name, role: mode }));
   };
 
-  const logout = () => {
+  const logout = useCallback(() => {
     setIsLoggedIn(false);
     setUserName("");
     setUserId(null);
@@ -56,10 +56,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(null);
     localStorage.removeItem('rwa_jwt');
     localStorage.removeItem('rwa_user');
-  };
+  }, []);
 
   // 封裝一個自定義的 apiFetch，自動幫所有請求帶上 JWT Token
-  const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
+  const apiFetch = useCallback(async (endpoint: string, options: RequestInit = {}) => {
     const headers = new Headers(options.headers || {});
     if (token) {
       headers.set('Authorization', `Bearer ${token}`);
@@ -75,7 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
        logout();
     }
     return response;
-  };
+  }, [token, logout]);
 
   return (
     <AuthContext.Provider value={{ isLoggedIn, userName, userId, appMode, token, login, logout, apiFetch }}>

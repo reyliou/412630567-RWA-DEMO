@@ -45,6 +45,9 @@ export function SystemControlProvider({ children }: { children: ReactNode }) {
         const res = await apiFetch('/api/system/state');
         if (res.ok) {
           const state = await res.json();
+          // 加入除錯日誌
+          console.log("[SYNC] Received system state:", state);
+          
           setIsPaused(state.isPaused);
           setThrottleStartTime(state.throttleStartTime ? new Date(state.throttleStartTime) : null);
           setActiveRequest(state.activeRequest);
