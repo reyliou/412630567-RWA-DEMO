@@ -1,6 +1,7 @@
 import { X, Send, User, ShieldAlert, Loader2, MessageSquare, RefreshCcw } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { RequestType, AppMode } from "../App";
+import { useSystemControl } from "../context/SystemControlContext";
 
 interface StaffChatModalProps {
   isOpen: boolean;
@@ -13,13 +14,6 @@ interface StaffChatModalProps {
   onTriggerRequest: (type: RequestType, reason: string) => void;
 }
 
-interface Message {
-  id: number;
-  sender: "banker" | "tech" | "system";
-  content: string;
-  timestamp: Date;
-}
-
 export function StaffChatModal({
   isOpen,
   onClose,
@@ -30,7 +24,7 @@ export function StaffChatModal({
   isPaused,
   onTriggerRequest,
 }: StaffChatModalProps) {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const { chatMessages: messages, sendMessage } = useSystemControl();
   const [inputValue, setInputValue] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -39,29 +33,13 @@ export function StaffChatModal({
   const hasActiveRequest = activeRequest !== "NONE";
 
   useEffect(() => {
-    if (isOpen && messages.length === 0) {
-      setMessages([{
-        id: 1,
-        sender: "system",
-        content: `加密通訊頻道已建立。當前人員: ${isBanker ? '陳小明 (行員)' : 'REYLIOU (技術員)'}`,
-        timestamp: new Date(),
-      }]);
-    }
-  }, [isOpen]);
-
-  useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   const handleSendMessage = () => {
     if (!inputValue.trim()) return;
     const sender = isBanker ? "banker" : "tech";
-    setMessages((prev) => [...prev, {
-      id: Date.now(),
-      sender,
-      content: inputValue,
-      timestamp: new Date(),
-    }]);
+    sendMessage(sender, inputValue);
     setInputValue("");
   };
 
@@ -69,21 +47,11 @@ export function StaffChatModal({
     if (!isPaused) {
       // Current system is active, trigger PAUSE request
       onTriggerRequest("PAUSE_REQUEST", "業務端報告：偵測到市場異常波動，請求執行緊急暫停。");
-      setMessages((prev) => [...prev, {
-        id: Date.now(),
-        sender: "system",
-        content: "🚨 緊急暫停請求已送出，等待技術端授權...",
-        timestamp: new Date(),
-      }]);
+      sendMessage("system", "🚨 緊急暫停請求已送出，等待技術端授權...");
     } else {
       // Current system is paused, trigger UNPAUSE request
       onTriggerRequest("UNPAUSE_REQUEST", "業務端報告：異常已排除且稽核完成，請求恢復交易。");
-      setMessages((prev) => [...prev, {
-        id: Date.now(),
-        sender: "system",
-        content: "✅ 恢復交易請求已送出，等待技術端確認...",
-        timestamp: new Date(),
-      }]);
+      sendMessage("system", "✅ 恢復交易請求已送出，等待技術端確認...");
     }
   };
 
