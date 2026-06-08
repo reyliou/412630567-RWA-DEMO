@@ -70,6 +70,14 @@ let lastCpuIdle = 0; let lastCpuTick = 0;
 // 簡易記憶體聊天紀錄 (供展示用)
 let globalChatMessages: any[] = [{ id: 1, sender: 'system', content: '💬 跨部門協作頻道已建立', timestamp: new Date() }];
 
+// 簡易記憶體系統狀態 (供展示用，同步暫停與請求狀態)
+let globalSystemState = {
+  isPaused: false,
+  throttleStartTime: null as Date | null,
+  activeRequest: "NONE",
+  requestReason: ""
+};
+
 app.get('/api/system/performance', async (req, res) => {
   const start = Date.now();
   try {
