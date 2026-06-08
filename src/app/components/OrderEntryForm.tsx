@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ShieldAlert } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useSystemControl } from "../context/SystemControlContext";
 import { TransactionSuccessModal } from "./TransactionSuccessModal";
 
 interface OrderEntryFormProps {
@@ -10,6 +11,7 @@ interface OrderEntryFormProps {
 
 export function OrderEntryForm({ userId, property }: OrderEntryFormProps) {
   const { apiFetch } = useAuth();
+  const { isPaused } = useSystemControl(); // 取得系統暫停狀態
   const [orderType, setOrderType] = useState<"market" | "limit">("market");
   const [tokenAmount, setTokenAmount] = useState("");
   const [limitTokenPrice, setLimitTokenPrice] = useState("");
@@ -20,6 +22,12 @@ export function OrderEntryForm({ userId, property }: OrderEntryFormProps) {
   const totalTwdValue = parseFloat(tokenAmount || "0") * (orderType === "market" ? property.price : parseFloat(limitTokenPrice || "0"));
 
   const confirmOrder = async () => {
+    if (isPaused) {
+       alert("系統目前處於暫停狀態，無法進行交易。");
+       setIsConfirmOpen(false);
+       return;
+    }
+
     setIsConfirmOpen(false);
     try {
       const amount = parseFloat(tokenAmount);
@@ -53,12 +61,17 @@ export function OrderEntryForm({ userId, property }: OrderEntryFormProps) {
 
   return (
     <>
-      <div className="bg-white border rounded-[3rem] p-10 shadow-2xl flex flex-col ring-1 ring-slate-100">
-        <h3 className="font-black text-2xl mb-8 border-b pb-4 uppercase">Trading HUB</h3>
+      <div className={`bg-white border rounded-[3rem] p-10 shadow-2xl flex flex-col ring-1 ${isPaused ? 'ring-red-500/50' : 'ring-slate-100'} relative overflow-hidden`}>
+        {isPaused && (
+           <div className="absolute top-0 left-0 right-0 bg-red-600 text-white text-center text-[10px] font-black tracking-[0.2em] py-1 uppercase animate-pulse">
+              SYSTEM LOCKED / 交易已暫停
+           </div>
+        )}
+        <h3 className="font-black text-2xl mb-8 border-b pb-4 uppercase mt-2">Trading HUB</h3>
         
         <div className="flex bg-slate-100 p-2 rounded-[1.5rem] mb-10">
-          <button onClick={() => setOrderType("market")} className={`flex-1 py-4 rounded-2xl text-xs font-black uppercase transition-all ${orderType === 'market' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'}`}>市價委託</button>
-          <button onClick={() => setOrderType("limit")} className={`flex-1 py-4 rounded-2xl text-xs font-black uppercase transition-all ${orderType === 'limit' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'}`}>限價排隊</button>
+          <button disabled={isPaused} onClick={() => setOrderType("market")} className={`flex-1 py-4 rounded-2xl text-xs font-black uppercase transition-all ${orderType === 'market' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'} disabled:opacity-50 disabled:cursor-not-allowed`}>市價委託</button>
+          <button disabled={isPaused} onClick={() => setOrderType("limit")} className={`flex-1 py-4 rounded-2xl text-xs font-black uppercase transition-all ${orderType === 'limit' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'} disabled:opacity-50 disabled:cursor-not-allowed`}>限價排隊</button>
         </div>
 
         <div className="space-y-6 mb-12">
@@ -72,7 +85,8 @@ export function OrderEntryForm({ userId, property }: OrderEntryFormProps) {
                   value={limitTokenPrice} 
                   onChange={(e) => setLimitTokenPrice(e.target.value)} 
                   placeholder={property.price.toString()}
-                  className="w-full pl-12 pr-8 py-6 bg-slate-50 border border-slate-100 focus:border-blue-200 focus:ring-4 focus:ring-blue-100 rounded-[2rem] text-3xl outline-none font-mono font-black text-blue-600 transition-all" 
+                  disabled={isPaused}
+                  className="w-full pl-12 pr-8 py-6 bg-slate-50 border border-slate-100 focus:border-blue-200 focus:ring-4 focus:ring-blue-100 rounded-[2rem] text-3xl outline-none font-mono font-black text-blue-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed" 
                 />
               </div>
             </div>
@@ -85,7 +99,8 @@ export function OrderEntryForm({ userId, property }: OrderEntryFormProps) {
               value={tokenAmount} 
               onChange={(e) => setTokenAmount(e.target.value)} 
               placeholder="0"
-              className="w-full px-8 py-6 bg-slate-50 border border-slate-100 focus:border-blue-200 focus:ring-4 focus:ring-blue-100 rounded-[2rem] text-4xl outline-none font-mono font-black text-slate-800 transition-all" 
+              disabled={isPaused}
+              className="w-full px-8 py-6 bg-slate-50 border border-slate-100 focus:border-blue-200 focus:ring-4 focus:ring-blue-100 rounded-[2rem] text-4xl outline-none font-mono font-black text-slate-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed" 
             />
           </div>
           
@@ -96,8 +111,8 @@ export function OrderEntryForm({ userId, property }: OrderEntryFormProps) {
         </div>
 
         <div className="grid grid-cols-2 gap-6">
-          <button onClick={() => { setTxType("BUY"); setIsConfirmOpen(true); }} className="py-6 bg-red-600 hover:bg-red-700 text-white rounded-[2rem] uppercase font-black shadow-xl shadow-red-200 transition-all active:scale-95 text-lg">申購 BUY</button>
-          <button onClick={() => { setTxType("SELL"); setIsConfirmOpen(true); }} className="py-6 bg-green-600 hover:bg-green-700 text-white rounded-[2rem] uppercase font-black shadow-xl shadow-green-200 transition-all active:scale-95 text-lg">委賣 SELL</button>
+          <button disabled={isPaused} onClick={() => { setTxType("BUY"); setIsConfirmOpen(true); }} className="py-6 bg-red-600 hover:bg-red-700 text-white rounded-[2rem] uppercase font-black shadow-xl shadow-red-200 transition-all active:scale-95 text-lg disabled:opacity-30 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:shadow-none">申購 BUY</button>
+          <button disabled={isPaused} onClick={() => { setTxType("SELL"); setIsConfirmOpen(true); }} className="py-6 bg-green-600 hover:bg-green-700 text-white rounded-[2rem] uppercase font-black shadow-xl shadow-green-200 transition-all active:scale-95 text-lg disabled:opacity-30 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:shadow-none">委賣 SELL</button>
         </div>
       </div>
 
