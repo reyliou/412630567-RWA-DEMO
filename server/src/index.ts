@@ -263,11 +263,38 @@ app.post('/api/transactions', authenticateToken, async (req: any, res) => {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      const propRes = await client.query('SELECT title, current_price FROM properties WHERE id = $1', [property_id]);
+      
+      // 🛡️ 取得建案總量與定價
+      const propRes = await client.query('SELECT title, current_price, total_supply_x FROM properties WHERE id = $1', [property_id]);
       if (propRes.rows.length === 0) throw new Error("建案不存在");
       
       const realProperty = propRes.rows[0];
+      const totalSupply = parseFloat(realProperty.total_supply_x || '100000');
       const finalExecutionPrice = order_type === 'MARKET' ? parseFloat(realProperty.current_price) : price;
+      
+      // 🛡️ 商業邏輯：持倉上限防護 (1% 緩衝鎖 / 5% 正常流通)
+      if (tx_type === 'BUY') {
+        const holdingsRes = await client.query('SELECT balance FROM user_holdings WHERE user_id = $1 AND property_id = $2', [user_id, property_id]);
+        const currentBalance = holdingsRes.rows.length > 0 ? parseFloat(holdingsRes.rows[0].balance) : 0;
+        const newBalance = currentBalance + amount;
+        
+        // 判斷是否在恢復期 (解鎖後 2 小時內)
+        let isThrottled = false;
+        if (globalSystemState.throttleStartTime) {
+          const timeSinceUnpause = Date.now() - new Date(globalSystemState.throttleStartTime).getTime();
+          if (timeSinceUnpause < 2 * 60 * 60 * 1000) { // 2 小時內
+            isThrottled = true;
+          }
+        }
+        
+        const limitPercentage = isThrottled ? 0.01 : 0.05;
+        const maxAllowedTokens = totalSupply * limitPercentage;
+        
+        if (newBalance > maxAllowedTokens) {
+           throw new Error(`超過單一帳戶持倉上限！目前限制為總發行量的 ${limitPercentage * 100}% (${maxAllowedTokens.toLocaleString()} 枚)。`);
+        }
+      }
+
       const totalTwdValue = amount * finalExecutionPrice;
 
       await client.query(
@@ -284,9 +311,17 @@ app.post('/api/transactions', authenticateToken, async (req: any, res) => {
       await client.query('INSERT INTO system_alerts (alert_type, severity, message) VALUES ($1, $2, $3)', ['ORDER_MATCH', 'INFO', `Matched ${order_type} ${tx_type} for UID ${user_id} at price ${finalExecutionPrice}`]);
 
       await client.query('COMMIT');
+      return { success: true };
     } catch (e: any) {
       await client.query('ROLLBACK');
       console.error("Trade Error:", e.message);
+      
+      // 如果是持倉限制被擋下，發送推播通知給用戶
+      if (e.message.includes("持倉上限")) {
+         await pool.query(`INSERT INTO user_notifications (user_id, title, message, is_read) VALUES ($1, $2, $3, false)`, [user_id, `交易失敗: 觸發持倉防護`, e.message]);
+      }
+      
+      return { success: false, message: e.message };
     } finally { client.release(); }
   };
 
@@ -294,8 +329,12 @@ app.post('/api/transactions', authenticateToken, async (req: any, res) => {
     res.json({ success: true, message: '委託已送出，正在排隊撮合...' });
     setTimeout(executeTrade, 10000);
   } else {
-    await executeTrade();
-    res.json({ success: true });
+    const result = await executeTrade();
+    if (result.success) {
+       res.json({ success: true });
+    } else {
+       res.status(400).json({ success: false, message: result.message });
+    }
   }
 });
 
