@@ -152,6 +152,30 @@ app.post('/api/login', loginLimiter, async (req, res) => {
 // 🔒 Protected Routes (需要 JWT Token)
 // ==========================================
 
+// 🛡️ 系統狀態同步 API (僅限技術員與業務員)
+app.get('/api/system/state', authenticateToken, (req: any, res: any) => {
+  if (req.user.role !== 'TECHNICAL' && req.user.role !== 'BUSINESS') return res.status(403).json({ error: '權限不足' });
+  res.json(globalSystemState);
+});
+
+app.post('/api/system/state', authenticateToken, (req: any, res: any) => {
+  if (req.user.role !== 'TECHNICAL' && req.user.role !== 'BUSINESS') return res.status(403).json({ error: '權限不足' });
+  
+  const { isPaused, activeRequest, requestReason } = req.body;
+  
+  if (isPaused !== undefined) globalSystemState.isPaused = isPaused;
+  if (activeRequest !== undefined) globalSystemState.activeRequest = activeRequest;
+  if (requestReason !== undefined) globalSystemState.requestReason = requestReason;
+  
+  if (isPaused === false && globalSystemState.throttleStartTime === null) {
+     globalSystemState.throttleStartTime = new Date();
+  } else if (isPaused === true) {
+     globalSystemState.throttleStartTime = null;
+  }
+
+  res.json({ success: true, state: globalSystemState });
+});
+
 // 🛡️ 內部戰情室對話 API (僅限技術員與業務員)
 app.get('/api/chat', authenticateToken, (req: any, res: any) => {
   if (req.user.role !== 'TECHNICAL' && req.user.role !== 'BUSINESS') return res.status(403).json({ error: '權限不足' });

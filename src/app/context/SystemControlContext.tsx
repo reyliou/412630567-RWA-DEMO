@@ -36,9 +36,25 @@ export function SystemControlProvider({ children }: { children: ReactNode }) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
 
-  // 定期輪詢獲取最新聊天紀錄
+  // 定期輪詢獲取最新聊天紀錄與系統狀態
   useEffect(() => {
     let timer: any;
+    
+    const fetchSystemState = async () => {
+      try {
+        const res = await apiFetch('/api/system/state');
+        if (res.ok) {
+          const state = await res.json();
+          setIsPaused(state.isPaused);
+          setThrottleStartTime(state.throttleStartTime ? new Date(state.throttleStartTime) : null);
+          setActiveRequest(state.activeRequest);
+          setRequestReason(state.requestReason);
+        }
+      } catch (e) {
+        // fail silently
+      }
+    };
+
     if (isModalOpen) {
       const fetchChat = async () => {
         try {
@@ -54,8 +70,18 @@ export function SystemControlProvider({ children }: { children: ReactNode }) {
           console.error("Failed to fetch chat");
         }
       };
-      fetchChat(); // 立即抓一次
-      timer = setInterval(fetchChat, 2000); // 每 2 秒抓一次
+      
+      const pollAll = () => {
+         fetchChat();
+         fetchSystemState();
+      };
+      
+      pollAll(); // 立即抓一次
+      timer = setInterval(pollAll, 2000); // 每 2 秒抓一次
+    } else {
+      // 就算沒打開聊天室，也要每 3 秒同步一次系統狀態 (以便觸發外面的 UI)
+      fetchSystemState();
+      timer = setInterval(fetchSystemState, 3000);
     }
     return () => clearInterval(timer);
   }, [isModalOpen, apiFetch]);
@@ -81,24 +107,44 @@ export function SystemControlProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const triggerRequest = (type: RequestType, reason: string) => {
-    setActiveRequest(type);
-    setRequestReason(reason);
-    if (!isModalOpen) setUnreadCount(prev => prev + 1);
+  const triggerRequest = async (type: RequestType, reason: string) => {
+    try {
+      await apiFetch('/api/system/state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ activeRequest: type, requestReason: reason })
+      });
+      setActiveRequest(type);
+      setRequestReason(reason);
+      if (!isModalOpen) setUnreadCount(prev => prev + 1);
+    } catch (e) {
+       console.error("Failed to trigger request");
+    }
   };
 
-  const executeOperation = (onLog: (type: 'info'|'warning'|'error'|'success', msg: string) => void) => {
-    if (activeRequest === "PAUSE_REQUEST") {
-      setIsPaused(true);
-      setThrottleStartTime(null);
-      onLog("warning", `技術負責人已授權：合約正式暫停。`);
-    } else if (activeRequest === "UNPAUSE_REQUEST") {
-      setIsPaused(false);
-      setThrottleStartTime(new Date());
-      onLog("success", `技術負責人已授權：系統恢復交易。`);
+  const executeOperation = async (onLog: (type: 'info'|'warning'|'error'|'success', msg: string) => void) => {
+    try {
+      let nextIsPaused = isPaused;
+      if (activeRequest === "PAUSE_REQUEST") {
+        nextIsPaused = true;
+        onLog("warning", `技術負責人已授權：合約正式暫停。`);
+      } else if (activeRequest === "UNPAUSE_REQUEST") {
+        nextIsPaused = false;
+        onLog("success", `技術負責人已授權：系統恢復交易。`);
+      }
+      
+      await apiFetch('/api/system/state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isPaused: nextIsPaused, activeRequest: "NONE", requestReason: "" })
+      });
+      
+      setIsPaused(nextIsPaused);
+      setActiveRequest("NONE");
+      setIsModalOpen(false);
+    } catch (e) {
+       console.error("Failed to execute operation");
     }
-    setActiveRequest("NONE");
-    setIsModalOpen(false);
   };
 
   return (
