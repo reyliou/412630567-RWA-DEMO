@@ -30,13 +30,16 @@ export function SystemHealthLogModal({
       const response = await apiFetch(`/api/system-alerts`);
       if (response.ok) {
         const data = await response.json();
-        const mappedLogs = data.map((item: any) => ({
-          id: item.id,
-          timestamp: new Date(item.created_at),
-          type: item.severity === 'ERROR' ? 'error' : item.severity === 'WARNING' ? 'warning' : 'info',
-          message: item.alert_type,
-          details: item.message,
-        }));
+        // 🛡️ 關鍵修正：過濾掉爬蟲報告，只保留系統級別警報 (如撮合、安全審計)
+        const mappedLogs = data
+          .filter((item: any) => item.alert_type !== 'CRAWLER_REPORT')
+          .map((item: any) => ({
+            id: item.id,
+            timestamp: new Date(item.created_at),
+            type: item.severity === 'ERROR' ? 'error' : item.severity === 'WARNING' ? 'warning' : 'info',
+            message: item.alert_type,
+            details: item.message,
+          }));
         setLogs(mappedLogs);
       }
     } catch (e) {

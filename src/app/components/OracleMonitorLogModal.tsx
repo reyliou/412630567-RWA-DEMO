@@ -30,14 +30,16 @@ export function OracleMonitorLogModal({
       const response = await apiFetch(`/api/system-alerts`);
       if (response.ok) {
         const data = await response.json();
-        // 過濾出與爬蟲相關的日誌，或者顯示所有與數據同步相關的日誌
-        const mappedLogs = data.map((item: any) => ({
-          id: item.id,
-          timestamp: new Date(item.created_at),
-          type: item.severity === 'ERROR' ? 'error' : item.severity === 'WARNING' ? 'warning' : 'info',
-          message: item.alert_type,
-          details: item.message,
-        }));
+        // 🛡️ 關鍵修正：只過濾出與爬蟲 (CRAWLER_REPORT) 相關的日誌
+        const mappedLogs = data
+          .filter((item: any) => item.alert_type === 'CRAWLER_REPORT')
+          .map((item: any) => ({
+            id: item.id,
+            timestamp: new Date(item.created_at),
+            type: item.severity === 'ERROR' ? 'error' : item.severity === 'WARNING' ? 'warning' : 'info',
+            message: item.alert_type,
+            details: item.message,
+          }));
         setLogs(mappedLogs);
       }
     } catch (e) {
