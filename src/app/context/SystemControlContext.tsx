@@ -27,7 +27,7 @@ interface SystemControlContextType {
 const SystemControlContext = createContext<SystemControlContextType | undefined>(undefined);
 
 export function SystemControlProvider({ children }: { children: ReactNode }) {
-  const { apiFetch } = useAuth();
+  const { apiFetch, token } = useAuth();
   const [isPaused, setIsPaused] = useState(false);
   const [throttleStartTime, setThrottleStartTime] = useState<Date | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -38,16 +38,18 @@ export function SystemControlProvider({ children }: { children: ReactNode }) {
 
   // 定期輪詢獲取最新聊天紀錄與系統狀態
   useEffect(() => {
+    // 如果沒有 token，代表還沒登入，就不啟動輪詢，避免 401 錯誤導致無限踢出
+    if (!token) return;
+
     let timer: any;
-    
+
     const fetchSystemState = async () => {
       try {
         const res = await apiFetch('/api/system/state');
         if (res.ok) {
           const state = await res.json();
-          // 加入除錯日誌
+          // 加入除錯日誌，讓使用者可以看到有確實收到
           console.log("[SYNC] Received system state:", state);
-          
           setIsPaused(state.isPaused);
           setThrottleStartTime(state.throttleStartTime ? new Date(state.throttleStartTime) : null);
           setActiveRequest(state.activeRequest);
@@ -87,7 +89,7 @@ export function SystemControlProvider({ children }: { children: ReactNode }) {
       timer = setInterval(fetchSystemState, 3000);
     }
     return () => clearInterval(timer);
-  }, [isModalOpen, apiFetch]);
+  }, [isModalOpen, apiFetch, token]);
 
   const openChat = () => {
     setIsModalOpen(true);
