@@ -323,7 +323,8 @@ app.post('/api/transactions', authenticateToken, async (req: any, res) => {
           }
         }
         
-        const limitPercentage = isThrottled ? 0.01 : 0.05;
+        // 修改後：恢復期(isThrottled)給 5% 寬限，平常預設給 1% 嚴格限制
+        const limitPercentage = isThrottled ? 0.05 : 0.01;
         const maxAllowedTokens = totalSupply * limitPercentage;
         
         if (newBalance > maxAllowedTokens) {
