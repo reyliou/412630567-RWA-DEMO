@@ -12,6 +12,7 @@ export interface ChatMessage {
 interface SystemControlContextType {
   isPaused: boolean;
   throttleStartTime: Date | null;
+  activeTransactions: number; // 🟢 新增：真實交易量
   isModalOpen: boolean;
   activeRequest: RequestType;
   requestReason: string;
@@ -30,6 +31,7 @@ export function SystemControlProvider({ children }: { children: ReactNode }) {
   const { apiFetch, token } = useAuth();
   const [isPaused, setIsPaused] = useState(false);
   const [throttleStartTime, setThrottleStartTime] = useState<Date | null>(null);
+  const [activeTransactions, setActiveTransactions] = useState(0); // 🟢 新增狀態
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeRequest, setActiveRequest] = useState<RequestType>("NONE");
   const [requestReason, setRequestReason] = useState("");
@@ -52,6 +54,7 @@ export function SystemControlProvider({ children }: { children: ReactNode }) {
           console.log("[SYNC] Received system state:", state);
           setIsPaused(state.isPaused);
           setThrottleStartTime(state.throttleStartTime ? new Date(state.throttleStartTime) : null);
+          setActiveTransactions(state.activeTransactions || 0); // 🟢 更新真實交易量
           setActiveRequest(state.activeRequest);
           setRequestReason(state.requestReason);
         }

@@ -10,7 +10,7 @@ import { useAuth } from "../context/AuthContext";
 
 export function TechnicalPage() {
   const { userName } = useAuth();
-  const { activeRequest, isPaused, throttleStartTime, unreadCount, openChat } = useSystemControl();
+  const { activeRequest, isPaused, throttleStartTime, activeTransactions, unreadCount, openChat } = useSystemControl();
   const logRef = useRef<SystemLogsCardHandle>(null);
 
   return (
@@ -27,7 +27,7 @@ export function TechnicalPage() {
         <ContractControlCard onPauseToggle={openChat} isPaused={isPaused} />
         <StaffStatusCard onOpenChat={openChat} hasRequest={activeRequest !== "NONE"} unreadCount={unreadCount} userName={userName} requestType={activeRequest} />
       </div>
-      <ThrottleTimerCard isActive={!isPaused} startTime={throttleStartTime} />
+      <ThrottleTimerCard isActive={!isPaused} startTime={throttleStartTime} realActiveTransactions={activeTransactions} />
       <div className="pt-6 border-t border-border/50"><SystemLogsCard ref={logRef} /></div>
     </div>
   );

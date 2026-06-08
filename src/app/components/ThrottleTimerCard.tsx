@@ -4,12 +4,12 @@ import { useState, useEffect } from "react";
 interface ThrottleTimerProps {
   isActive: boolean;
   startTime: Date | null;
+  realActiveTransactions?: number; // 🟢 新增：從外部傳入真實交易量
 }
 
-export function ThrottleTimerCard({ isActive, startTime }: ThrottleTimerProps) {
+export function ThrottleTimerCard({ isActive, startTime, realActiveTransactions = 0 }: ThrottleTimerProps) {
   const [timeRemaining, setTimeRemaining] = useState<string>("--:--:--");
   const [progress, setProgress] = useState(0);
-  const [activeTransactions, setActiveTransactions] = useState(0);
 
   useEffect(() => {
     if (!isActive || !startTime) {
@@ -45,18 +45,6 @@ export function ThrottleTimerCard({ isActive, startTime }: ThrottleTimerProps) {
     return () => clearInterval(interval);
   }, [isActive, startTime]);
 
-  // Simulate active transaction count
-  useEffect(() => {
-    if (isActive && startTime) {
-      const interval = setInterval(() => {
-        setActiveTransactions(Math.floor(Math.random() * 15 + 5));
-      }, 3000);
-      return () => clearInterval(interval);
-    } else {
-      setActiveTransactions(0);
-    }
-  }, [isActive, startTime]);
-
   const getAutoResumeTime = () => {
     if (!startTime) return "--:--";
     const resumeTime = new Date(startTime.getTime() + 2 * 60 * 60 * 1000);
@@ -65,6 +53,9 @@ export function ThrottleTimerCard({ isActive, startTime }: ThrottleTimerProps) {
 
   const currentLimit = (isActive && startTime && progress < 100) ? "1%" : "5%";
   const isThrottled = !!(isActive && startTime && progress < 100);
+  
+  // 🟢 最終決定：使用傳入的真實交易量 (過去一小時總量)
+  const displayTransactions = isActive ? realActiveTransactions : 0;
 
   return (
     <div className="bg-card rounded-lg border border-border p-6">
@@ -102,10 +93,10 @@ export function ThrottleTimerCard({ isActive, startTime }: ThrottleTimerProps) {
           <div className="p-3 bg-muted/50 rounded-md">
             <div className="flex items-center gap-2 mb-1">
               <Users className="w-4 h-4 text-primary" />
-              <span className="text-xs text-muted-foreground">活躍交易量</span>
+              <span className="text-xs text-muted-foreground">活躍交易量 (1h)</span>
             </div>
             <div className="flex items-baseline gap-1">
-              <span className="text-2xl font-bold">{activeTransactions}</span>
+              <span className="text-2xl font-bold">{displayTransactions}</span>
               <span className="text-xs text-muted-foreground">筆</span>
             </div>
           </div>

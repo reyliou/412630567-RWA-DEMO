@@ -8,7 +8,7 @@ import { useAuth } from "../context/AuthContext";
 
 export function BusinessPage() {
   const { userName } = useAuth();
-  const { activeRequest, isPaused, throttleStartTime, openChat } = useSystemControl();
+  const { activeRequest, isPaused, throttleStartTime, activeTransactions, openChat } = useSystemControl();
 
   return (
     <div className="space-y-10 animate-in fade-in duration-500 text-slate-800">
@@ -16,7 +16,7 @@ export function BusinessPage() {
          <div className="lg:col-span-3"><PropertyOversightCard /></div>
          <div className="lg:col-span-1"><StaffStatusCard onOpenChat={openChat} hasRequest={activeRequest !== "NONE"} isBankerView={true} userName={userName} requestType={activeRequest} /></div>
       </div>
-      <ThrottleTimerCard isActive={!isPaused} startTime={throttleStartTime} />
+      <ThrottleTimerCard isActive={!isPaused} startTime={throttleStartTime} realActiveTransactions={activeTransactions} />
       <UserManagementCard />
     </div>
   );

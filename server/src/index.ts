@@ -193,8 +193,19 @@ app.post('/api/login', loginLimiter, async (req, res) => {
 // ==========================================
 
 // 🛡️ 系統狀態同步 API (所有登入用戶皆可讀取，以便前端判斷是否暫停)
-app.get('/api/system/state', authenticateToken, (req: any, res: any) => {
-  res.json(globalSystemState);
+app.get('/api/system/state', authenticateToken, async (req: any, res: any) => {
+  try {
+    // 統計過去一小時的真實交易筆數
+    const txCountRes = await pool.query("SELECT count(*) FROM transactions WHERE created_at > NOW() - INTERVAL '1 hour'");
+    const activeTransactions = parseInt(txCountRes.rows[0].count || '0');
+    
+    res.json({
+      ...globalSystemState,
+      activeTransactions
+    });
+  } catch (err) {
+    res.json(globalSystemState); // 失敗時回傳基本狀態
+  }
 });
 
 app.post('/api/system/state', authenticateToken, (req: any, res: any) => {
