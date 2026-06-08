@@ -178,13 +178,19 @@ app.post('/api/system/state', authenticateToken, (req: any, res: any) => {
   
   const { isPaused, activeRequest, requestReason } = req.body;
   
+  // 記錄變更前的暫停狀態
+  const wasPaused = globalSystemState.isPaused;
+
   if (isPaused !== undefined) globalSystemState.isPaused = isPaused;
   if (activeRequest !== undefined) globalSystemState.activeRequest = activeRequest;
   if (requestReason !== undefined) globalSystemState.requestReason = requestReason;
   
-  if (isPaused === false && globalSystemState.throttleStartTime === null) {
+  // 優化邏輯：只有當狀態從「暫停(true)」真正切換為「恢復(false)」時，才觸發 2 小時限流
+  if (wasPaused === true && isPaused === false) {
+     console.log(`[SYSTEM] Throttling activated: System unpaused at ${new Date().toISOString()}`);
      globalSystemState.throttleStartTime = new Date();
   } else if (isPaused === true) {
+     // 如果系統進入暫停，重置計時器，確保下次恢復時重新開始計算 2 小時
      globalSystemState.throttleStartTime = null;
   }
 
