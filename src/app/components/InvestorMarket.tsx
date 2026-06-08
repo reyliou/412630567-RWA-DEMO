@@ -1,6 +1,6 @@
 import { Search, MapPin, TrendingUp, Filter, LayoutGrid, List, Check, TrendingDown } from "lucide-react";
 import { useState, useEffect } from "react";
-import { API_BASE_URL } from "../config";
+import { useAuth } from "../context/AuthContext";
 
 interface Property {
   id: number;
@@ -19,6 +19,7 @@ interface InvestorMarketProps {
 }
 
 export function InvestorMarket({ onSelectProperty }: InvestorMarketProps) {
+  const { apiFetch } = useAuth();
   const [selectedCity, setSelectedCity] = useState("全部");
   const [searchQuery, setSearchQuery] = useState("");
   const [properties, setProperties] = useState<Property[]>([]);
@@ -34,7 +35,7 @@ export function InvestorMarket({ onSelectProperty }: InvestorMarketProps) {
     const loadMockData = async () => {
       try {
         // 從後端 API 獲取真實資料庫數據
-        const response = await fetch(`${API_BASE_URL}/api/properties`);
+        const response = await apiFetch(`/api/properties`);
         if (response.ok) {
           const data = await response.json();
           // 資料庫欄位對齊：將 title 映射到 name，complete_address 映射到 addr 等

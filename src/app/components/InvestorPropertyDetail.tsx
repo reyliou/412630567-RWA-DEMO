@@ -1,6 +1,7 @@
 import { ArrowLeft, TrendingUp, TrendingDown, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { OrderBook } from "./OrderBook";
+import { useAuth } from "../context/AuthContext";
 import { API_BASE_URL } from "../config";
 import { OrderEntryForm } from "./OrderEntryForm";
 
@@ -11,6 +12,7 @@ interface PropertyDetailProps {
 }
 
 export function InvestorPropertyDetail({ userId, property, onBack }: PropertyDetailProps) {
+  const { apiFetch } = useAuth();
   const [vLogs, setVLogs] = useState<any[]>([]);
   const [isLoadingLogs, setIsLoadingLogs] = useState(true);
 
@@ -20,7 +22,7 @@ export function InvestorPropertyDetail({ userId, property, onBack }: PropertyDet
   useEffect(() => {
     const fetchLogs = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/properties/${property.id}/valuation-logs`);
+        const response = await apiFetch(`/api/properties/${property.id}/valuation-logs`);
         if (response.ok) {
           const res = await response.json();
           setVLogs(res);

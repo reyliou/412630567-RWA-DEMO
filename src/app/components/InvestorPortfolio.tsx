@@ -1,16 +1,17 @@
 import { Wallet, TrendingUp, Building2, PieChart, ArrowUpRight, Clock, TrendingDown, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useHeartbeat } from "../context/SystemHeartbeatContext";
-import { API_BASE_URL } from "../config";
+import { useAuth } from "../context/AuthContext";
 
 export function InvestorPortfolio({ userId, userName }: { userId: number, userName: string }) {
   const { tick } = useHeartbeat();
+  const { apiFetch } = useAuth();
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchPortfolio = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/portfolio/${userId}`);
+      const response = await apiFetch(`/api/portfolio/${userId}`);
       if (response.ok) {
         const res = await response.json();
         setData(res);

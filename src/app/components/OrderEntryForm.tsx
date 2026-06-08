@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ShieldAlert } from "lucide-react";
-import { API_BASE_URL } from "../config";
+import { useAuth } from "../context/AuthContext";
 import { TransactionSuccessModal } from "./TransactionSuccessModal";
 
 interface OrderEntryFormProps {
@@ -9,6 +9,7 @@ interface OrderEntryFormProps {
 }
 
 export function OrderEntryForm({ userId, property }: OrderEntryFormProps) {
+  const { apiFetch } = useAuth();
   const [orderType, setOrderType] = useState<"market" | "limit">("market");
   const [tokenAmount, setTokenAmount] = useState("");
   const [limitTokenPrice, setLimitTokenPrice] = useState("");
@@ -26,7 +27,7 @@ export function OrderEntryForm({ userId, property }: OrderEntryFormProps) {
       if (isNaN(amount) || amount <= 0) return alert("請輸入有效的數量");
       if (orderType === 'limit' && (isNaN(price) || price <= 0)) return alert("請輸入有效的限價");
 
-      const response = await fetch(`${API_BASE_URL}/api/transactions`, {
+      const response = await apiFetch(`/api/transactions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 

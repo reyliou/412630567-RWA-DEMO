@@ -1,6 +1,6 @@
 import { ArrowUpRight, ArrowDownRight, Search, Filter, Calendar, History, Building2, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
-import { API_BASE_URL } from "../config";
+import { useAuth } from "../context/AuthContext";
 
 interface Transaction {
   id: string;
@@ -17,6 +17,7 @@ interface InvestorTransactionsProps {
 }
 
 export function InvestorTransactions({ userId }: InvestorTransactionsProps) {
+  const { apiFetch } = useAuth();
   const [timeFilter, setTimeRange] = useState("今日");
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -25,7 +26,7 @@ export function InvestorTransactions({ userId }: InvestorTransactionsProps) {
     const fetchTx = async () => {
       setIsLoading(true);
       try {
-        const response = await fetch(`${API_BASE_URL}/api/transactions/${userId}`);
+        const response = await apiFetch(`/api/transactions/${userId}`);
         if (response.ok) {
           const data = await response.json();
           setTransactions(data);

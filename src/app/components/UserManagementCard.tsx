@@ -1,6 +1,6 @@
 import { Users, Search, MoreVertical, ShieldAlert, ShieldCheck, UserMinus, UserCheck, Mail, Activity } from "lucide-react";
 import { useState, useEffect } from "react";
-import { API_BASE_URL } from "../config";
+import { useAuth } from "../context/AuthContext";
 
 interface UserData {
   id: string;
@@ -12,13 +12,14 @@ interface UserData {
 }
 
 export function UserManagementCard() {
+  const { apiFetch } = useAuth();
   const [users, setUsers] = useState<UserData[]>([]);
   const [openMenuId, setOpenMenuMenuId] = useState<string | null>(null);
 
   useEffect(() => {
     const loadUsers = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/users`);
+        const response = await apiFetch(`/api/users`);
         if (response.ok) {
           const data = await response.json();
           // 資料庫欄位對齊：將 is_whitelisted 映射到 status
@@ -47,7 +48,7 @@ export function UserManagementCard() {
     
     try {
       // 呼叫後端 API 進行真實更新，這會觸發 ISO 合規日誌
-      const response = await fetch(`${API_BASE_URL}/api/users/${id}/whitelist`, {
+      const response = await apiFetch(`/api/users/${id}/whitelist`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 

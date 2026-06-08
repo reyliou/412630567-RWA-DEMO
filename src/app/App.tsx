@@ -44,7 +44,7 @@ function AppContent() {
   };
 
   if (!isLoggedIn) {
-    return <AuthView onLogin={(mode, name, id) => login(mode, name, id)} />;
+    return <AuthView onLogin={(mode, name, id, token) => login(mode, name, id, token)} />;
   }
 
   return (

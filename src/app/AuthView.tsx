@@ -5,7 +5,7 @@ import { AppMode } from "./App";
 import { API_BASE_URL } from "./config";
 
 interface AuthViewProps {
-  onLogin: (mode: AppMode, name: string, id?: number) => void;
+  onLogin: (mode: AppMode, name: string, id: number, token: string) => void;
 }
 
 export function AuthView({ onLogin }: AuthViewProps) {
@@ -80,7 +80,7 @@ export function AuthView({ onLogin }: AuthViewProps) {
         }
 
         console.log(`[AUTH] DB_Role: ${rawRole} -> AppMode: ${targetMode}, ID: ${data.user.id}`);
-        onLogin(targetMode, data.user.username, data.user.id);
+        onLogin(targetMode, data.user.username, data.user.id, data.token);
       } else {
         alert("登入失敗: " + (data.message || "請檢查帳號密碼"));
       }

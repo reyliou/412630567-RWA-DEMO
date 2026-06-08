@@ -1,7 +1,7 @@
 import { Terminal, AlertCircle, CheckCircle, Info, XCircle } from "lucide-react";
 import { useState, useImperativeHandle, forwardRef, useEffect } from "react";
 import { useHeartbeat } from "../context/SystemHeartbeatContext";
-import { API_BASE_URL } from "../config";
+import { useAuth } from "../context/AuthContext";
 
 interface LogEntry {
   id: number;
@@ -16,13 +16,14 @@ export interface SystemLogsCardHandle {
 
 export const SystemLogsCard = forwardRef<SystemLogsCardHandle>((props, ref) => {
   const { tick } = useHeartbeat();
+  const { apiFetch } = useAuth();
   const [logs, setLogs] = useState<LogEntry[]>([
     { id: 1, timestamp: new Date(), type: "info", message: "系統稽核引擎已啟動，等待全域心跳信號..." },
   ]);
 
   const fetchLogs = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/system-alerts`);
+      const response = await apiFetch(`/api/system-alerts`);
       if (response.ok) {
         const data = await response.json();
         const mappedLogs = data.map((item: any) => ({
