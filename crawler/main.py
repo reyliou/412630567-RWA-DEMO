@@ -161,6 +161,14 @@ async def run_crawler():
             status = %s 
             WHERE id = 1
         """, (fail_count, round(avg_integrity, 2), status_text))
+
+        # 🛡️ 同步寫入稽核日誌，讓前端能顯示真實數據
+        alert_msg = f"房產數據同步完成 (Python Crawler)。狀態: {status_text}, 失敗次數: {fail_count}, 平均完整度: {round(avg_integrity, 2)}%"
+        cur.execute("""
+            INSERT INTO system_alerts (alert_type, severity, message) 
+            VALUES (%s, %s, %s)
+        """, ('CRAWLER_REPORT', 'INFO' if status_text == 'HEALTHY' else 'WARNING', alert_msg))
+        
         conn.commit()
 
         cur.close()

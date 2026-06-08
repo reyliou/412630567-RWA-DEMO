@@ -127,8 +127,16 @@ app.post('/api/system/crawler-report', async (req, res) => {
   const { failures, integrity, status } = req.body;
   try {
     await pool.query('UPDATE crawler_metrics SET last_run_at = CURRENT_TIMESTAMP, consecutive_failures = $1, average_integrity = $2, status = $3 WHERE id = 1', [failures, integrity, status]);
+    
+    // 🛡️ 增加日誌記錄，讓前端能抓到真實的爬蟲事件
+    const msg = `房產數據同步完成。狀態: ${status}, 失敗次數: ${failures}, 平均完整度: ${integrity}%`;
+    await pool.query('INSERT INTO system_alerts (alert_type, severity, message) VALUES ($1, $2, $3)', ['CRAWLER_REPORT', status === 'HEALTHY' ? 'INFO' : 'WARNING', msg]);
+    
     res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: 'DB Error' }); }
+  } catch (err: any) { 
+    console.error('[DB ERROR /api/system/crawler-report]', err.message);
+    res.status(500).json({ error: 'DB Error' }); 
+  }
 });
 
 // 🛡️ Secure Login Route with Bcrypt & Rate Limiting

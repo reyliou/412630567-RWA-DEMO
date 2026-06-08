@@ -1,5 +1,7 @@
-import { X, Activity, Clock, AlertCircle, CheckCircle2, Info } from "lucide-react";
+import { X, Activity, Clock, AlertCircle, CheckCircle2, Info, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useAuth } from "../context/AuthContext";
+import { useHeartbeat } from "../context/SystemHeartbeatContext";
 
 interface SystemHealthLogModalProps {
   isOpen: boolean;
@@ -18,74 +20,45 @@ export function SystemHealthLogModal({
   isOpen,
   onClose,
 }: SystemHealthLogModalProps) {
-  const [logs, setLogs] = useState<LogEntry[]>([
-    {
-      id: 1,
-      timestamp: new Date(Date.now() - 300000),
-      type: "success",
-      message: "系統健康檢查通過",
-      details: "PostgreSQL: 12ms, NestJS: 45ms, Docker: 2/2",
-    },
-    {
-      id: 2,
-      timestamp: new Date(Date.now() - 180000),
-      type: "info",
-      message: "DB 同步率正常",
-      details: "同步率: 99.8%",
-    },
-    {
-      id: 3,
-      timestamp: new Date(Date.now() - 120000),
-      type: "warning",
-      message: "NestJS API 響應時間略高",
-      details: "響應時間: 156ms (閾值: 100ms)",
-    },
-    {
-      id: 4,
-      timestamp: new Date(Date.now() - 60000),
-      type: "success",
-      message: "系統恢復正常",
-      details: "所有指標回到健康範圍",
-    },
-    {
-      id: 5,
-      timestamp: new Date(),
-      type: "info",
-      message: "定期健康檢查執行",
-      details: "所有服務運行正常",
-    },
-  ]);
+  const { apiFetch } = useAuth();
+  const { tick } = useHeartbeat();
+  const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Simulate real-time log generation
+  const fetchRealLogs = async () => {
+    try {
+      const response = await apiFetch(`/api/system-alerts`);
+      if (response.ok) {
+        const data = await response.json();
+        const mappedLogs = data.map((item: any) => ({
+          id: item.id,
+          timestamp: new Date(item.created_at),
+          type: item.severity === 'ERROR' ? 'error' : item.severity === 'WARNING' ? 'warning' : 'info',
+          message: item.alert_type,
+          details: item.message,
+        }));
+        setLogs(mappedLogs);
+      }
+    } catch (e) {
+      console.warn("無法同步日誌");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    if (!isOpen) return;
-
-    const interval = setInterval(() => {
-      const types: ("info" | "warning" | "success")[] = ["info", "success", "warning"];
-      const messages = [
-        { message: "PostgreSQL 連接測試成功", details: "延遲: " + (Math.random() * 30 + 10).toFixed(0) + "ms" },
-        { message: "Docker 容器狀態檢查", details: "所有容器運行正常" },
-        { message: "DB 同步率監測", details: "同步率: " + (Math.random() * 0.5 + 99.5).toFixed(1) + "%" },
-        { message: "系統資源使用率檢查", details: "CPU: " + (Math.random() * 30 + 20).toFixed(1) + "%, Memory: " + (Math.random() * 20 + 40).toFixed(1) + "%" },
-      ];
-
-      const randomType = types[Math.floor(Math.random() * types.length)];
-      const randomMessage = messages[Math.floor(Math.random() * messages.length)];
-
-      setLogs((prev) => [
-        {
-          id: prev.length + 1,
-          timestamp: new Date(),
-          type: randomType,
-          message: randomMessage.message,
-          details: randomMessage.details,
-        },
-        ...prev,
-      ].slice(0, 50)); // Keep only last 50 logs
-    }, 10000);
-
-    return () => clearInterval(interval);
+    if (isOpen) {
+      setIsLoading(true);
+      fetchRealLogs();
+    }
   }, [isOpen]);
+
+  // 每 10 秒同步一次
+  useEffect(() => {
+    if (isOpen && tick % 10 === 0) {
+      fetchRealLogs();
+    }
+  }, [isOpen, tick]);
 
   const getLogIcon = (type: string) => {
     switch (type) {
@@ -122,7 +95,7 @@ export function SystemHealthLogModal({
         <div className="flex items-center justify-between p-4 border-b border-border">
           <h3 className="flex items-center gap-2 font-semibold text-slate-800">
             <Activity className="w-5 h-5 text-green-500" />
-            核心系統狀態日誌
+            核心系統狀態日誌 (Real-time Audit)
           </h3>
           <button
             onClick={onClose}
@@ -134,35 +107,44 @@ export function SystemHealthLogModal({
 
         {/* Log Entries */}
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
-          {logs.map((log) => (
-            <div
-              key={log.id}
-              className={`p-3 rounded-md border ${getLogColor(log.type)}`}
-            >
-              <div className="flex items-start gap-3 text-slate-800">
-                {getLogIcon(log.type)}
-                <div className="flex-1">
-                  <div className="flex items-center justify-between mb-1">
-                    <p className="text-sm font-black uppercase tracking-tighter">{log.message}</p>
-                    <div className="flex items-center gap-1 text-[10px] font-mono text-muted-foreground">
-                      <Clock className="w-3 h-3" />
-                      {log.timestamp.toLocaleTimeString("zh-TW")}
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center py-20 gap-4">
+              <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+              <span className="text-xs font-black uppercase tracking-widest text-slate-400">Fetching Audit Logs...</span>
+            </div>
+          ) : logs.length === 0 ? (
+            <div className="text-center py-20 text-muted-foreground text-sm italic">尚無系統日誌紀錄</div>
+          ) : (
+            logs.map((log) => (
+              <div
+                key={log.id}
+                className={`p-3 rounded-md border ${getLogColor(log.type)}`}
+              >
+                <div className="flex items-start gap-3 text-slate-800">
+                  {getLogIcon(log.type)}
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-sm font-black uppercase tracking-tighter">{log.message}</p>
+                      <div className="flex items-center gap-1 text-[10px] font-mono text-muted-foreground">
+                        <Clock className="w-3 h-3" />
+                        {log.timestamp.toLocaleTimeString("zh-TW")}
+                      </div>
                     </div>
+                    {log.details && (
+                      <p className="text-xs text-muted-foreground font-black uppercase tracking-tighter">{log.details}</p>
+                    )}
                   </div>
-                  {log.details && (
-                    <p className="text-xs text-muted-foreground font-black uppercase tracking-tighter">{log.details}</p>
-                  )}
                 </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
 
         {/* Footer */}
         <div className="p-4 border-t border-border">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>共 {logs.length} 筆紀錄</span>
-            <span>每 10 秒自動更新</span>
+            <span className="font-black uppercase tracking-tighter">共 {logs.length} 筆真實數據紀錄</span>
+            <span className="font-black uppercase tracking-tighter">每 10 秒自動同步</span>
           </div>
         </div>
       </div>
