@@ -249,6 +249,11 @@ app.patch('/api/notifications/:userId/read', authenticateToken, async (req: any,
 app.post('/api/transactions', authenticateToken, async (req: any, res) => {
   const { user_id, property_id, tx_type, order_type, token_amount, price_per_token } = req.body;
   if (req.user.id !== parseInt(user_id)) return res.status(403).json({ error: '權限不足' });
+
+  // 🛡️ 檢查系統是否處於暫停狀態
+  if (globalSystemState.isPaused) {
+    return res.status(403).json({ success: false, message: '系統已暫停交易，請等待技術端解除鎖定。' });
+  }
   
   const amount = parseFloat(token_amount);
   const price = parseFloat(price_per_token);
