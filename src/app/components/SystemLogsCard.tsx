@@ -17,23 +17,31 @@ export interface SystemLogsCardHandle {
 export const SystemLogsCard = forwardRef<SystemLogsCardHandle>((props, ref) => {
   const { tick } = useHeartbeat();
   const { apiFetch } = useAuth();
-  const [logs, setLogs] = useState<LogEntry[]>([
-    { id: 1, timestamp: new Date(), type: "info", message: "系統稽核引擎已啟動，等待全域心跳信號..." },
-  ]);
+  const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [filters, setFilters] = useState({
+    system: false,
+    crawler: false,
+    audit: true,
+  });
 
   const fetchLogs = async () => {
     try {
       const response = await apiFetch(`/api/system-alerts`);
       if (response.ok) {
         const data = await response.json();
-        // 🛡️ 關鍵修正：底層稽核日誌過濾掉性能與爬蟲，專注於業務邏輯 (交易與安全)
+        // 🛡️ 關鍵修正：底層稽核日誌根據過濾器狀態進行動態過濾
         const mappedLogs = data
-          .filter((item: any) => item.alert_type !== 'CRAWLER_REPORT' && item.alert_type !== 'SYSTEM_HEALTH')
+          .filter((item: any) => {
+            if (item.alert_type === 'SYSTEM_HEALTH') return filters.system;
+            if (item.alert_type === 'CRAWLER_REPORT') return filters.crawler;
+            // 其他皆視為操作稽核 (ORDER_MATCH, SECURITY_AUDIT 等)
+            return filters.audit;
+          })
           .map((item: any) => ({
             id: item.id,
             timestamp: new Date(item.created_at),
             type: item.severity === 'ERROR' ? 'error' : item.severity === 'WARNING' ? 'warning' : 'info',
-            message: item.message,
+            message: `[${item.alert_type}] ${item.message}`,
           }));
         setLogs(mappedLogs);
       }
@@ -42,12 +50,12 @@ export const SystemLogsCard = forwardRef<SystemLogsCardHandle>((props, ref) => {
     }
   };
 
-  // 每 5 秒執行一次日誌同步
+  // 每 5 秒執行一次日誌同步，或當過濾器變更時立即同步
   useEffect(() => {
-    if (tick % 5 === 0) {
+    if (tick % 5 === 0 || true) {
       fetchLogs();
     }
-  }, [tick]);
+  }, [tick, filters]);
 
   useImperativeHandle(ref, () => ({
     addLog(type: LogEntry["type"], message: string) {
@@ -67,14 +75,47 @@ export const SystemLogsCard = forwardRef<SystemLogsCardHandle>((props, ref) => {
 
   return (
     <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden flex flex-col font-sans text-slate-800 font-black">
-      <div className="p-3 border-b border-border bg-muted/20 flex items-center justify-between">
+      <div className="p-3 border-b border-border bg-muted/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Terminal className="w-4 h-4 text-blue-600" />
           <span className="text-xs font-black uppercase tracking-widest text-slate-800">底層核心稽核日誌 (Live Audit)</span>
         </div>
-        <div className="flex items-center gap-1.5">
-           <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-           <span className="text-[9px] font-black text-muted-foreground uppercase italic tracking-tighter">Tick Synchronized</span>
+
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 bg-white/50 px-3 py-1 rounded-lg border border-border/50">
+            <label className="flex items-center gap-1.5 cursor-pointer group">
+              <input 
+                type="checkbox" 
+                checked={filters.system} 
+                onChange={() => setFilters(f => ({...f, system: !f.system}))}
+                className="w-3 h-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <span className={`text-[10px] uppercase font-black tracking-tighter ${filters.system ? 'text-blue-600' : 'text-slate-400'}`}>系統運行</span>
+            </label>
+            <label className="flex items-center gap-1.5 cursor-pointer group">
+              <input 
+                type="checkbox" 
+                checked={filters.crawler} 
+                onChange={() => setFilters(f => ({...f, crawler: !f.crawler}))}
+                className="w-3 h-3 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+              />
+              <span className={`text-[10px] uppercase font-black tracking-tighter ${filters.crawler ? 'text-purple-600' : 'text-slate-400'}`}>房產爬蟲</span>
+            </label>
+            <label className="flex items-center gap-1.5 cursor-pointer group">
+              <input 
+                type="checkbox" 
+                checked={filters.audit} 
+                onChange={() => setFilters(f => ({...f, audit: !f.audit}))}
+                className="w-3 h-3 rounded border-gray-300 text-green-600 focus:ring-green-500"
+              />
+              <span className={`text-[10px] uppercase font-black tracking-tighter ${filters.audit ? 'text-green-600' : 'text-slate-400'}`}>操作稽核</span>
+            </label>
+          </div>
+
+          <div className="hidden sm:flex items-center gap-1.5">
+             <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+             <span className="text-[9px] font-black text-muted-foreground uppercase italic tracking-tighter">Live Sync</span>
+          </div>
         </div>
       </div>
 
