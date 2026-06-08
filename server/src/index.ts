@@ -204,7 +204,13 @@ app.get('/api/properties/:id/valuation-logs', authenticateToken, async (req, res
   try {
     const result = await pool.query('SELECT * FROM valuation_logs WHERE property_id = $1 ORDER BY recorded_at ASC', [req.params.id]);
     res.json(result.rows);
-  } catch (err) { res.status(500).json({ error: 'DB Error' }); }
+  } catch (err: any) { 
+    // 如果資料表不存在，回傳空陣列讓前端自己產生模擬資料，不要死機
+    if (err.message && err.message.includes('relation "valuation_logs" does not exist')) {
+       return res.json([]);
+    }
+    res.status(500).json({ error: 'DB Error' }); 
+  }
 });
 
 app.get('/api/portfolio/:userId', authenticateToken, async (req: any, res) => {
