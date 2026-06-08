@@ -70,8 +70,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       headers
     });
     
-    // 如果 Token 過期，自動登出
+    // 如果 Token 過期或權限不足，自動登出
     if (response.status === 401 || response.status === 403) {
+       console.error(`[AUTH ERROR] API request to ${endpoint} failed with status ${response.status}. Automatically logging out.`);
        logout();
     }
     return response;
