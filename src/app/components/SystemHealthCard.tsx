@@ -45,7 +45,7 @@ export function SystemHealthCard() {
         <div className="flex items-center justify-between mb-4">
           <h2 className="flex items-center gap-2 font-bold uppercase tracking-tight">
             <Activity className="w-5 h-5 text-blue-500" />
-            系統核心健康度
+            系統核心運行狀態
           </h2>
           <div className="flex items-center gap-2">
             <button

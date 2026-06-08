@@ -146,9 +146,9 @@ export function OracleMonitorLogModal({
       <div className="bg-card rounded-lg border border-border max-w-4xl w-full mx-4 shadow-xl flex flex-col max-h-[80vh]">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
-          <h3 className="flex items-center gap-2 font-semibold">
+          <h3 className="flex items-center gap-2 font-semibold text-slate-800">
             <RefreshCw className="w-5 h-5 text-blue-500" />
-            數據源監控日誌
+            房產數據爬取日誌
           </h3>
           <button
             onClick={onClose}
@@ -165,18 +165,18 @@ export function OracleMonitorLogModal({
               key={log.id}
               className={`p-3 rounded-md border ${getLogColor(log.type)}`}
             >
-              <div className="flex items-start gap-3">
+              <div className="flex items-start gap-3 text-slate-800">
                 {getLogIcon(log.type)}
                 <div className="flex-1">
                   <div className="flex items-center justify-between mb-1">
-                    <p className="text-sm font-medium">{log.message}</p>
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <p className="text-sm font-black uppercase tracking-tighter">{log.message}</p>
+                    <div className="flex items-center gap-1 text-[10px] font-mono text-muted-foreground">
                       <Clock className="w-3 h-3" />
                       {log.timestamp.toLocaleTimeString("zh-TW")}
                     </div>
                   </div>
                   {log.details && (
-                    <p className="text-xs text-muted-foreground">{log.details}</p>
+                    <p className="text-xs text-muted-foreground font-black uppercase tracking-tighter">{log.details}</p>
                   )}
                 </div>
               </div>

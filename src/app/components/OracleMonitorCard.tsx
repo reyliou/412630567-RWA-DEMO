@@ -51,7 +51,7 @@ export function OracleMonitorCard() {
         <div className="flex items-center justify-between mb-4 text-slate-800 font-bold">
           <h2 className="flex items-center gap-2">
             <RefreshCw className="w-5 h-5 text-blue-500" />
-            數據源監控 (Oracle)
+            房產數據監控 (Crawler)
           </h2>
           <div className="flex items-center gap-2">
             <button
