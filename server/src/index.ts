@@ -30,8 +30,21 @@ pool.on('connect', () => {
   console.log('[DB CONNECTED] PostgreSQL pool connected');
 });
 
-app.use(cors());
+app.use(cors({
+  origin: ['https://412630567-rwa-demo.vercel.app', 'http://localhost:5173'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json());
+
+// ==========================================
+// 🛡️ Middleware: Logger (幫助除錯)
+// ==========================================
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  next();
+});
 
 // ==========================================
 // 🛡️ Security Middlewares
@@ -227,7 +240,10 @@ app.get('/api/portfolio/:userId', authenticateToken, async (req: any, res) => {
       WHERE h.user_id = $1 AND h.balance > 0
     `, [req.params.userId]);
     res.json({ summary: userRes.rows[0], holdings: holdingsRes.rows });
-  } catch (err) { res.status(500).json({ error: 'DB Error' }); }
+  } catch (err: any) { 
+    console.error('[DB ERROR /api/portfolio]', err.message);
+    res.status(500).json({ error: 'DB Error', details: err.message }); 
+  }
 });
 
 app.get('/api/transactions/:userId', authenticateToken, async (req: any, res) => {
@@ -235,7 +251,10 @@ app.get('/api/transactions/:userId', authenticateToken, async (req: any, res) =>
   try {
     const result = await pool.query('SELECT t.*, p.title as property_name FROM transactions t JOIN properties p ON t.property_id = p.id WHERE t.user_id = $1 ORDER BY t.created_at DESC', [req.params.userId]);
     res.json(result.rows);
-  } catch (err) { res.status(500).json({ error: 'DB Error' }); }
+  } catch (err: any) { 
+    console.error('[DB ERROR /api/transactions]', err.message);
+    res.status(500).json({ error: 'DB Error', details: err.message }); 
+  }
 });
 
 app.get('/api/notifications/:userId', authenticateToken, async (req: any, res) => {
@@ -243,7 +262,10 @@ app.get('/api/notifications/:userId', authenticateToken, async (req: any, res) =
   try {
     const result = await pool.query('SELECT * FROM user_notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 20', [req.params.userId]);
     res.json(result.rows);
-  } catch (err) { res.status(500).json({ error: 'DB Error' }); }
+  } catch (err: any) { 
+    console.error('[DB ERROR /api/notifications]', err.message);
+    res.status(500).json({ error: 'DB Error', details: err.message }); 
+  }
 });
 
 app.patch('/api/notifications/:userId/read', authenticateToken, async (req: any, res) => {
