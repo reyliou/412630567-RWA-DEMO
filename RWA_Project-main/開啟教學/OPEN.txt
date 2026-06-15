@@ -1,0 +1,34 @@
+系統管理員執行VS 記得開DOCKER
+1.
+D:\RWA_Project\blockchain 執行：npx hardhat node
+
+2. 
+D:\RWA_Project\blockchain 執行：
+npx hardhat run scripts/genesis.cjs --network localhost
+npx hardhat run scripts/unpause.cjs --network localhost
+重要： 部署完後，一定要檢查輸出的 TOKEN_ADDR 是否有變，如果有變，記得去更新unpause.cjs(tokenAddress)跟rwa-backend/.env。
+
+3. 啟動後端與資料庫
+D:\RWA_Project\rwa-backend 執行：
+docker-compose up -d
+npm run start:dev
+
+4.
+代幣資料
+http://localhost:2000/api/metadata
+傳送代幣
+http://localhost:2000/api/test-transfer
+
+5.查data有沒有進來資料庫
+docker exec -it rwa_project-db-1 psql -U user -d rwa_db
+
+SELECT 
+    id, 
+    "txHash", 
+    "toAddress", 
+    "fromAddress", 
+    amount, 
+    "executionTimeMs", 
+    "createdAt" 
+FROM rwa_transaction 
+ORDER BY id DESC LIMIT 1;

@@ -1,0 +1,6 @@
+[
+  { "id": "U001", "name": "翁國祥", "email": "weng@rwa.com", "status": "Whitelisted", "txStatus": "正常", "joined": "2026-04-20" },
+  { "id": "U002", "name": "李小華", "email": "hua.lee@bank.tw", "status": "Whitelisted", "txStatus": "正常", "joined": "2026-04-22" },
+  { "id": "U003", "name": "張大同", "email": "datong@gmail.com", "status": "Blacklisted", "txStatus": "無法交易", "joined": "2026-03-15" },
+  { "id": "U004", "name": "王美麗", "email": "beauty@rwa-asia.com", "status": "Whitelisted", "txStatus": "交易異常", "joined": "2026-04-25" }
+]

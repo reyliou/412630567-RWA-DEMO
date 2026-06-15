@@ -1,0 +1,14 @@
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: rwa_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - rwa_db_data:/var/lib/postgresql/data  # 這裡是名字，不是路徑
+
+volumes:
+  rwa_db_data:  # 在最下面宣告這個名字

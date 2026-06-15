@@ -1,0 +1,71 @@
+import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
+
+import { Role } from './entities/role.entity';
+import { User } from './entities/user.entity';
+import { Property } from './entities/property.entity';
+import { AppTransaction } from './entities/app-transaction.entity';
+import { UserHolding } from './entities/user-holdings.entity';
+import { UserNotification } from './entities/notification.entity';
+import { SystemAlert } from './entities/system-alert.entity';
+import { CrawlerMetrics } from './entities/crawler-metrics.entity';
+import { BankTrustAccount } from './entities/bank-trust.entity';
+import { ValuationLog } from './entities/valuation-log.entity';
+import { RwaTransaction } from './transaction.entity';
+import { BlockchainConfig } from './entities/blockchain-config.entity';
+
+import { AuthModule } from './auth/auth.module';
+import { SystemModule } from './system/system.module';
+import { PropertiesModule } from './properties/properties.module';
+import { TransactionsModule } from './transactions/transactions.module';
+import { UsersModule } from './users/users.module';
+import { PortfolioModule } from './portfolio/portfolio.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { BlockchainModule } from './blockchain/blockchain.module';
+import { SeedModule } from './seed/seed.module';
+
+@Module({
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
+    TypeOrmModule.forRoot({
+      type: 'postgres',
+      host: process.env.DB_HOST || 'localhost',
+      port: parseInt(process.env.DB_PORT || '5433'),
+      username: process.env.DB_USERNAME || 'user',
+      password: process.env.DB_PASSWORD || 'password',
+      database: process.env.DB_NAME || 'rwa_db',
+      entities: [
+        Role,
+        User,
+        Property,
+        AppTransaction,
+        UserHolding,
+        UserNotification,
+        SystemAlert,
+        CrawlerMetrics,
+        BankTrustAccount,
+        ValuationLog,
+        RwaTransaction,
+        BlockchainConfig,
+      ],
+      synchronize: true,
+    }),
+    AuthModule,
+    SystemModule,
+    PropertiesModule,
+    TransactionsModule,
+    UsersModule,
+    PortfolioModule,
+    NotificationsModule,
+    BlockchainModule,
+    SeedModule,
+  ],
+  providers: [
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+  ],
+})
+export class AppModule {}
