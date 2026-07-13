@@ -1,4 +1,5 @@
-import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 
@@ -14,7 +15,11 @@ export class AuthController {
   }
 
   @Post('register')
-  register(@Body() body: { username: string; email: string; phone_number: string; password: string }) {
-    return this.authService.register(body.username, body.email, body.phone_number, body.password);
+  @UseInterceptors(FileInterceptor('kyc_document'))
+  register(
+    @Body() body: any,
+    @UploadedFile() file?: Express.Multer.File
+  ) {
+    return this.authService.register(body.username, body.email, body.phone_number, body.password, file);
   }
 }

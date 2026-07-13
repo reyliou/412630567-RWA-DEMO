@@ -24,6 +24,8 @@ export function AuthView({ onLogin }: AuthViewProps) {
   const [regPhone, setRegPhone] = useState("");
   const [regPassword, setRegPassword] = useState("");
   const [regConfirmPassword, setRegConfirmPassword] = useState("");
+  const [kycFileFront, setKycFileFront] = useState<File | null>(null);
+  const [kycFileBack, setKycFileBack] = useState<File | null>(null);
 
   const handleStep1Next = () => {
     // 檢查必填欄位
@@ -49,18 +51,23 @@ export function AuthView({ onLogin }: AuthViewProps) {
   };
 
   const handleKycUpload = async () => {
+    if (!kycFileFront || !kycFileBack) {
+      alert("請完整上傳身分證正反面照片！");
+      return;
+    }
     setIsUploading(true);
     try {
+      const formData = new FormData();
+      formData.append("username", regName);
+      formData.append("email", regEmail);
+      formData.append("phone_number", regPhone);
+      formData.append("password", regPassword);
+      formData.append("kyc_document", kycFileFront); // Demo: 只傳正面，後端目前只收一張
+
       // 呼叫後端真正的註冊 API
       const response = await fetch(`${API_BASE_URL}/api/register`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: regName,
-          email: regEmail,
-          phone_number: regPhone,
-          password: regPassword
-        })
+        body: formData
       });
 
       const data = await response.json();
@@ -238,14 +245,28 @@ export function AuthView({ onLogin }: AuthViewProps) {
               <div className="space-y-6 animate-in fade-in">
                 <div className="text-center"><h3 className="text-3xl font-black text-slate-800">證件影像上傳</h3><p className="text-xs text-slate-400 mt-2 font-bold uppercase tracking-widest">Step 2: ID Verification</p></div>
                 <div className="grid grid-cols-2 gap-6">
-                  <div className="aspect-square bg-slate-50 border-2 border-dashed border-slate-200 rounded-[2.5rem] flex flex-col items-center justify-center p-6 group hover:bg-blue-50 cursor-pointer transition-all">
-                    <div className="w-16 h-14 bg-white rounded-2xl flex items-center justify-center shadow-sm mb-4 group-hover:scale-110 transition-transform"><FileText className="w-8 h-8 text-blue-500" /></div>
-                    <span className="text-[10px] font-black text-slate-800">身分證正面</span><span className="text-[8px] font-bold text-blue-400 uppercase mt-1">.JPG ONLY</span>
-                  </div>
-                  <div className="aspect-square bg-slate-50 border-2 border-dashed border-slate-200 rounded-[2.5rem] flex flex-col items-center justify-center p-6 group hover:bg-blue-50 cursor-pointer transition-all">
-                    <div className="w-16 h-14 bg-white rounded-2xl flex items-center justify-center shadow-sm mb-4 group-hover:scale-110 transition-transform"><FileText className="w-8 h-8 text-blue-500" /></div>
-                    <span className="text-[10px] font-black text-slate-800">身分證背面</span><span className="text-[8px] font-bold text-blue-400 uppercase mt-1">.JPG ONLY</span>
-                  </div>
+                  <label className="relative aspect-square bg-slate-50 border-2 border-dashed border-slate-200 rounded-[2.5rem] flex flex-col items-center justify-center p-6 group hover:bg-blue-50 cursor-pointer transition-all overflow-hidden">
+                    <input type="file" accept=".jpg,.jpeg" onChange={(e) => { if(e.target.files && e.target.files[0]) setKycFileFront(e.target.files[0]) }} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
+                    {kycFileFront ? (
+                      <div className="text-center"><CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-2" /><span className="text-xs font-bold text-slate-700">{kycFileFront.name}</span></div>
+                    ) : (
+                      <>
+                        <div className="w-16 h-14 bg-white rounded-2xl flex items-center justify-center shadow-sm mb-4 group-hover:scale-110 transition-transform"><FileText className="w-8 h-8 text-blue-500" /></div>
+                        <span className="text-[10px] font-black text-slate-800">身分證正面</span><span className="text-[8px] font-bold text-blue-400 uppercase mt-1">.JPG ONLY</span>
+                      </>
+                    )}
+                  </label>
+                  <label className="relative aspect-square bg-slate-50 border-2 border-dashed border-slate-200 rounded-[2.5rem] flex flex-col items-center justify-center p-6 group hover:bg-blue-50 cursor-pointer transition-all overflow-hidden">
+                    <input type="file" accept=".jpg,.jpeg" onChange={(e) => { if(e.target.files && e.target.files[0]) setKycFileBack(e.target.files[0]) }} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
+                    {kycFileBack ? (
+                      <div className="text-center"><CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-2" /><span className="text-xs font-bold text-slate-700">{kycFileBack.name}</span></div>
+                    ) : (
+                      <>
+                        <div className="w-16 h-14 bg-white rounded-2xl flex items-center justify-center shadow-sm mb-4 group-hover:scale-110 transition-transform"><FileText className="w-8 h-8 text-blue-500" /></div>
+                        <span className="text-[10px] font-black text-slate-800">身分證背面</span><span className="text-[8px] font-bold text-blue-400 uppercase mt-1">.JPG ONLY</span>
+                      </>
+                    )}
+                  </label>
                 </div>
                 <button onClick={handleKycUpload} disabled={isUploading} className="w-full py-6 bg-blue-600 text-white rounded-3xl font-black text-xl flex items-center justify-center gap-3 shadow-xl shadow-blue-200 disabled:opacity-50">
                   {isUploading ? <Loader2 className="w-7 h-7 animate-spin" /> : <Upload className="w-6 h-6" />}

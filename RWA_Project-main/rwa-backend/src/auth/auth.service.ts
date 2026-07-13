@@ -4,16 +4,24 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ethers } from 'ethers';
 import * as bcrypt from 'bcryptjs';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { User } from '../entities/user.entity';
 import { Role } from '../entities/role.entity';
 
 @Injectable()
 export class AuthService {
+  private supabase: SupabaseClient;
+
   constructor(
     @InjectRepository(User) private userRepo: Repository<User>,
     @InjectRepository(Role) private roleRepo: Repository<Role>,
     private jwtService: JwtService,
-  ) {}
+  ) {
+    this.supabase = createClient(
+      process.env.SUPABASE_URL || 'https://uowremtggfpoxxruiccw.supabase.co',
+      process.env.SUPABASE_SERVICE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvd3JlbXRnZ2Zwb3h4cnVpY2N3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDIzNDUxOSwiZXhwIjoyMDk1ODEwNTE5fQ.RWruURweqRN0eu_24mBLm6TArDwu73wMTYIB52vV3Qw'
+    );
+  }
 
   async login(username: string, password: string) {
     const user = await this.userRepo
@@ -39,7 +47,7 @@ export class AuthService {
     };
   }
 
-  async register(username: string, email: string, phone_number: string, password: string) {
+  async register(username: string, email: string, phone_number: string, password: string, file?: Express.Multer.File) {
     const exists = await this.userRepo.findOne({
       where: [{ username }, { email }],
     });
@@ -51,6 +59,22 @@ export class AuthService {
     const wallet = ethers.Wallet.createRandom();
     const passwordHash = await bcrypt.hash(password, 10);
 
+    let kyc_document_path = null;
+    if (file) {
+      const fileName = `kyc_${username}_${Date.now()}.jpg`;
+      const { data, error } = await this.supabase.storage
+        .from('kyc-documents')
+        .upload(fileName, file.buffer, {
+          contentType: file.mimetype,
+        });
+      
+      if (error) {
+        console.error("KYC Upload Error:", error);
+        throw new Error('KYC 圖片上傳失敗: ' + error.message);
+      }
+      kyc_document_path = data.path;
+    }
+
     const user = await this.userRepo.save({
       username,
       email,
@@ -60,6 +84,7 @@ export class AuthService {
       is_whitelisted: false,
       is_email_verified: false,
       kyc_status: 'PENDING',
+      kyc_document_path,
       total_asset_value: 0,
       total_profit_loss: 0,
       wallet_address: wallet.address,
