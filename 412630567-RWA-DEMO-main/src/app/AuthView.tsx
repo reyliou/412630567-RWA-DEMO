@@ -23,11 +23,19 @@ export function AuthView({ onLogin }: AuthViewProps) {
   const [regEmail, setRegEmail] = useState("");
   const [regPhone, setRegPhone] = useState("");
   const [regPassword, setRegPassword] = useState("");
+  const [regConfirmPassword, setRegConfirmPassword] = useState("");
 
   const handleKycUpload = async () => {
     // 檢查必填欄位
-    if (!regName || !regEmail || !regPhone || !regPassword) {
+    if (!regName || !regEmail || !regPhone || !regPassword || !regConfirmPassword) {
       alert("請先完成第一步的所有欄位填寫！");
+      setKycStep(1);
+      return;
+    }
+    
+    // 檢查密碼是否一致
+    if (regPassword !== regConfirmPassword) {
+      alert("兩次輸入的密碼不一致，請重新確認！");
       setKycStep(1);
       return;
     }
@@ -209,9 +217,15 @@ export function AuthView({ onLogin }: AuthViewProps) {
                       <input type="tel" placeholder="手機號碼 (09...)" value={regPhone} onChange={e => setRegPhone(e.target.value)} className="w-full pl-14 pr-6 py-5 bg-slate-50 border border-slate-100 rounded-3xl outline-none focus:ring-2 focus:ring-blue-600/20 font-bold" />
                     </div>
                   </div>
-                  <div className="relative">
-                    <Lock className="absolute left-5 top-5 w-5 h-5 text-slate-300" />
-                    <input type="password" placeholder="設定密碼" value={regPassword} onChange={e => setRegPassword(e.target.value)} className="w-full pl-14 pr-6 py-5 bg-slate-50 border border-slate-100 rounded-3xl outline-none focus:ring-2 focus:ring-blue-600/20 font-bold" />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="relative">
+                      <Lock className="absolute left-5 top-5 w-5 h-5 text-slate-300" />
+                      <input type="password" placeholder="設定密碼" value={regPassword} onChange={e => setRegPassword(e.target.value)} className="w-full pl-14 pr-6 py-5 bg-slate-50 border border-slate-100 rounded-3xl outline-none focus:ring-2 focus:ring-blue-600/20 font-bold" />
+                    </div>
+                    <div className="relative">
+                      <Lock className="absolute left-5 top-5 w-5 h-5 text-slate-300" />
+                      <input type="password" placeholder="確認密碼" value={regConfirmPassword} onChange={e => setRegConfirmPassword(e.target.value)} className="w-full pl-14 pr-6 py-5 bg-slate-50 border border-slate-100 rounded-3xl outline-none focus:ring-2 focus:ring-blue-600/20 font-bold" />
+                    </div>
                   </div>
                 </div>
                 <button onClick={() => setKycStep(2)} className="w-full py-6 bg-blue-600 text-white rounded-3xl font-black text-xl shadow-xl shadow-blue-200 mt-4 uppercase">下一步: 證件上傳</button>
