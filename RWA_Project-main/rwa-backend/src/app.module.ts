@@ -53,6 +53,7 @@ import { SeedModule } from './seed/seed.module';
         BlockchainConfig,
       ],
       synchronize: true,
+      ssl: process.env.DB_HOST !== 'localhost' ? { rejectUnauthorized: false } : false,
     }),
     AuthModule,
     SystemModule,
