@@ -33,7 +33,7 @@ import { SeedModule } from './seed/seed.module';
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
     TypeOrmModule.forRoot({
       type: 'postgres',
-      url: process.env.DATABASE_URL,
+      url: process.env.DATABASE_URL || 'postgresql://postgres.uowremtggfpoxxruiccw:newsun87S6202963@aws-1-ap-southeast-2.pooler.supabase.com:6543/postgres?pgbouncer=true',
       host: process.env.DATABASE_URL ? undefined : (process.env.DB_HOST || 'localhost'),
       port: process.env.DATABASE_URL ? undefined : parseInt(process.env.DB_PORT || '5433'),
       username: process.env.DATABASE_URL ? undefined : (process.env.DB_USERNAME || 'user'),
