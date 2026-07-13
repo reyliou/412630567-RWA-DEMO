@@ -12,13 +12,7 @@ env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'server', '.
 load_dotenv(env_path)
 
 # 資料庫連線設定 (改用環境變數，解決密碼明文問題)
-DB_CONFIG = {
-    "dbname": os.environ.get("DB_DATABASE", "postgres"),
-    "user": os.environ.get("DB_USER", "postgres.uowremtggfpoxxruiccw"),
-    "password": os.environ.get("DB_PASSWORD", ""),
-    "host": os.environ.get("DB_HOST", "aws-1-ap-southeast-2.pooler.supabase.com"),
-    "port": os.environ.get("DB_PORT", "6543")
-}
+DB_CONNECTION_STRING = os.environ.get("DATABASE_URL", "postgresql://postgres.uowremtggfpoxxruiccw:newsun87S6202963@aws-1-ap-southeast-2.pooler.supabase.com:6543/postgres?pgbouncer=true")
 
 # 這裡是本地開發用的，部署後會失效，所以我們優先用 SQL 寫入
 REPORT_URL_LOCAL = "http://localhost:3001/api/system/crawler-report"
@@ -117,8 +111,8 @@ async def crawl_property(page, url):
     }
 
 async def run_crawler():
-    print(f"📡 正在連線至雲端資料庫: {DB_CONFIG['host']}...")
-    conn = psycopg2.connect(**DB_CONFIG)
+    print(f"📡 正在連線至雲端資料庫...")
+    conn = psycopg2.connect(DB_CONNECTION_STRING)
     cur = conn.cursor()
     
     total_integrity = 0
