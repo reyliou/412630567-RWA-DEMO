@@ -59,7 +59,7 @@ export class AuthService {
     const wallet = ethers.Wallet.createRandom();
     const passwordHash = await bcrypt.hash(password, 10);
 
-    let kyc_document_path = null;
+    let kyc_document_path: string | undefined = undefined;
     if (file) {
       const fileName = `kyc_${username}_${Date.now()}.jpg`;
       const { data, error } = await this.supabase.storage
