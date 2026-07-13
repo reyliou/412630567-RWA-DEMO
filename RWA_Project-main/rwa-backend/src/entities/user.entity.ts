@@ -12,6 +12,12 @@ export class User {
   @Column({ unique: true, nullable: true })
   email: string;
 
+  @Column({ nullable: true })
+  phone_number: string;
+
+  @Column({ default: false })
+  is_email_verified: boolean;
+
   @Column()
   password_hash: string;
 
@@ -23,6 +29,18 @@ export class User {
 
   @Column({ default: 'PENDING' })
   kyc_status: string;
+
+  @Column({ nullable: true })
+  kyc_document_path: string;
+
+  @Column({ nullable: true })
+  kyc_reviewed_by: number;
+
+  @Column({ nullable: true })
+  kyc_reviewed_at: Date;
+
+  @Column({ nullable: true })
+  onchain_id_address: string;
 
   @Column({ type: 'numeric', nullable: true, default: 0 })
   total_asset_value: number;

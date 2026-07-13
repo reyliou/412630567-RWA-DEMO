@@ -39,7 +39,7 @@ export class AuthService {
     };
   }
 
-  async register(username: string, email: string, password: string) {
+  async register(username: string, email: string, phone_number: string, password: string) {
     const exists = await this.userRepo.findOne({
       where: [{ username }, { email }],
     });
@@ -54,9 +54,11 @@ export class AuthService {
     const user = await this.userRepo.save({
       username,
       email,
+      phone_number,
       password_hash: passwordHash,
       role_id: investorRole.id,
       is_whitelisted: false,
+      is_email_verified: false,
       kyc_status: 'PENDING',
       total_asset_value: 0,
       total_profit_loss: 0,

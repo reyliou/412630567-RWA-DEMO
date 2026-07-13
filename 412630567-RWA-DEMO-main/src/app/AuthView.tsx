@@ -22,6 +22,10 @@ export function AuthView({ onLogin }: AuthViewProps) {
   // 註冊狀態
   const [resendCooldown, setResendCooldown] = useState(0);
   const [isResending, setIsResending] = useState(false);
+  const [regName, setRegName] = useState("");
+  const [regEmail, setRegEmail] = useState("");
+  const [regPhone, setRegPhone] = useState("");
+  const [regPassword, setRegPassword] = useState("");
 
   useEffect(() => {
     let timer: any;
@@ -33,12 +37,46 @@ export function AuthView({ onLogin }: AuthViewProps) {
     return () => clearInterval(timer);
   }, [resendCooldown]);
 
-  const handleKycUpload = () => {
+  const handleKycUpload = async () => {
+    // 檢查必填欄位
+    if (!regName || !regEmail || !regPhone || !regPassword) {
+      alert("請先完成第一步的所有欄位填寫！");
+      setKycStep(1);
+      return;
+    }
+    
+    // 手機號碼格式驗證 (09開頭，共10碼)
+    if (!/^09\d{8}$/.test(regPhone)) {
+      alert("手機號碼格式錯誤，請輸入 09 開頭的 10 碼數字");
+      setKycStep(1);
+      return;
+    }
+
     setIsUploading(true);
-    setTimeout(() => {
+    try {
+      // 呼叫後端真正的註冊 API
+      const response = await fetch(`${API_BASE_URL}/api/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: regName,
+          email: regEmail,
+          phone_number: regPhone,
+          password: regPassword
+        })
+      });
+
+      const data = await response.json();
+      if (response.ok && data.success) {
+        setKycStep(3); // 成功進入最後一環
+      } else {
+        alert("註冊失敗: " + (data.message || "發生未知錯誤"));
+      }
+    } catch (e) {
+      alert("連線後端 API 失敗，請確認已執行 npm run start:all");
+    } finally {
       setIsUploading(false);
-      setKycStep(3);
-    }, 2000);
+    }
   };
 
   const handleResendEmail = () => {
@@ -176,12 +214,24 @@ export function AuthView({ onLogin }: AuthViewProps) {
               <div className="space-y-6 animate-in fade-in">
                 <div className="text-center"><h3 className="text-3xl font-black text-slate-800 tracking-tight">建立個人帳戶</h3><p className="text-xs text-slate-400 mt-2 font-bold uppercase tracking-widest">Step 1: Account Info</p></div>
                 <div className="grid grid-cols-1 gap-4">
-                  <div className="relative"><User className="absolute left-5 top-5 w-5 h-5 text-slate-300" /><input type="text" placeholder="真實姓名" className="w-full pl-14 pr-6 py-5 bg-slate-50 border border-slate-100 rounded-3xl outline-none focus:ring-2 focus:ring-blue-600/20 font-bold" /></div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="relative"><Mail className="absolute left-5 top-5 w-5 h-5 text-slate-300" /><input type="email" placeholder="電子郵件" className="w-full pl-14 pr-6 py-5 bg-slate-50 border border-slate-100 rounded-3xl outline-none focus:ring-2 focus:ring-blue-600/20 font-bold" /></div>
-                    <div className="relative"><Phone className="absolute left-5 top-5 w-5 h-5 text-slate-300" /><input type="tel" placeholder="手機號碼" className="w-full pl-14 pr-6 py-5 bg-slate-50 border border-slate-100 rounded-3xl outline-none focus:ring-2 focus:ring-blue-600/20 font-bold" /></div>
+                  <div className="relative">
+                    <User className="absolute left-5 top-5 w-5 h-5 text-slate-300" />
+                    <input type="text" placeholder="真實姓名 (作為登入帳號)" value={regName} onChange={e => setRegName(e.target.value)} className="w-full pl-14 pr-6 py-5 bg-slate-50 border border-slate-100 rounded-3xl outline-none focus:ring-2 focus:ring-blue-600/20 font-bold" />
                   </div>
-                  <div className="relative"><Lock className="absolute left-5 top-5 w-5 h-5 text-slate-300" /><input type="password" placeholder="設定密碼" className="w-full pl-14 pr-6 py-5 bg-slate-50 border border-slate-100 rounded-3xl outline-none focus:ring-2 focus:ring-blue-600/20 font-bold" /></div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="relative">
+                      <Mail className="absolute left-5 top-5 w-5 h-5 text-slate-300" />
+                      <input type="email" placeholder="電子郵件" value={regEmail} onChange={e => setRegEmail(e.target.value)} className="w-full pl-14 pr-6 py-5 bg-slate-50 border border-slate-100 rounded-3xl outline-none focus:ring-2 focus:ring-blue-600/20 font-bold" />
+                    </div>
+                    <div className="relative">
+                      <Phone className="absolute left-5 top-5 w-5 h-5 text-slate-300" />
+                      <input type="tel" placeholder="手機號碼 (09...)" value={regPhone} onChange={e => setRegPhone(e.target.value)} className="w-full pl-14 pr-6 py-5 bg-slate-50 border border-slate-100 rounded-3xl outline-none focus:ring-2 focus:ring-blue-600/20 font-bold" />
+                    </div>
+                  </div>
+                  <div className="relative">
+                    <Lock className="absolute left-5 top-5 w-5 h-5 text-slate-300" />
+                    <input type="password" placeholder="設定密碼" value={regPassword} onChange={e => setRegPassword(e.target.value)} className="w-full pl-14 pr-6 py-5 bg-slate-50 border border-slate-100 rounded-3xl outline-none focus:ring-2 focus:ring-blue-600/20 font-bold" />
+                  </div>
                 </div>
                 <button onClick={() => setKycStep(2)} className="w-full py-6 bg-blue-600 text-white rounded-3xl font-black text-xl shadow-xl shadow-blue-200 mt-4 uppercase">下一步: 證件上傳</button>
               </div>
