@@ -5,6 +5,6 @@ export class Role {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ unique: true })
+  @Column({ unique: true, nullable: true })
   role_name: string;
 }
