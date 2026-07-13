@@ -25,28 +25,30 @@ export function AuthView({ onLogin }: AuthViewProps) {
   const [regPassword, setRegPassword] = useState("");
   const [regConfirmPassword, setRegConfirmPassword] = useState("");
 
-  const handleKycUpload = async () => {
+  const handleStep1Next = () => {
     // 檢查必填欄位
     if (!regName || !regEmail || !regPhone || !regPassword || !regConfirmPassword) {
       alert("請先完成第一步的所有欄位填寫！");
-      setKycStep(1);
       return;
     }
     
     // 檢查密碼是否一致
     if (regPassword !== regConfirmPassword) {
       alert("兩次輸入的密碼不一致，請重新確認！");
-      setKycStep(1);
       return;
     }
     
     // 手機號碼格式驗證 (09開頭，共10碼)
     if (!/^09\d{8}$/.test(regPhone)) {
       alert("手機號碼格式錯誤，請輸入 09 開頭的 10 碼數字");
-      setKycStep(1);
       return;
     }
 
+    // 都通過了才進入第二步
+    setKycStep(2);
+  };
+
+  const handleKycUpload = async () => {
     setIsUploading(true);
     try {
       // 呼叫後端真正的註冊 API
@@ -228,7 +230,7 @@ export function AuthView({ onLogin }: AuthViewProps) {
                     </div>
                   </div>
                 </div>
-                <button onClick={() => setKycStep(2)} className="w-full py-6 bg-blue-600 text-white rounded-3xl font-black text-xl shadow-xl shadow-blue-200 mt-4 uppercase">下一步: 證件上傳</button>
+                <button onClick={handleStep1Next} className="w-full py-6 bg-blue-600 text-white rounded-3xl font-black text-xl shadow-xl shadow-blue-200 mt-4 uppercase">下一步: 證件上傳</button>
               </div>
             )}
 
