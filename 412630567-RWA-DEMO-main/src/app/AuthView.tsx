@@ -19,23 +19,10 @@ export function AuthView({ onLogin }: AuthViewProps) {
   const [password, setPassword] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  // 註冊狀態
-  const [resendCooldown, setResendCooldown] = useState(0);
-  const [isResending, setIsResending] = useState(false);
   const [regName, setRegName] = useState("");
   const [regEmail, setRegEmail] = useState("");
   const [regPhone, setRegPhone] = useState("");
   const [regPassword, setRegPassword] = useState("");
-
-  useEffect(() => {
-    let timer: any;
-    if (resendCooldown > 0) {
-      timer = setInterval(() => {
-        setResendCooldown((prev) => prev - 1);
-      }, 1000);
-    }
-    return () => clearInterval(timer);
-  }, [resendCooldown]);
 
   const handleKycUpload = async () => {
     // 檢查必填欄位
@@ -79,13 +66,7 @@ export function AuthView({ onLogin }: AuthViewProps) {
     }
   };
 
-  const handleResendEmail = () => {
-    setIsResending(true);
-    setTimeout(() => {
-      setIsResending(false);
-      setResendCooldown(60);
-    }, 1500);
-  };
+
 
   // 核心：修正後的登入權限處理
   const handleManualLogin = async (e: React.FormEvent) => {
