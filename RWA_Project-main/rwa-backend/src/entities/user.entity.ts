@@ -6,7 +6,7 @@ export class User {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ unique: true })
+  @Column({ unique: true, nullable: true })
   username: string;
 
   @Column({ unique: true, nullable: true })
@@ -18,7 +18,7 @@ export class User {
   @Column({ default: false })
   is_email_verified: boolean;
 
-  @Column()
+  @Column({ nullable: true })
   password_hash: string;
 
   @Column({ default: 1 })
