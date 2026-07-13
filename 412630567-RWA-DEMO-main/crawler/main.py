@@ -2,8 +2,11 @@ import asyncio
 import json
 import os
 import re
+import sys
 import psycopg2
 import requests
+
+sys.stdout.reconfigure(encoding='utf-8')
 from playwright.async_api import async_playwright
 from dotenv import load_dotenv
 
@@ -12,7 +15,8 @@ env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'server', '.
 load_dotenv(env_path)
 
 # 資料庫連線設定 (改用環境變數，解決密碼明文問題)
-DB_CONNECTION_STRING = os.environ.get("DATABASE_URL", "postgresql://postgres.uowremtggfpoxxruiccw:newsun87S6202963@aws-1-ap-southeast-2.pooler.supabase.com:6543/postgres?pgbouncer=true")
+raw_url = os.environ.get("DATABASE_URL", "postgresql://postgres.uowremtggfpoxxruiccw:newsun87S6202963@aws-1-ap-southeast-2.pooler.supabase.com:6543/postgres?pgbouncer=true")
+DB_CONNECTION_STRING = raw_url.split('?')[0]
 
 # 這裡是本地開發用的，部署後會失效，所以我們優先用 SQL 寫入
 REPORT_URL_LOCAL = "http://localhost:3001/api/system/crawler-report"
