@@ -42,6 +42,9 @@ export function PropertyOversightCard() {
     try {
       const res = await apiFetch(`/api/properties/${mainProperty.id}/payout`, {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
         body: JSON.stringify({ amount: rentAmount }),
       });
       if (res.ok) {
