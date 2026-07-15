@@ -7,6 +7,8 @@ import { RentPayoutBatch } from '../entities/rent-payout-batch.entity';
 import { RentPayoutDetail } from '../entities/rent-payout-detail.entity';
 import { UserHolding } from '../entities/user-holdings.entity';
 import { User } from '../entities/user.entity';
+import { BankTrustAccount } from '../entities/bank-trust.entity';
+import { BankTrustTransaction } from '../entities/bank-trust-transaction.entity';
 
 @Injectable()
 export class PropertiesService {
@@ -23,6 +25,10 @@ export class PropertiesService {
     private holdingRepo: Repository<UserHolding>,
     @InjectRepository(User)
     private userRepo: Repository<User>,
+    @InjectRepository(BankTrustAccount)
+    private trustAccountRepo: Repository<BankTrustAccount>,
+    @InjectRepository(BankTrustTransaction)
+    private trustTxRepo: Repository<BankTrustTransaction>,
   ) {}
 
   findAll() {
@@ -75,6 +81,23 @@ export class PropertiesService {
 
     // 4. Complete the batch
     await this.batchRepo.update(batch.id, { status: 'COMPLETED' });
+
+    // 5. Update Bank Trust Account and Record Transaction
+    const trustAccount = await this.trustAccountRepo.findOne({ where: { property_id: propertyId } });
+    if (trustAccount) {
+      // Deduct pending rent and cash balance
+      trustAccount.pending_rent_amount = Math.max(0, Number(trustAccount.pending_rent_amount) - totalRent);
+      trustAccount.current_cash_balance = Math.max(0, Number(trustAccount.current_cash_balance) - totalRent);
+      await this.trustAccountRepo.save(trustAccount);
+
+      // Record the transaction
+      await this.trustTxRepo.save({
+        trust_account_id: trustAccount.id,
+        tx_type: 'PAYOUT_DEDUCTION',
+        amount: totalRent,
+        reference_note: `Rent payout for batch #${batch.id}`
+      });
+    }
 
     return {
       success: true,

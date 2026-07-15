@@ -8,9 +8,11 @@ import { RentPayoutBatch } from '../entities/rent-payout-batch.entity';
 import { RentPayoutDetail } from '../entities/rent-payout-detail.entity';
 import { UserHolding } from '../entities/user-holdings.entity';
 import { User } from '../entities/user.entity';
+import { BankTrustAccount } from '../entities/bank-trust.entity';
+import { BankTrustTransaction } from '../entities/bank-trust-transaction.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Property, ValuationLog, RentPayoutBatch, RentPayoutDetail, UserHolding, User])],
+  imports: [TypeOrmModule.forFeature([Property, ValuationLog, RentPayoutBatch, RentPayoutDetail, UserHolding, User, BankTrustAccount, BankTrustTransaction])],
   controllers: [PropertiesController],
   providers: [PropertiesService],
 })
