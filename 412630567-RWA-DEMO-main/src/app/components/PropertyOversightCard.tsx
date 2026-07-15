@@ -27,12 +27,38 @@ export function PropertyOversightCard() {
     fetchOversight();
   }, []);
 
-  const handleSendRent = () => {
+  const handleSendRent = async () => {
+    if (!mainProperty || !mainProperty.id) {
+      alert("請選擇有效的資產");
+      return;
+    }
+    const rentAmount = parseFloat(mainProperty.pending_rent_amount || 0);
+    if (rentAmount <= 0) {
+      alert("目前沒有待發放的租金！");
+      return;
+    }
+
     setIsSending(true);
-    setTimeout(() => {
+    try {
+      const res = await apiFetch(`/api/properties/${mainProperty.id}/payout`, {
+        method: "POST",
+        body: JSON.stringify({ amount: rentAmount }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        alert(`租金已成功發放！總共派發了 ${data.total_distributed} 元給 ${data.recipients_count} 位持倉投資人！`);
+        // Refresh oversight data
+        const refresh = await apiFetch(`/api/oversight`);
+        if (refresh.ok) setData(await refresh.json());
+      } else {
+        alert("派發失敗，請確認伺服器狀態。");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("發生錯誤");
+    } finally {
       setIsSending(false);
-      alert("租金已成功透過資料庫邏輯結算，並發放給所有持倉投資人！");
-    }, 2000);
+    }
   };
 
   const handleUpdatePeriod = () => {

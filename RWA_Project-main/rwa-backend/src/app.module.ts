@@ -12,6 +12,8 @@ import { UserHolding } from './entities/user-holdings.entity';
 import { UserNotification } from './entities/notification.entity';
 import { SystemAlert } from './entities/system-alert.entity';
 import { CrawlerMetrics } from './entities/crawler-metrics.entity';
+import { RentPayoutBatch } from './entities/rent-payout-batch.entity';
+import { RentPayoutDetail } from './entities/rent-payout-detail.entity';
 import { BankTrustAccount } from './entities/bank-trust.entity';
 import { ValuationLog } from './entities/valuation-log.entity';
 import { RwaTransaction } from './transaction.entity';
@@ -48,6 +50,8 @@ import { SeedModule } from './seed/seed.module';
         UserNotification,
         SystemAlert,
         CrawlerMetrics,
+        RentPayoutBatch,
+        RentPayoutDetail,
         BankTrustAccount,
         ValuationLog,
         RwaTransaction,
