@@ -59,32 +59,45 @@ export function KLineChart({ currentPrice, dataLogs }: KLineChartProps) {
       return;
     }
 
-    // 2. 生成擬真的 K 線資料 (OHLC)
+    // 2. 轉換資料庫的歷史估價 (valuation_logs) 為 K 線資料 (OHLC)
     const generateData = () => {
-      const data = [];
-      let basePrice = currentPrice * 0.9;
-      const now = new Date();
-      now.setHours(0, 0, 0, 0);
+      if (dataLogs && dataLogs.length > 0) {
+        // 使用真實資料庫的 valuation_logs 轉換
+        // 將紀錄按日期分組以計算 OHLC (雖然房產通常一天只有一個估值)
+        const dailyData = new Map<string, { open: number; high: number; low: number; close: number }>();
+        
+        dataLogs.forEach(log => {
+          // 確保 date 格式是 YYYY-MM-DD
+          const dateStr = new Date(log.recorded_at).toISOString().split('T')[0];
+          const val = Number(log.value);
+          
+          if (!dailyData.has(dateStr)) {
+            dailyData.set(dateStr, { open: val, high: val, low: val, close: val });
+          } else {
+            const current = dailyData.get(dateStr)!;
+            current.high = Math.max(current.high, val);
+            current.low = Math.min(current.low, val);
+            current.close = val; // 最後一筆為收盤
+          }
+        });
 
-      for (let i = 60; i >= 0; i--) {
-        const time = new Date(now.getTime() - i * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-        const volatility = basePrice * 0.02; 
-        const open = basePrice + (Math.random() - 0.5) * volatility;
-        const close = open + (Math.random() - 0.5) * volatility;
-        const high = Math.max(open, close) + Math.random() * volatility * 0.5;
-        const low = Math.min(open, close) - Math.random() * volatility * 0.5;
+        // 轉換 Map 為陣列並按日期排序
+        const sortedData = Array.from(dailyData.entries())
+          .map(([time, prices]) => ({ time, ...prices }))
+          .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+          
+        return sortedData;
+      }
 
-        data.push({ time, open, high, low, close });
-        basePrice = close + (currentPrice - close) * 0.1; 
-      }
-      
-      if (data.length > 0) {
-          const last = data[data.length - 1];
-          last.close = currentPrice;
-          if(last.close > last.high) last.high = currentPrice;
-          if(last.close < last.low) last.low = currentPrice;
-      }
-      return data;
+      // 如果資料庫真的完全沒有歷史紀錄，只顯示最新價格的單一蠟燭圖
+      const today = new Date().toISOString().split('T')[0];
+      return [{
+        time: today,
+        open: currentPrice,
+        high: currentPrice,
+        low: currentPrice,
+        close: currentPrice
+      }];
     };
 
     try {
