@@ -9,6 +9,7 @@ import { UserHolding } from '../entities/user-holdings.entity';
 import { User } from '../entities/user.entity';
 import { BankTrustAccount } from '../entities/bank-trust.entity';
 import { BankTrustTransaction } from '../entities/bank-trust-transaction.entity';
+import { BlockchainService } from '../blockchain/blockchain.service';
 
 @Injectable()
 export class PropertiesService {
@@ -29,6 +30,7 @@ export class PropertiesService {
     private trustAccountRepo: Repository<BankTrustAccount>,
     @InjectRepository(BankTrustTransaction)
     private trustTxRepo: Repository<BankTrustTransaction>,
+    private blockchainService: BlockchainService,
   ) {}
 
   findAll() {
@@ -62,16 +64,29 @@ export class PropertiesService {
     let processedDetails: any[] = [];
     for (const holding of holdings) {
       if (Number(holding.balance) <= 0) continue;
-      
+
       const holdingPercentage = (Number(holding.balance) / totalTokens) * 100;
       const payoutAmount = (holdingPercentage / 100) * totalRent;
+
+      // 鏈上發放：admin wallet 送出對應金額給持有人錢包，失敗不影響資料庫面的撥款紀錄
+      let txHash: string | undefined;
+      let status = 'PAID';
+      const holder = await this.userRepo.findOne({ where: { id: holding.user_id } });
+      if (holder?.wallet_address) {
+        try {
+          txHash = await this.blockchainService.payoutRentOnChain(holder.wallet_address, payoutAmount);
+        } catch {
+          status = 'FAILED';
+        }
+      }
 
       const detail = await this.detailRepo.save({
         batch_id: batch.id,
         user_id: holding.user_id,
         holding_percentage: holdingPercentage,
         payout_amount: payoutAmount,
-        status: 'PAID'
+        status,
+        tx_hash: txHash,
       });
 
       // Update user profit

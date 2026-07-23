@@ -10,9 +10,13 @@ import { UserHolding } from '../entities/user-holdings.entity';
 import { User } from '../entities/user.entity';
 import { BankTrustAccount } from '../entities/bank-trust.entity';
 import { BankTrustTransaction } from '../entities/bank-trust-transaction.entity';
+import { BlockchainModule } from '../blockchain/blockchain.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Property, ValuationLog, RentPayoutBatch, RentPayoutDetail, UserHolding, User, BankTrustAccount, BankTrustTransaction])],
+  imports: [
+    TypeOrmModule.forFeature([Property, ValuationLog, RentPayoutBatch, RentPayoutDetail, UserHolding, User, BankTrustAccount, BankTrustTransaction]),
+    BlockchainModule,
+  ],
   controllers: [PropertiesController],
   providers: [PropertiesService],
 })

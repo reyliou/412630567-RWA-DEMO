@@ -363,6 +363,25 @@ export class BlockchainService implements OnModuleInit {
   }
 
   // ──────────────────────────────────────────
+  // Rent payout: 用鏈上原生代幣模擬租金撥款（沒有另外的穩定幣合約，
+  // 用固定換算比例把 TWD 金額換成小額原生幣，只是demo 用途，非真實匯率）
+  // ──────────────────────────────────────────
+
+  async payoutRentOnChain(walletAddress: string, amountTwd: number): Promise<string> {
+    if (!this.isProviderReady || !(await this.isNodeReachable())) {
+      throw new Error('Hardhat 節點未啟動');
+    }
+    const amountEth = (amountTwd / 1_000_000).toFixed(18);
+    const tx = await this.adminWallet.sendTransaction({
+      to: walletAddress,
+      value: ethers.parseEther(amountEth),
+    });
+    const receipt = await tx.wait();
+    await this.log('INFO', `⛓️ 租金發放鏈上轉帳 → ${walletAddress} $${amountTwd.toLocaleString()} TWD｜txHash: ${receipt!.hash}`);
+    return receipt!.hash;
+  }
+
+  // ──────────────────────────────────────────
   // Pause control: 技術端核准後，實際呼叫每個 ERC-3643 token 合約的 pause()/unpause()
   // ──────────────────────────────────────────
 
