@@ -6,9 +6,13 @@ import { RwaTransaction } from '../transaction.entity';
 import { Property } from '../entities/property.entity';
 import { User } from '../entities/user.entity';
 import { BlockchainConfig } from '../entities/blockchain-config.entity';
+import { SystemModule } from '../system/system.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([RwaTransaction, Property, User, BlockchainConfig])],
+  imports: [
+    TypeOrmModule.forFeature([RwaTransaction, Property, User, BlockchainConfig]),
+    SystemModule,
+  ],
   controllers: [BlockchainController],
   providers: [BlockchainService],
   exports: [BlockchainService],

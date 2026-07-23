@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Query, UseGuards, Request, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Post, Param, Query, Body, UseGuards, Request, ForbiddenException } from '@nestjs/common';
 import { BlockchainService } from './blockchain.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
@@ -23,6 +23,13 @@ export class BlockchainController {
   registerUser(@Request() req: any, @Param('userId') userId: string) {
     if (req.user.role !== 'TECHNICAL') throw new ForbiddenException('需要技術員權限');
     return this.blockchainService.registerUserOnChain(parseInt(userId));
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('blockchain/pause-toggle')
+  setPause(@Request() req: any, @Body() body: { isPaused: boolean }) {
+    if (req.user.role !== 'TECHNICAL') throw new ForbiddenException('需要技術員權限');
+    return this.blockchainService.setPauseState(!!body.isPaused);
   }
 
   @Get('metadata')

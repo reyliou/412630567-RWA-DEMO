@@ -21,6 +21,7 @@ export const SystemLogsCard = forwardRef<SystemLogsCardHandle>((props, ref) => {
   const [filters, setFilters] = useState({
     system: false,
     crawler: false,
+    blockchain: true,
     audit: true,
   });
 
@@ -34,6 +35,7 @@ export const SystemLogsCard = forwardRef<SystemLogsCardHandle>((props, ref) => {
           .filter((item: any) => {
             if (item.alert_type === 'SYSTEM_HEALTH') return filters.system;
             if (item.alert_type === 'CRAWLER_REPORT') return filters.crawler;
+            if (item.alert_type === 'BLOCKCHAIN') return filters.blockchain;
             // 其他皆視為操作稽核 (ORDER_MATCH, SECURITY_AUDIT 等)
             return filters.audit;
           })
@@ -93,13 +95,22 @@ export const SystemLogsCard = forwardRef<SystemLogsCardHandle>((props, ref) => {
               <span className={`text-[10px] uppercase font-black tracking-tighter ${filters.system ? 'text-blue-600' : 'text-slate-400'}`}>系統運行</span>
             </label>
             <label className="flex items-center gap-1.5 cursor-pointer group">
-              <input 
-                type="checkbox" 
-                checked={filters.crawler} 
+              <input
+                type="checkbox"
+                checked={filters.crawler}
                 onChange={() => setFilters(f => ({...f, crawler: !f.crawler}))}
                 className="w-3 h-3 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
               />
               <span className={`text-[10px] uppercase font-black tracking-tighter ${filters.crawler ? 'text-purple-600' : 'text-slate-400'}`}>房產爬蟲</span>
+            </label>
+            <label className="flex items-center gap-1.5 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={filters.blockchain}
+                onChange={() => setFilters(f => ({...f, blockchain: !f.blockchain}))}
+                className="w-3 h-3 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              <span className={`text-[10px] uppercase font-black tracking-tighter ${filters.blockchain ? 'text-indigo-600' : 'text-slate-400'}`}>區塊鏈</span>
             </label>
             <label className="flex items-center gap-1.5 cursor-pointer group">
               <input 

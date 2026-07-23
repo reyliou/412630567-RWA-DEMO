@@ -2,6 +2,7 @@ import React, { useRef } from "react";
 import { SystemHealthCard } from "../components/SystemHealthCard";
 import { OracleMonitorCard } from "../components/OracleMonitorCard";
 import { ContractControlCard } from "../components/ContractControlCard";
+import { BlockchainDeployCard } from "../components/BlockchainDeployCard";
 import { StaffStatusCard } from "../components/StaffStatusCard";
 import { ThrottleTimerCard } from "../components/ThrottleTimerCard";
 import { SystemLogsCard, SystemLogsCardHandle } from "../components/SystemLogsCard";
@@ -21,10 +22,11 @@ export function TechnicalPage() {
           <button onClick={openChat} className="bg-white text-slate-900 px-8 py-3 rounded-2xl text-sm font-black hover:bg-gray-100 transition-all shadow-xl uppercase">立即處理</button>
         </div>
       )}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8">
         <SystemHealthCard />
         <OracleMonitorCard />
         <ContractControlCard onPauseToggle={openChat} isPaused={isPaused} />
+        <BlockchainDeployCard onLog={(type, message) => logRef.current?.addLog(type, message)} />
         <StaffStatusCard onOpenChat={openChat} hasRequest={activeRequest !== "NONE"} unreadCount={unreadCount} userName={userName} requestType={activeRequest} />
       </div>
       <ThrottleTimerCard isActive={!isPaused} startTime={throttleStartTime} realActiveTransactions={activeTransactions} />

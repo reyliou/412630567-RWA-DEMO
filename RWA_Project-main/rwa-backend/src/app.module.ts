@@ -35,7 +35,9 @@ import { SeedModule } from './seed/seed.module';
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
     TypeOrmModule.forRoot({
       type: 'postgres',
-      url: process.env.DATABASE_URL || 'postgresql://postgres.uowremtggfpoxxruiccw:newsun87S6202963@aws-1-ap-southeast-2.pooler.supabase.com:6543/postgres?pgbouncer=true',
+      // ⚠️ url 只在明確設定 DATABASE_URL 時才使用；絕不寫死正式環境的連線字串當 fallback，
+      // 否則本機開發預設值（DB_HOST=localhost 等）會被 url 蓋過，變成連到正式資料庫。
+      url: process.env.DATABASE_URL || undefined,
       host: process.env.DATABASE_URL ? undefined : (process.env.DB_HOST || 'localhost'),
       port: process.env.DATABASE_URL ? undefined : parseInt(process.env.DB_PORT || '5433'),
       username: process.env.DATABASE_URL ? undefined : (process.env.DB_USERNAME || 'user'),

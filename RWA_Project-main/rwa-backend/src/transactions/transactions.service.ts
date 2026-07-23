@@ -170,6 +170,12 @@ export class TransactionsService {
     if (this.systemService.getState().isPaused) {
       throw new ForbiddenException('系統已暫停交易，請等待技術端解除鎖定。');
     }
+
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user?.is_whitelisted) {
+      throw new ForbiddenException('帳戶尚未通過 KYC 審核，無法進行交易。');
+    }
+
     if (!tokenAmount || tokenAmount <= 0 || !pricePerToken || pricePerToken <= 0) {
       throw new BadRequestException('無效的交易數量或價格');
     }

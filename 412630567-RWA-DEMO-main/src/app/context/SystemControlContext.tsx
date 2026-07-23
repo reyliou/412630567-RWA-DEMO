@@ -146,7 +146,22 @@ export function SystemControlProvider({ children }: { children: ReactNode }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isPaused: nextIsPaused, activeRequest: "NONE", requestReason: "" })
       });
-      
+
+      // 同步呼叫鏈上合約的 pause()/unpause()，讓「暫停」不只是資料庫旗標
+      try {
+        const chainRes = await apiFetch('/api/blockchain/pause-toggle', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ isPaused: nextIsPaused })
+        });
+        if (chainRes.ok) {
+          const result = await chainRes.json();
+          onLog("info", `⛓️ 鏈上合約同步：${result.affected}/${result.total} 個代幣已${nextIsPaused ? '暫停' : '恢復'}`);
+        }
+      } catch (chainErr) {
+        onLog("warning", "⚠️ 鏈上合約狀態同步失敗，僅資料庫層級生效");
+      }
+
       setIsPaused(nextIsPaused);
       setActiveRequest("NONE");
       setIsModalOpen(false);

@@ -5,6 +5,7 @@ import { Repository } from 'typeorm';
 import { ethers } from 'ethers';
 import * as bcrypt from 'bcryptjs';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import WebSocket from 'ws';
 import { User } from '../entities/user.entity';
 import { Role } from '../entities/role.entity';
 
@@ -19,7 +20,10 @@ export class AuthService {
   ) {
     this.supabase = createClient(
       process.env.SUPABASE_URL || 'https://uowremtggfpoxxruiccw.supabase.co',
-      process.env.SUPABASE_SERVICE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvd3JlbXRnZ2Zwb3h4cnVpY2N3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDIzNDUxOSwiZXhwIjoyMDk1ODEwNTE5fQ.RWruURweqRN0eu_24mBLm6TArDwu73wMTYIB52vV3Qw'
+      process.env.SUPABASE_SERVICE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvd3JlbXRnZ2Zwb3h4cnVpY2N3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDIzNDUxOSwiZXhwIjoyMDk1ODEwNTE5fQ.RWruURweqRN0eu_24mBLm6TArDwu73wMTYIB52vV3Qw',
+      // Node 20 沒有原生 WebSocket，supabase-js 的 realtime client 會在建構時直接拋錯。
+      // 這裡只用 storage API（KYC 上傳），完全不需要 realtime，補一個 ws 實作讓它能正常初始化就好。
+      { realtime: { transport: WebSocket as any } },
     );
   }
 
