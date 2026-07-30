@@ -37,6 +37,7 @@ export class TransactionsService {
 
     // ── Step 1: Try on-chain transfer first (if blockchain is set up) ──────────
     let txHash: string | null = null;
+    let chainError: string | null = null;
     const qr = this.dataSource.createQueryRunner();
     await qr.connect();
     await qr.startTransaction();
@@ -89,13 +90,15 @@ export class TransactionsService {
           }
           this.logger.log(`⛓️ 鏈上 ${txType} 成功 txHash=${txHash}`);
         } catch (blockchainErr: any) {
-          this.logger.warn(`⚠️ 鏈上轉帳失敗（DB 仍會記錄）: ${blockchainErr.message}`);
+          chainError = blockchainErr.message;
+          this.logger.warn(`⚠️ 鏈上轉帳失敗（DB 仍會記錄，狀態標記為 CHAIN_FAILED）: ${chainError}`);
         }
       }
 
       // ── DB transaction ───────────────────────────────────────────────────────
       const totalValue = tokenAmount * finalPrice;
 
+      const status = chainError ? 'CHAIN_FAILED' : 'SUCCESS';
       const savedTx = await qr.manager.save(AppTransaction, {
         user_id: userId,
         property_id: propertyId,
@@ -103,7 +106,7 @@ export class TransactionsService {
         order_type: orderType,
         token_amount: tokenAmount,
         price_per_token: finalPrice,
-        status: 'SUCCESS',
+        status,
         tx_hash: txHash ?? undefined,
       });
 
@@ -127,7 +130,11 @@ export class TransactionsService {
         .execute();
 
       const typeLabel = txType === 'BUY' ? '買入' : '賣出';
-      const txInfo = txHash ? `（鏈上 txHash: ${txHash.slice(0, 12)}…）` : '（DB 模式）';
+      const txInfo = txHash
+        ? `（鏈上 txHash: ${txHash.slice(0, 12)}…）`
+        : chainError
+          ? '（⚠️ 鏈上同步失敗，暫僅記錄於平台資料庫，請留意技術端稽核）'
+          : '（DB 模式）';
       const msg = `您對 ${property.title} 的委託已成交${txInfo}。數量：${tokenAmount.toLocaleString()} 枚，總額：$${totalValue.toLocaleString()} TWD。`;
       await qr.manager.save(UserNotification, {
         user_id: userId,
@@ -136,9 +143,11 @@ export class TransactionsService {
         is_read: false,
       });
       await qr.manager.save(SystemAlert, {
-        alert_type: 'ORDER_MATCH',
-        severity: 'INFO',
-        message: `${orderType} ${txType} for UID ${userId} | price=${finalPrice} | txHash=${txHash ?? 'DB_ONLY'}`,
+        alert_type: chainError ? 'BLOCKCHAIN' : 'ORDER_MATCH',
+        severity: chainError ? 'WARNING' : 'INFO',
+        message: chainError
+          ? `⚠️ 鏈上同步失敗（DB 已記錄為 CHAIN_FAILED）: ${orderType} ${txType} for UID ${userId} | price=${finalPrice} | error=${chainError}`
+          : `${orderType} ${txType} for UID ${userId} | price=${finalPrice} | txHash=${txHash ?? 'DB_ONLY'}`,
       });
 
       await qr.commitTransaction();
