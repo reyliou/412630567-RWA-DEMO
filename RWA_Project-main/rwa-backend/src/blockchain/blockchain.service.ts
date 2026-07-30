@@ -8,7 +8,21 @@ import { RwaTransaction } from '../transaction.entity';
 import { Property } from '../entities/property.entity';
 import { User } from '../entities/user.entity';
 import { BlockchainConfig } from '../entities/blockchain-config.entity';
+import { UserHolding } from '../entities/user-holdings.entity';
+import { AppTransaction } from '../entities/app-transaction.entity';
 import { SystemService } from '../system/system.service';
+
+export interface ReconcileDiscrepancy {
+  propertyId: number;
+  propertyTitle: string;
+  type: 'BALANCE_MISMATCH' | 'UNTRACKED_TRANSFER';
+  userId?: number;
+  walletAddress?: string;
+  onChainBalance?: string;
+  dbBalance?: string;
+  txHash?: string;
+  detail: string;
+}
 
 @Injectable()
 export class BlockchainService implements OnModuleInit {
@@ -28,6 +42,10 @@ export class BlockchainService implements OnModuleInit {
     private userRepo: Repository<User>,
     @InjectRepository(BlockchainConfig)
     private configRepo: Repository<BlockchainConfig>,
+    @InjectRepository(UserHolding)
+    private holdingRepo: Repository<UserHolding>,
+    @InjectRepository(AppTransaction)
+    private appTxRepo: Repository<AppTransaction>,
     private systemService: SystemService,
   ) {}
 
@@ -416,6 +434,121 @@ export class BlockchainService implements OnModuleInit {
       `${isPaused ? '🔒' : '🔓'} 鏈上合約已${isPaused ? '暫停 (PAUSED)' : '恢復 (ACTIVE)'} — ${affected}/${tokenized.length} 個代幣合約已同步`,
     );
     return { affected, total: tokenized.length };
+  }
+
+  // ──────────────────────────────────────────
+  // Reconciliation: 監聽鏈上 Transfer 事件，比對資料庫持倉與交易紀錄，
+  // 偵測鏈上/鏈下狀態的短暫不一致（見 executeOnChainBuy/Sell 失敗時的 CHAIN_FAILED 標記）
+  // ──────────────────────────────────────────
+
+  async reconcile(): Promise<{ checkedProperties: number; discrepancies: ReconcileDiscrepancy[] }> {
+    if (!this.isProviderReady || !(await this.isNodeReachable())) {
+      throw new Error('Hardhat 節點未啟動，無法進行鏈上對帳');
+    }
+
+    const properties = await this.propertyRepo.find();
+    const tokenized = properties.filter((p) => !!p.token_address);
+    const discrepancies: ReconcileDiscrepancy[] = [];
+    const TOLERANCE = 0.000001;
+
+    for (const property of tokenized) {
+      const token = this.getContract('MySimpleRWA', property.token_address, this.provider as any);
+
+      // 1. 拉取該代幣合約完整的 Transfer 事件歷史，重建鏈上真實餘額
+      let events: (ethers.EventLog | ethers.Log)[];
+      try {
+        events = await token.queryFilter(token.filters.Transfer());
+      } catch (e: any) {
+        await this.log('WARNING', `⚠️ 對帳中止：無法讀取 ${property.title} 的 Transfer 事件 (${e.message})`);
+        continue;
+      }
+
+      const onChainBalanceWei = new Map<string, bigint>();
+      const onChainTxHashes = new Set<string>();
+      for (const ev of events) {
+        const log = ev as ethers.EventLog;
+        const from = log.args?.from as string;
+        const to = log.args?.to as string;
+        const value = log.args?.value as bigint;
+        onChainBalanceWei.set(from, (onChainBalanceWei.get(from) ?? 0n) - value);
+        onChainBalanceWei.set(to, (onChainBalanceWei.get(to) ?? 0n) + value);
+        // mint（from = 0x0）是部署時的鑄幣，不是一筆交易，不列入「未被 DB 記錄」的檢查
+        if (from !== ethers.ZeroAddress) {
+          onChainTxHashes.add(log.transactionHash.toLowerCase());
+        }
+      }
+
+      // 2. 比對「資料庫持倉」與「鏈上重建餘額」的聯集，抓雙向的不一致
+      //    （只比對 DB 有記錄的錢包會漏掉「鏈上有餘額、DB 完全沒有這筆持倉」的情況）
+      const holdings = await this.holdingRepo.find({ where: { property_id: property.id } });
+      const dbInfoByWallet = new Map<string, { userId: number; username: string; balance: number }>();
+      for (const holding of holdings) {
+        const dbBalance = parseFloat(String(holding.balance));
+        if (dbBalance === 0) continue;
+        const user = await this.userRepo.findOne({ where: { id: holding.user_id } });
+        if (!user?.wallet_address) continue;
+        dbInfoByWallet.set(user.wallet_address, { userId: user.id, username: user.username, balance: dbBalance });
+      }
+
+      // admin 錢包持有未售出的庫存代幣，本來就不會出現在 user_holdings，需排除以免每次都誤報
+      const walletsToCheck = new Set<string>([
+        ...dbInfoByWallet.keys(),
+        ...[...onChainBalanceWei.keys()].filter(
+          (w) => w !== ethers.ZeroAddress && w.toLowerCase() !== this.adminAddress?.toLowerCase(),
+        ),
+      ]);
+
+      for (const wallet of walletsToCheck) {
+        const onChainWei = onChainBalanceWei.get(wallet) ?? 0n;
+        const onChainBalance = parseFloat(ethers.formatUnits(onChainWei, 18));
+        const dbInfo = dbInfoByWallet.get(wallet);
+        const dbBalance = dbInfo?.balance ?? 0;
+
+        if (Math.abs(onChainBalance - dbBalance) > TOLERANCE) {
+          discrepancies.push({
+            propertyId: property.id,
+            propertyTitle: property.title,
+            type: 'BALANCE_MISMATCH',
+            userId: dbInfo?.userId,
+            walletAddress: wallet,
+            onChainBalance: onChainBalance.toString(),
+            dbBalance: dbBalance.toString(),
+            detail: `${dbInfo ? `用戶 ${dbInfo.username}` : `錢包 ${wallet}`} 於 ${property.title} 的持倉不一致：鏈上 ${onChainBalance} 枚，資料庫 ${dbBalance} 枚`,
+          });
+        }
+      }
+
+      // 3. 偵測「鏈上有轉帳事件，但資料庫找不到對應交易紀錄」的情況
+      const recordedTxs = await this.appTxRepo.find({
+        where: { property_id: property.id },
+        select: ['tx_hash'] as any,
+      });
+      const recordedHashes = new Set(
+        recordedTxs.filter((t) => t.tx_hash).map((t) => t.tx_hash.toLowerCase()),
+      );
+      for (const hash of onChainTxHashes) {
+        if (!recordedHashes.has(hash)) {
+          discrepancies.push({
+            propertyId: property.id,
+            propertyTitle: property.title,
+            type: 'UNTRACKED_TRANSFER',
+            txHash: hash,
+            detail: `${property.title} 發現一筆鏈上轉帳（txHash: ${hash.slice(0, 12)}…）在資料庫交易紀錄中找不到對應項目`,
+          });
+        }
+      }
+    }
+
+    if (discrepancies.length > 0) {
+      await this.log(
+        'WARNING',
+        `⚠️ 對帳完成：檢查 ${tokenized.length} 個代幣，發現 ${discrepancies.length} 筆鏈上/資料庫不一致`,
+      );
+    } else {
+      await this.log('INFO', `✅ 對帳完成：${tokenized.length} 個代幣持倉與資料庫完全一致`);
+    }
+
+    return { checkedProperties: tokenized.length, discrepancies };
   }
 
   // ──────────────────────────────────────────

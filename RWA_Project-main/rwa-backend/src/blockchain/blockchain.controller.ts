@@ -32,6 +32,13 @@ export class BlockchainController {
     return this.blockchainService.setPauseState(!!body.isPaused);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Get('blockchain/reconcile')
+  reconcile(@Request() req: any) {
+    if (req.user.role !== 'TECHNICAL') throw new ForbiddenException('需要技術員權限');
+    return this.blockchainService.reconcile();
+  }
+
   @Get('metadata')
   getMetadata() {
     return this.blockchainService.getContractMetadata();
