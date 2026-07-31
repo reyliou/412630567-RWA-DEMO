@@ -22,6 +22,8 @@ export interface ReconcileDiscrepancy {
   dbBalance?: string;
   txHash?: string;
   detail: string;
+  repaired?: boolean;
+  repairDetail?: string;
 }
 
 @Injectable()
@@ -441,7 +443,7 @@ export class BlockchainService implements OnModuleInit {
   // 偵測鏈上/鏈下狀態的短暫不一致（見 executeOnChainBuy/Sell 失敗時的 CHAIN_FAILED 標記）
   // ──────────────────────────────────────────
 
-  async reconcile(): Promise<{ checkedProperties: number; discrepancies: ReconcileDiscrepancy[] }> {
+  async reconcile(repair = false): Promise<{ checkedProperties: number; discrepancies: ReconcileDiscrepancy[] }> {
     if (!this.isProviderReady || !(await this.isNodeReachable())) {
       throw new Error('Hardhat 節點未啟動，無法進行鏈上對帳');
     }
@@ -464,7 +466,8 @@ export class BlockchainService implements OnModuleInit {
       }
 
       const onChainBalanceWei = new Map<string, bigint>();
-      const onChainTxHashes = new Set<string>();
+      // txHash -> 該筆轉帳明細，只保留非 mint 的（from = 0x0 是部署時鑄幣，不是一筆交易）
+      const untrackedByHash = new Map<string, { from: string; to: string; valueWei: bigint }>();
       for (const ev of events) {
         const log = ev as ethers.EventLog;
         const from = log.args?.from as string;
@@ -472,9 +475,8 @@ export class BlockchainService implements OnModuleInit {
         const value = log.args?.value as bigint;
         onChainBalanceWei.set(from, (onChainBalanceWei.get(from) ?? 0n) - value);
         onChainBalanceWei.set(to, (onChainBalanceWei.get(to) ?? 0n) + value);
-        // mint（from = 0x0）是部署時的鑄幣，不是一筆交易，不列入「未被 DB 記錄」的檢查
         if (from !== ethers.ZeroAddress) {
-          onChainTxHashes.add(log.transactionHash.toLowerCase());
+          untrackedByHash.set(log.transactionHash.toLowerCase(), { from, to, valueWei: value });
         }
       }
 
@@ -504,18 +506,42 @@ export class BlockchainService implements OnModuleInit {
         const dbInfo = dbInfoByWallet.get(wallet);
         const dbBalance = dbInfo?.balance ?? 0;
 
-        if (Math.abs(onChainBalance - dbBalance) > TOLERANCE) {
-          discrepancies.push({
-            propertyId: property.id,
-            propertyTitle: property.title,
-            type: 'BALANCE_MISMATCH',
-            userId: dbInfo?.userId,
-            walletAddress: wallet,
-            onChainBalance: onChainBalance.toString(),
-            dbBalance: dbBalance.toString(),
-            detail: `${dbInfo ? `用戶 ${dbInfo.username}` : `錢包 ${wallet}`} 於 ${property.title} 的持倉不一致：鏈上 ${onChainBalance} 枚，資料庫 ${dbBalance} 枚`,
-          });
+        if (Math.abs(onChainBalance - dbBalance) <= TOLERANCE) continue;
+
+        const discrepancy: ReconcileDiscrepancy = {
+          propertyId: property.id,
+          propertyTitle: property.title,
+          type: 'BALANCE_MISMATCH',
+          userId: dbInfo?.userId,
+          walletAddress: wallet,
+          onChainBalance: onChainBalance.toString(),
+          dbBalance: dbBalance.toString(),
+          detail: `${dbInfo ? `用戶 ${dbInfo.username}` : `錢包 ${wallet}`} 於 ${property.title} 的持倉不一致：鏈上 ${onChainBalance} 枚，資料庫 ${dbBalance} 枚`,
+        };
+
+        if (repair) {
+          // 鏈上交易一旦確認即不可逆，因此以鏈上餘額為準去修正資料庫，而不是反過來
+          const user = await this.userRepo.findOne({ where: { wallet_address: wallet } });
+          if (user) {
+            const existing = await this.holdingRepo.findOne({ where: { user_id: user.id, property_id: property.id } });
+            if (existing) {
+              await this.holdingRepo.update({ user_id: user.id, property_id: property.id }, { balance: onChainBalance });
+            } else {
+              await this.holdingRepo.save({ user_id: user.id, property_id: property.id, balance: onChainBalance });
+            }
+            discrepancy.repaired = true;
+            discrepancy.repairDetail = `已將資料庫持倉由 ${dbBalance} 修正為鏈上實際值 ${onChainBalance}`;
+            await this.log(
+              'INFO',
+              `🔧 對帳修復：用戶 ${user.username ?? `#${user.id}`} 於 ${property.title} 的持倉已由 ${dbBalance} 修正為 ${onChainBalance}`,
+            );
+          } else {
+            discrepancy.repaired = false;
+            discrepancy.repairDetail = '找不到對應的平台用戶（此錢包地址未登記在 users 表中），無法自動修復，需人工確認';
+          }
         }
+
+        discrepancies.push(discrepancy);
       }
 
       // 3. 偵測「鏈上有轉帳事件，但資料庫找不到對應交易紀錄」的情況
@@ -526,23 +552,61 @@ export class BlockchainService implements OnModuleInit {
       const recordedHashes = new Set(
         recordedTxs.filter((t) => t.tx_hash).map((t) => t.tx_hash.toLowerCase()),
       );
-      for (const hash of onChainTxHashes) {
-        if (!recordedHashes.has(hash)) {
-          discrepancies.push({
-            propertyId: property.id,
-            propertyTitle: property.title,
-            type: 'UNTRACKED_TRANSFER',
-            txHash: hash,
-            detail: `${property.title} 發現一筆鏈上轉帳（txHash: ${hash.slice(0, 12)}…）在資料庫交易紀錄中找不到對應項目`,
-          });
+
+      for (const [hash, info] of untrackedByHash) {
+        if (recordedHashes.has(hash)) continue;
+
+        const discrepancy: ReconcileDiscrepancy = {
+          propertyId: property.id,
+          propertyTitle: property.title,
+          type: 'UNTRACKED_TRANSFER',
+          txHash: hash,
+          detail: `${property.title} 發現一筆鏈上轉帳（txHash: ${hash.slice(0, 12)}…）在資料庫交易紀錄中找不到對應項目`,
+        };
+
+        if (repair) {
+          // 只有轉帳其中一端能對應到平台用戶，才補得回交易紀錄；價格用目前市價估算，並非當時實際成交價
+          const toUser = await this.userRepo.findOne({ where: { wallet_address: info.to } });
+          const fromUser = !toUser ? await this.userRepo.findOne({ where: { wallet_address: info.from } }) : null;
+          const user = toUser ?? fromUser;
+
+          if (user) {
+            const txType = toUser ? 'BUY' : 'SELL';
+            const amount = parseFloat(ethers.formatUnits(info.valueWei, 18));
+            const estimatedPrice = parseFloat(String(property.current_price ?? 0));
+            await this.appTxRepo.save({
+              user_id: user.id,
+              property_id: property.id,
+              tx_type: txType,
+              order_type: 'RECONCILED',
+              token_amount: amount,
+              price_per_token: estimatedPrice,
+              status: 'SUCCESS',
+              tx_hash: hash,
+            });
+            discrepancy.repaired = true;
+            discrepancy.repairDetail = `已補建交易紀錄（用戶 ${user.username ?? `#${user.id}`}，${txType}，數量 ${amount}）；價格為目前市價估算，非原始成交價`;
+            await this.log(
+              'INFO',
+              `🔧 對帳修復：${property.title} 補建鏈上轉帳紀錄 txHash=${hash.slice(0, 12)}…（${txType}, ${amount} 枚, 估算價格）`,
+            );
+          } else {
+            discrepancy.repaired = false;
+            discrepancy.repairDetail = '轉帳雙方都不是平台已知的用戶錢包，無法判斷歸屬，需人工確認';
+          }
         }
+
+        discrepancies.push(discrepancy);
       }
     }
 
+    const repairedCount = discrepancies.filter((d) => d.repaired).length;
     if (discrepancies.length > 0) {
       await this.log(
         'WARNING',
-        `⚠️ 對帳完成：檢查 ${tokenized.length} 個代幣，發現 ${discrepancies.length} 筆鏈上/資料庫不一致`,
+        repair
+          ? `⚠️ 對帳完成：檢查 ${tokenized.length} 個代幣，發現 ${discrepancies.length} 筆不一致，已自動修復 ${repairedCount} 筆`
+          : `⚠️ 對帳完成：檢查 ${tokenized.length} 個代幣，發現 ${discrepancies.length} 筆鏈上/資料庫不一致`,
       );
     } else {
       await this.log('INFO', `✅ 對帳完成：${tokenized.length} 個代幣持倉與資料庫完全一致`);

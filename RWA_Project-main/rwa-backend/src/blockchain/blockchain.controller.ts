@@ -39,6 +39,13 @@ export class BlockchainController {
     return this.blockchainService.reconcile();
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Post('blockchain/reconcile/repair')
+  reconcileAndRepair(@Request() req: any) {
+    if (req.user.role !== 'TECHNICAL') throw new ForbiddenException('需要技術員權限');
+    return this.blockchainService.reconcile(true);
+  }
+
   @Get('metadata')
   getMetadata() {
     return this.blockchainService.getContractMetadata();
