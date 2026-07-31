@@ -25,9 +25,14 @@ export function TechnicalPage() {
       
       const { checkedProperties, discrepancies } = data;
       if (discrepancies.length > 0) {
-        alert(`對帳完成！掃描了 ${checkedProperties} 個代幣，發現 ${discrepancies.length} 筆不一致異常！請查看系統日誌。`);
+        alert(`對帳完成！掃描了 ${checkedProperties} 個代幣，發現 ${discrepancies.length} 筆不一致異常！詳細資訊已寫入下方系統日誌。`);
+        // 把詳細的不一致資訊寫入畫面下方的系統日誌
+        discrepancies.forEach((d: any) => {
+          logRef.current?.addLog('WARNING', `[對帳異常 - ${d.type}] ${d.detail}`);
+        });
       } else {
         alert(`對帳完成！掃描了 ${checkedProperties} 個代幣，目前區塊鏈與資料庫資料完全一致！✅`);
+        logRef.current?.addLog('INFO', `✅ 對帳完成：${checkedProperties} 個代幣持倉與資料庫完全一致`);
       }
     } catch (e: any) {
       alert(`對帳請求失敗: ${e.message}`);
