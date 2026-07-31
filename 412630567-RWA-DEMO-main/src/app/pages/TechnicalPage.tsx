@@ -18,7 +18,7 @@ export function TechnicalPage() {
   const handleReconcile = async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/blockchain/reconcile`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('rwa_jwt')}` }
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Reconcile failed');
