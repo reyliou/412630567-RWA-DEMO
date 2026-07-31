@@ -608,6 +608,11 @@ export class BlockchainService implements OnModuleInit {
           ? `⚠️ 對帳完成：檢查 ${tokenized.length} 個代幣，發現 ${discrepancies.length} 筆不一致，已自動修復 ${repairedCount} 筆`
           : `⚠️ 對帳完成：檢查 ${tokenized.length} 個代幣，發現 ${discrepancies.length} 筆鏈上/資料庫不一致`,
       );
+      // 將每筆異常的詳細內容分開寫入 Log 中，讓前端可以輪詢到
+      for (const d of discrepancies) {
+        const repairNote = d.repaired ? `（已修復：${d.repairDetail}）` : repair ? '（未修復，需人工確認）' : '';
+        await this.log('WARNING', `[對帳異常 - ${d.type}] ${d.detail}${repairNote}`);
+      }
     } else {
       await this.log('INFO', `✅ 對帳完成：${tokenized.length} 個代幣持倉與資料庫完全一致`);
     }

@@ -8,11 +8,36 @@ import { ThrottleTimerCard } from "../components/ThrottleTimerCard";
 import { SystemLogsCard, SystemLogsCardHandle } from "../components/SystemLogsCard";
 import { useSystemControl } from "../context/SystemControlContext";
 import { useAuth } from "../context/AuthContext";
+import { API_BASE_URL } from "../config";
 
 export function TechnicalPage() {
   const { userName } = useAuth();
   const { activeRequest, isPaused, throttleStartTime, activeTransactions, unreadCount, openChat } = useSystemControl();
   const logRef = useRef<SystemLogsCardHandle>(null);
+
+  const handleReconcile = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/blockchain/reconcile`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('rwa_jwt')}` }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Reconcile failed');
+      
+      const { checkedProperties, discrepancies } = data;
+      if (discrepancies.length > 0) {
+        alert(`對帳完成！掃描了 ${checkedProperties} 個代幣，發現 ${discrepancies.length} 筆不一致異常！詳細資訊已寫入下方系統日誌。`);
+        // 把詳細的不一致資訊寫入畫面下方的系統日誌
+        discrepancies.forEach((d: any) => {
+          logRef.current?.addLog('WARNING', `[對帳異常 - ${d.type}] ${d.detail}`);
+        });
+      } else {
+        alert(`對帳完成！掃描了 ${checkedProperties} 個代幣，目前區塊鏈與資料庫資料完全一致！✅`);
+        logRef.current?.addLog('INFO', `✅ 對帳完成：${checkedProperties} 個代幣持倉與資料庫完全一致`);
+      }
+    } catch (e: any) {
+      alert(`對帳請求失敗: ${e.message}`);
+    }
+  };
 
   return (
     <div className="space-y-10 animate-in fade-in duration-500 text-slate-800">
@@ -25,7 +50,7 @@ export function TechnicalPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8">
         <SystemHealthCard />
         <OracleMonitorCard />
-        <ContractControlCard onPauseToggle={openChat} isPaused={isPaused} />
+        <ContractControlCard onPauseToggle={openChat} onReconcile={handleReconcile} isPaused={isPaused} />
         <BlockchainDeployCard onLog={(type, message) => logRef.current?.addLog(type, message)} />
         <StaffStatusCard onOpenChat={openChat} hasRequest={activeRequest !== "NONE"} unreadCount={unreadCount} userName={userName} requestType={activeRequest} />
       </div>
