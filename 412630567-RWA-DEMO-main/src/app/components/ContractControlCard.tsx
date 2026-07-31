@@ -2,10 +2,11 @@ import { ShieldCheck, ShieldAlert, Lock, Unlock, AlertCircle } from "lucide-reac
 
 interface ContractControlCardProps {
   onPauseToggle: (isPaused: boolean) => void;
+  onReconcile: () => void;
   isPaused: boolean;
 }
 
-export function ContractControlCard({ onPauseToggle, isPaused }: ContractControlCardProps) {
+export function ContractControlCard({ onPauseToggle, onReconcile, isPaused }: ContractControlCardProps) {
   return (
     <div className={`bg-card border ${isPaused ? 'border-red-500/50 bg-red-500/5' : 'border-border'} rounded-xl shadow-sm overflow-hidden flex flex-col transition-all duration-500`}>
       <div className={`p-4 border-b border-border ${isPaused ? 'bg-red-500/10' : 'bg-muted/20'} flex items-center justify-between`}>
@@ -44,6 +45,12 @@ export function ContractControlCard({ onPauseToggle, isPaused }: ContractControl
             }`}
           >
             {isPaused ? '請求解除暫停 (Request Unpause)' : '強制緊急暫停 (Force Pause)'}
+          </button>
+          <button
+            onClick={() => onReconcile()}
+            className="w-full mt-2 py-3 rounded-xl font-black text-xs uppercase tracking-[0.1em] transition-all shadow-lg active:scale-95 bg-slate-800 hover:bg-slate-900 text-white shadow-slate-900/20 flex items-center justify-center gap-2"
+          >
+            啟動全節點對帳 (Reconcile)
           </button>
         </div>
       </div>
