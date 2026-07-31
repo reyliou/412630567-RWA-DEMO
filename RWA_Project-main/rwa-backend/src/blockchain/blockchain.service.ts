@@ -542,8 +542,12 @@ export class BlockchainService implements OnModuleInit {
     if (discrepancies.length > 0) {
       await this.log(
         'WARNING',
-        `⚠️ 對帳完成：檢查 ${tokenized.length} 個代幣，發現 ${discrepancies.length} 筆鏈上/資料庫不一致`,
+        `⚠️ 對帳完成：檢查 ${tokenized.length} 個代幣，發現 ${discrepancies.length} 筆鏈上/資料庫不一致`
       );
+      // 將每筆異常的詳細內容分開寫入 Log 中，讓前端可以輪詢到
+      for (const d of discrepancies) {
+        await this.log('WARNING', `[對帳異常 - ${d.type}] ${d.detail}`);
+      }
     } else {
       await this.log('INFO', `✅ 對帳完成：${tokenized.length} 個代幣持倉與資料庫完全一致`);
     }
