@@ -17,6 +17,11 @@ export class PropertiesController {
     return this.propertiesService.getValuationLogs(parseInt(id));
   }
 
+  @Get('properties/:id/kline')
+  getKLineData(@Param('id') id: string) {
+    return this.propertiesService.getKLineData(parseInt(id));
+  }
+
   @Post('properties/:id/payout')
   async distributeRent(@Param('id') id: string, @Body() body: { amount: number }) {
     return this.propertiesService.executePayout(parseInt(id), body.amount);

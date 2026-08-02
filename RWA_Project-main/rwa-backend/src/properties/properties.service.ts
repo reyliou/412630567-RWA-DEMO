@@ -9,6 +9,7 @@ import { UserHolding } from '../entities/user-holdings.entity';
 import { User } from '../entities/user.entity';
 import { BankTrustAccount } from '../entities/bank-trust.entity';
 import { BankTrustTransaction } from '../entities/bank-trust-transaction.entity';
+import { AppTransaction } from '../entities/app-transaction.entity';
 import { BlockchainService } from '../blockchain/blockchain.service';
 
 @Injectable()
@@ -30,6 +31,8 @@ export class PropertiesService {
     private trustAccountRepo: Repository<BankTrustAccount>,
     @InjectRepository(BankTrustTransaction)
     private trustTxRepo: Repository<BankTrustTransaction>,
+    @InjectRepository(AppTransaction)
+    private appTxRepo: Repository<AppTransaction>,
     private blockchainService: BlockchainService,
   ) {}
 
@@ -42,6 +45,39 @@ export class PropertiesService {
       where: { property_id: propertyId },
       order: { recorded_at: 'ASC' },
     });
+  }
+
+  async getKLineData(propertyId: number) {
+    const valuations = await this.valuationRepo.find({
+      where: { property_id: propertyId },
+    });
+    
+    const transactions = await this.appTxRepo.find({
+      where: { property_id: propertyId, status: 'SUCCESS' },
+    });
+
+    const events = [
+      ...valuations.map(v => ({ time: v.recorded_at, price: Number(v.value), volume: 0 })),
+      ...transactions.map(t => ({ time: t.created_at, price: Number(t.price_per_token), volume: Number(t.token_amount) }))
+    ].sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+
+    const dailyData = new Map<string, { open: number, high: number, low: number, close: number, volume: number }>();
+
+    for (const ev of events) {
+      if (!ev.time) continue;
+      const dateStr = new Date(ev.time).toISOString().split('T')[0];
+      if (!dailyData.has(dateStr)) {
+        dailyData.set(dateStr, { open: ev.price, high: ev.price, low: ev.price, close: ev.price, volume: ev.volume });
+      } else {
+        const current = dailyData.get(dateStr)!;
+        current.high = Math.max(current.high, ev.price);
+        current.low = Math.min(current.low, ev.price);
+        current.close = ev.price; 
+        current.volume += ev.volume;
+      }
+    }
+
+    return Array.from(dailyData.entries()).map(([time, data]) => ({ time, ...data }));
   }
 
   async executePayout(propertyId: number, totalRent: number) {

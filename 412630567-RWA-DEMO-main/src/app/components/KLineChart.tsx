@@ -3,7 +3,7 @@ import { createChart, ColorType } from 'lightweight-charts';
 
 interface KLineChartProps {
   currentPrice: number;
-  dataLogs?: any[];
+  dataLogs?: any[]; // Backend API [{ time, open, high, low, close, volume }]
 }
 
 export function KLineChart({ currentPrice, dataLogs }: KLineChartProps) {
@@ -31,24 +31,29 @@ export function KLineChart({ currentPrice, dataLogs }: KLineChartProps) {
       },
     });
 
-    // 兼容處理：有些版本的 lightweight-charts API 不同
     let candlestickSeries: any;
+    let volumeSeries: any;
+    
     try {
       if ((chart as any).addCandlestickSeries) {
         candlestickSeries = (chart as any).addCandlestickSeries({
-          upColor: '#ef4444',
-          downColor: '#22c55e',
+          upColor: '#ef4444', // 台股紅漲
+          downColor: '#22c55e', // 台股綠跌
           borderVisible: false,
           wickUpColor: '#ef4444',
           wickDownColor: '#22c55e',
         });
-      } else {
-        console.warn('addCandlestickSeries not found, trying fallback');
-        // 如果是 v5+ 版本，API 改為 addSeries
-        // 這裡我們嘗試動態獲取系列類型，或者使用 addLineSeries 作為保底
-        if ((chart as any).addLineSeries) {
-           candlestickSeries = (chart as any).addLineSeries({ color: '#ef4444' });
-        }
+
+        // 買賣力道 (成交量) 柱狀圖
+        volumeSeries = (chart as any).addHistogramSeries({
+          color: '#26a69a',
+          priceFormat: { type: 'volume' },
+          priceScaleId: '', // 將 volume 和 K線分離比例尺
+          scaleMargins: {
+            top: 0.8, // 柱狀圖佔圖表下方 20%
+            bottom: 0,
+          },
+        });
       }
     } catch (err) {
       console.error('Failed to create series:', err);
@@ -59,55 +64,39 @@ export function KLineChart({ currentPrice, dataLogs }: KLineChartProps) {
       return;
     }
 
-    // 2. 轉換資料庫的歷史估價 (valuation_logs) 為 K 線資料 (OHLC)
+    // 2. 匯入資料
     const generateData = () => {
       if (dataLogs && dataLogs.length > 0) {
-        // 使用真實資料庫的 valuation_logs 轉換
-        // 將紀錄按日期分組以計算 OHLC (雖然房產通常一天只有一個估值)
-        const dailyData = new Map<string, { open: number; high: number; low: number; close: number }>();
-        
-        dataLogs.forEach(log => {
-          // 確保 date 格式是 YYYY-MM-DD
-          const dateStr = new Date(log.recorded_at).toISOString().split('T')[0];
-          const val = Number(log.value);
-          
-          if (!dailyData.has(dateStr)) {
-            dailyData.set(dateStr, { open: val, high: val, low: val, close: val });
-          } else {
-            const current = dailyData.get(dateStr)!;
-            current.high = Math.max(current.high, val);
-            current.low = Math.min(current.low, val);
-            current.close = val; // 最後一筆為收盤
-          }
-        });
-
-        // 轉換 Map 為陣列並按日期排序
-        const sortedData = Array.from(dailyData.entries())
-          .map(([time, prices]) => ({ time, ...prices }))
-          .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
-          
-        return sortedData;
+        // dataLogs 現在已經是後端算好的真實市場交易資料 [{time, open, high, low, close, volume}]
+        return dataLogs;
       }
 
-      // 如果資料庫真的完全沒有歷史紀錄，只顯示最新價格的單一蠟燭圖
+      // 沒資料時的預設值
       const today = new Date().toISOString().split('T')[0];
       return [{
         time: today,
         open: currentPrice,
         high: currentPrice,
         low: currentPrice,
-        close: currentPrice
+        close: currentPrice,
+        volume: 0
       }];
     };
 
     try {
       const data = generateData();
-      // 如果是 LineSeries (保底方案)，資料格式不同
+      
       if (candlestickSeries.setData) {
-        if ((chart as any).addCandlestickSeries) {
-          candlestickSeries.setData(data);
-        } else {
-          candlestickSeries.setData(data.map(d => ({ time: d.time, value: d.close })));
+        candlestickSeries.setData(data);
+        
+        if (volumeSeries) {
+          // 轉換 volume 資料格式，並根據該根 K 線漲跌設定紅色/綠色 (紅漲綠跌)
+          const volumeData = data.map((d: any) => ({
+            time: d.time,
+            value: d.volume,
+            color: d.close >= d.open ? '#ef444480' : '#22c55e80' 
+          }));
+          volumeSeries.setData(volumeData);
         }
       }
       chart.timeScale().fitContent();
@@ -126,7 +115,7 @@ export function KLineChart({ currentPrice, dataLogs }: KLineChartProps) {
       window.removeEventListener('resize', handleResize);
       chart.remove();
     };
-  }, [currentPrice]); // 當 currentPrice 改變時重新渲染
+  }, [currentPrice, dataLogs]); // 當資料改變時重新渲染
 
   return (
     <div className="w-full h-full" ref={chartContainerRef} />

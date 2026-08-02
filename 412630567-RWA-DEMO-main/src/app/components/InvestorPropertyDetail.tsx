@@ -24,7 +24,7 @@ export function InvestorPropertyDetail({ userId, property, onBack }: PropertyDet
   useEffect(() => {
     const fetchLogs = async () => {
       try {
-        const response = await apiFetch(`/api/properties/${property.id}/valuation-logs`);
+        const response = await apiFetch(`/api/properties/${property.id}/kline`);
         if (response.ok) {
           const res = await response.json();
           setVLogs(res);
