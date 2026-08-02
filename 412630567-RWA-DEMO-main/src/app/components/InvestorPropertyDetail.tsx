@@ -47,7 +47,7 @@ export function InvestorPropertyDetail({ userId, property, onBack }: PropertyDet
             <div className="flex items-center gap-8 mb-10">
                <div className="flex flex-col"><span className="text-[10px] text-slate-400 uppercase tracking-widest">Price</span><span className="font-mono text-blue-600 text-5xl tracking-tighter">${property.price}</span></div>
             </div>
-            <div className="aspect-[21/9] bg-white border border-slate-100 rounded-[2.5rem] relative flex items-center justify-center p-2 overflow-hidden shadow-inner">
+            <div className="aspect-[21/9] bg-slate-900 border border-slate-800 rounded-[2.5rem] relative flex items-center justify-center p-2 overflow-hidden shadow-inner">
                <KLineChart currentPrice={property.price} dataLogs={vLogs} />
             </div>
           </div>
