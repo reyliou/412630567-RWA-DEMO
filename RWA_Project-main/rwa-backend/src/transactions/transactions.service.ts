@@ -85,10 +85,10 @@ export class TransactionsService {
       // 限價單保護機制 (Slippage Check)
       if (orderType === 'LIMIT') {
         if (txType === 'BUY' && finalPrice > pricePerToken) {
-          throw new Error(`AMM 滑價過高：本次大量購買導致均價飆升至 $${finalPrice.toFixed(4)}，超過您設定的限價 $${pricePerToken}`);
+          throw new Error(`AMM 滑價過高：本次大量購買導致均價飆升至 ${finalPrice.toFixed(2)} TWD，超過您設定的限價 ${pricePerToken} TWD`);
         }
         if (txType === 'SELL' && finalPrice < pricePerToken) {
-          throw new Error(`AMM 滑價過高：本次大量拋售導致均價暴跌至 $${finalPrice.toFixed(4)}，低於您設定的限價 $${pricePerToken}`);
+          throw new Error(`AMM 滑價過高：本次大量拋售導致均價暴跌至 ${finalPrice.toFixed(2)} TWD，低於您設定的限價 ${pricePerToken} TWD`);
         }
       }
       
