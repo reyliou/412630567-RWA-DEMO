@@ -315,12 +315,12 @@ export class TransactionsService {
         if (result.success) {
           // runTrade 裡面已經更新狀態了
         } else {
-          this.logger.error(`掛單自動執行失敗: ${result.message}`);
-          // 如果是餘額不足或持倉不足的錯誤，直接設為 CANCELLED，避免無限輪迴嘗試
-          if (result.message?.includes('餘額不足') || result.message?.includes('持倉不足')) {
-            order.status = 'CANCELLED';
-            await this.dataSource.manager.save(order);
-          }
+            this.logger.error(`掛單自動執行失敗: ${result.message}`);
+            // 如果是餘額不足、持倉不足、或是持倉上限等「無法藉由等待解決」的錯誤，直接設為 CANCELLED
+            if (result.message?.includes('餘額不足') || result.message?.includes('持倉不足') || result.message?.includes('持倉上限')) {
+              order.status = 'CANCELLED';
+              await this.dataSource.manager.save(order);
+            }
         }
       }
     }
