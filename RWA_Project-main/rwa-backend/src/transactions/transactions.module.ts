@@ -6,12 +6,13 @@ import { UserNotification } from '../entities/notification.entity';
 import { AppTransaction } from '../entities/app-transaction.entity';
 import { Property } from '../entities/property.entity';
 import { User } from '../entities/user.entity';
+import { PendingOrder } from '../entities/pending-order.entity';
 import { SystemModule } from '../system/system.module';
 import { BlockchainModule } from '../blockchain/blockchain.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([UserNotification, AppTransaction, Property, User]),
+    TypeOrmModule.forFeature([UserNotification, AppTransaction, Property, User, PendingOrder]),
     SystemModule,
     BlockchainModule,
   ],

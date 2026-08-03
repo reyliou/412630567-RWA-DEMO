@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
+import { ScheduleModule } from '@nestjs/schedule';
 
 import { Role } from './entities/role.entity';
 import { User } from './entities/user.entity';
@@ -19,6 +20,7 @@ import { BankTrustTransaction } from './entities/bank-trust-transaction.entity';
 import { ValuationLog } from './entities/valuation-log.entity';
 import { RwaTransaction } from './transaction.entity';
 import { BlockchainConfig } from './entities/blockchain-config.entity';
+import { PendingOrder } from './entities/pending-order.entity';
 
 import { AuthModule } from './auth/auth.module';
 import { SystemModule } from './system/system.module';
@@ -33,6 +35,7 @@ import { SeedModule } from './seed/seed.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
     TypeOrmModule.forRoot({
       type: 'postgres',
@@ -60,6 +63,7 @@ import { SeedModule } from './seed/seed.module';
         ValuationLog,
         RwaTransaction,
         BlockchainConfig,
+        PendingOrder,
       ],
       synchronize: false,
       ssl: (process.env.DATABASE_URL || (process.env.DB_HOST && process.env.DB_HOST !== 'localhost')) ? { rejectUnauthorized: false } : false,

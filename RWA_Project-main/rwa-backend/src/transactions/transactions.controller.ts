@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Request, ForbiddenException } from '@nestjs/common';
+import { Controller, Post, Get, Param, Body, UseGuards, Request, ForbiddenException } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TransactionsService } from './transactions.service';
 
@@ -20,5 +20,15 @@ export class TransactionsController {
       parseFloat(token_amount),
       parseFloat(price_per_token),
     );
+  }
+
+  @Get('transactions/pending')
+  getPendingOrders(@Request() req: any) {
+    return this.transactionsService.getPendingOrders(req.user.id);
+  }
+
+  @Post('transactions/pending/:id/cancel')
+  cancelPendingOrder(@Request() req: any, @Param('id') id: string) {
+    return this.transactionsService.cancelPendingOrder(parseInt(id), req.user.id);
   }
 }

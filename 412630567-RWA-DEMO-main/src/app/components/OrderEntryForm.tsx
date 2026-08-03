@@ -133,7 +133,7 @@ export function OrderEntryForm({ userId, property, selectedPrice }: OrderEntryFo
                     <ShieldAlert className="w-10 h-10" />
                  </div>
                  <h3 className="text-3xl font-black uppercase tracking-tighter text-slate-800">委託確認</h3>
-                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">{orderType === 'market' ? 'Instant Execution' : 'Async 10s Queue'}</p>
+                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">{orderType === 'market' ? 'Instant Execution' : 'Pending Order Book'}</p>
               </div>
               <div className="space-y-4 bg-slate-50 p-6 rounded-2xl mb-8 border border-slate-100">
                  <div className="flex justify-between items-center text-xs font-black uppercase text-slate-500">

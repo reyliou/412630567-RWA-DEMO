@@ -9,6 +9,8 @@ import { UserNotification } from '../entities/notification.entity';
 import { SystemAlert } from '../entities/system-alert.entity';
 import { SystemService } from '../system/system.service';
 import { BlockchainService } from '../blockchain/blockchain.service';
+import { PendingOrder } from '../entities/pending-order.entity';
+import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
 export class TransactionsService {
@@ -19,6 +21,8 @@ export class TransactionsService {
     private notifRepo: Repository<UserNotification>,
     @InjectRepository(User)
     private userRepo: Repository<User>,
+    @InjectRepository(PendingOrder)
+    private pendingRepo: Repository<PendingOrder>,
     private dataSource: DataSource,
     private systemService: SystemService,
     private blockchainService: BlockchainService,
@@ -83,6 +87,7 @@ export class TransactionsService {
       const finalPrice = totalValue / tokenAmount; // 本次交易的平均單價 (含滑價)
 
       // 限價單保護機制 (Slippage Check)
+      // 注意：如果是從 Cron Job 自動觸發的，orderType 會被標記為 'LIMIT_MATCHED'，這裡就不會拋出錯誤。
       if (orderType === 'LIMIT') {
         if (txType === 'BUY' && finalPrice > pricePerToken) {
           throw new Error(`AMM 滑價過高：本次大量購買導致均價飆升至 ${finalPrice.toFixed(2)} TWD，超過您設定的限價 ${pricePerToken} TWD`);
@@ -237,15 +242,90 @@ export class TransactionsService {
     }
 
     if (orderType === 'LIMIT') {
-      setTimeout(
-        () => this.runTrade(userId, propertyId, txType, orderType, tokenAmount, pricePerToken),
-        10000,
-      );
-      return { success: true, message: '委託已送出，正在排隊撮合...' };
+      // 真正的掛單追蹤系統 (Off-chain Order Book Tracker)
+      const order = this.pendingRepo.create({
+        user_id: userId,
+        property_id: propertyId,
+        tx_type: txType,
+        token_amount: tokenAmount,
+        limit_price: pricePerToken,
+        status: 'PENDING',
+      });
+      await this.pendingRepo.save(order);
+
+      // 同步發送一則通知，讓用戶知道有掛單成功
+      await this.notifRepo.save({
+        user_id: userId,
+        title: '掛單委託成功',
+        message: `您的 ${txType === 'BUY' ? '買入' : '賣出'} 限價委託 (單價 ${pricePerToken} TWD, 數量 ${tokenAmount}) 已加入掛單追蹤系統，將於 AMM 價格符合條件時自動撮合。`,
+        is_read: false,
+      });
+
+      return { success: true, message: '委託已送出，已加入掛單追蹤系統等候價格撮合' };
     }
 
     const result = await this.runTrade(userId, propertyId, txType, orderType, tokenAmount, pricePerToken);
     if (!result.success) throw new BadRequestException(result.message);
     return { success: true, txHash: result.txHash ?? null };
+  }
+
+  // 背景輪詢機器人 (每 5 秒檢查一次)
+  @Cron(CronExpression.EVERY_5_SECONDS)
+  async checkPendingOrders() {
+    if (this.systemService.getState().isPaused) return;
+    
+    // 找出所有正在掛單的單子
+    const pendingOrders = await this.pendingRepo.find({ where: { status: 'PENDING' } });
+    if (pendingOrders.length === 0) return;
+
+    for (const order of pendingOrders) {
+      // 去看該房產的最新 AMM spot price (current_price)
+      const property = await this.dataSource.manager.findOne(Property, { where: { id: order.property_id } });
+      if (!property) continue;
+
+      const spotPrice = parseFloat(String(property.current_price || 0));
+      let shouldExecute = false;
+
+      // 判斷是否滿足觸發條件
+      // 買單：市價 <= 我的限價 (代表現在比較便宜，可以撿便宜)
+      if (order.tx_type === 'BUY' && spotPrice <= parseFloat(String(order.limit_price))) {
+        shouldExecute = true;
+      }
+      // 賣單：市價 >= 我的限價 (代表現在比較貴，可以高點賣出)
+      if (order.tx_type === 'SELL' && spotPrice >= parseFloat(String(order.limit_price))) {
+        shouldExecute = true;
+      }
+
+      if (shouldExecute) {
+        this.logger.log(`掛單撮合成功！OrderID: ${order.id}, SpotPrice: ${spotPrice}`);
+        // 為了避免再次觸發 Slippage Error，我們給他一個特殊的 orderType 叫做 LIMIT_MATCHED
+        const result = await this.runTrade(order.user_id, order.property_id, order.tx_type, 'LIMIT_MATCHED', order.token_amount, spotPrice);
+        if (result.success) {
+          order.status = 'EXECUTED';
+          await this.pendingRepo.save(order);
+        } else {
+          this.logger.error(`掛單自動執行失敗: ${result.message}`);
+          // 如果是因為餘額不足等嚴重錯誤，可以考慮直接設為 CANCELLED，這裡我們先不改，讓他下一次繼續試。
+          if (result.message?.includes('餘額不足')) {
+            order.status = 'CANCELLED';
+            await this.pendingRepo.save(order);
+          }
+        }
+      }
+    }
+  }
+
+  async getPendingOrders(userId: number) {
+    return this.pendingRepo.find({ where: { user_id: userId, status: 'PENDING' }, order: { created_at: 'DESC' } });
+  }
+
+  async cancelPendingOrder(orderId: number, userId: number) {
+    const order = await this.pendingRepo.findOne({ where: { id: orderId, user_id: userId } });
+    if (!order) throw new BadRequestException('找不到該掛單或無權取消');
+    if (order.status !== 'PENDING') throw new BadRequestException('該掛單已被執行或取消');
+    
+    order.status = 'CANCELLED';
+    await this.pendingRepo.save(order);
+    return { success: true, message: '已成功取消掛單' };
   }
 }
