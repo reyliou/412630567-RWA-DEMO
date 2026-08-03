@@ -31,7 +31,7 @@ export function InvestorTransactions({ userId }: InvestorTransactionsProps) {
       try {
         const [txRes, pendingRes] = await Promise.all([
           apiFetch(`/api/transactions/${userId}`),
-          apiFetch(`/api/transactions/pending`)
+          apiFetch(`/api/pending-orders`)
         ]);
         if (txRes.ok) {
           const data = await txRes.json();
@@ -52,7 +52,7 @@ export function InvestorTransactions({ userId }: InvestorTransactionsProps) {
 
   const handleCancelOrder = async (orderId: string) => {
     try {
-      const res = await apiFetch(`/api/transactions/pending/${orderId}/cancel`, { method: 'POST' });
+      const res = await apiFetch(`/api/pending-orders/${orderId}/cancel`, { method: 'POST' });
       if (res.ok) {
         alert("已成功取消掛單");
         setPendingOrders(pendingOrders.filter(o => o.id !== orderId));

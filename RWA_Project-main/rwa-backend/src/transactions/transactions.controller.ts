@@ -22,12 +22,12 @@ export class TransactionsController {
     );
   }
 
-  @Get('transactions/pending')
+  @Get('pending-orders')
   getPendingOrders(@Request() req: any) {
     return this.transactionsService.getPendingOrders(req.user.id);
   }
 
-  @Post('transactions/pending/:id/cancel')
+  @Post('pending-orders/:id/cancel')
   cancelPendingOrder(@Request() req: any, @Param('id') id: string) {
     return this.transactionsService.cancelPendingOrder(parseInt(id), req.user.id);
   }
