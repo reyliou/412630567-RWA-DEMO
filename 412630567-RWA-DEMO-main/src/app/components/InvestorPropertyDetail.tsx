@@ -59,7 +59,7 @@ export function InvestorPropertyDetail({ userId, property, onBack }: PropertyDet
         </div>
         <div className="lg:col-span-4 space-y-8">
           <OrderEntryForm userId={userId} property={property} selectedPrice={selectedOrderPrice} />
-          <OrderBook currentPrice={property.price} onPriceSelect={(p) => setSelectedOrderPrice(p)} />
+          <OrderBook propertyId={property.id} currentPrice={property.price} onPriceSelect={(p) => setSelectedOrderPrice(p)} />
         </div>
       </div>
     </div>

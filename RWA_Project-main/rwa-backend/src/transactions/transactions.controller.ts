@@ -31,4 +31,9 @@ export class TransactionsController {
   cancelPendingOrder(@Request() req: any, @Param('id') id: string) {
     return this.transactionsService.cancelPendingOrder(parseInt(id), req.user.id);
   }
+
+  @Get('orderbook/:propertyId')
+  getOrderBook(@Param('propertyId') propertyId: string) {
+    return this.transactionsService.getOrderBook(parseInt(propertyId));
+  }
 }

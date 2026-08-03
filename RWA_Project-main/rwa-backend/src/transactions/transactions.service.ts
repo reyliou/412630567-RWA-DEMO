@@ -339,4 +339,43 @@ export class TransactionsService {
     await this.dataSource.manager.save(order);
     return { success: true, message: '已成功取消掛單' };
   }
+
+  async getOrderBook(propertyId: number) {
+    // 買方掛單 (Bids) - 從高價到低價排序 (願意出高價的人排最前面)
+    const bids = await this.dataSource.manager
+      .createQueryBuilder(AppTransaction, 'tx')
+      .select('tx.price_per_token', 'price')
+      .addSelect('SUM(tx.token_amount)', 'volume')
+      .where('tx.property_id = :propertyId', { propertyId })
+      .andWhere('tx.status = :status', { status: 'PENDING' })
+      .andWhere('tx.tx_type = :type', { type: 'BUY' })
+      .groupBy('tx.price_per_token')
+      .orderBy('tx.price_per_token', 'DESC')
+      .limit(5)
+      .getRawMany();
+
+    // 賣方掛單 (Asks) - 從低價到高價排序 (願意賤賣的人排最前面)
+    const asks = await this.dataSource.manager
+      .createQueryBuilder(AppTransaction, 'tx')
+      .select('tx.price_per_token', 'price')
+      .addSelect('SUM(tx.token_amount)', 'volume')
+      .where('tx.property_id = :propertyId', { propertyId })
+      .andWhere('tx.status = :status', { status: 'PENDING' })
+      .andWhere('tx.tx_type = :type', { type: 'SELL' })
+      .groupBy('tx.price_per_token')
+      .orderBy('tx.price_per_token', 'ASC')
+      .limit(5)
+      .getRawMany();
+
+    // TypeORM 的 SUM 回傳可能是字串，這裡轉回數字
+    const formatOrder = (order: any) => ({
+      price: parseFloat(order.price),
+      volume: parseFloat(order.volume),
+    });
+
+    return {
+      bids: bids.map(formatOrder),
+      asks: asks.map(formatOrder),
+    };
+  }
 }
