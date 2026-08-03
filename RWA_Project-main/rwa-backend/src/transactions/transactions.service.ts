@@ -84,8 +84,8 @@ export class TransactionsService {
       const finalPrice = totalValue / tokenAmount; // 本次交易的平均單價 (含滑價)
 
       // 限價單保護機制 (Slippage Check)
-      // 注意：如果是從 Cron Job 自動觸發的，orderType 會被標記為 'LIMIT_MATCHED'，這裡就不會拋出錯誤。
-      if (orderType === 'LIMIT') {
+      // 確保即使是大額掛單觸發，最終「含滑價的平均成交價」也絕對不能超過使用者的限價約束
+      if (orderType === 'LIMIT' || orderType === 'LIMIT_MATCHED') {
         if (txType === 'BUY' && finalPrice > pricePerToken) {
           throw new Error(`AMM 滑價過高：本次大量購買導致均價飆升至 ${finalPrice.toFixed(2)} TWD，超過您設定的限價 ${pricePerToken} TWD`);
         }
