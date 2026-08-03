@@ -46,9 +46,55 @@ export class TransactionsService {
       const property = await qr.manager.findOne(Property, { where: { id: propertyId } });
       if (!property) throw new Error('建案不存在');
 
+      // ======== AMM 流動性池計算 (x * y = k) ========
       const totalSupply = parseFloat(String(property.total_supply_x ?? 100000));
-      const finalPrice =
-        orderType === 'MARKET' ? parseFloat(String(property.current_price)) : pricePerToken;
+      // 假設初始池的美金儲備等於募資目標
+      const fundraisingGoal = parseFloat(String(property.fundraising_goal ?? (totalSupply * parseFloat(String(property.current_price)))));
+      
+      const k = totalSupply * fundraisingGoal;
+
+      // 取得目前在外流通的代幣總數 (UserHoldings 的總和)
+      const holdingResult = await qr.manager.createQueryBuilder(UserHolding, 'h')
+        .select('SUM(h.balance)', 'total')
+        .where('h.property_id = :id', { id: propertyId })
+        .getRawOne();
+      const circulatingSupply = parseFloat(holdingResult?.total || '0');
+
+      // 目前流動性池狀態
+      const currentX = totalSupply - circulatingSupply; // 池子裡剩餘的代幣
+      if (currentX <= 0) throw new Error('AMM 流動性池已被抽乾！');
+      const currentY = k / currentX; // 池子裡的美金儲備
+
+      // 預測交易後的新狀態
+      let newX: number;
+      let newY: number;
+
+      if (txType === 'BUY') {
+        newX = currentX - tokenAmount;
+        if (newX <= 0) throw new Error('流動性池餘額不足，無法購買這麼多代幣！');
+        newY = k / newX;
+      } else { // SELL
+        newX = currentX + tokenAmount;
+        newY = k / newX;
+      }
+
+      // 實際要付 / 收到的美金總額 (Y 的變化量)
+      const totalValue = Math.abs(newY - currentY);
+      const finalPrice = totalValue / tokenAmount; // 本次交易的平均單價 (含滑價)
+
+      // 限價單保護機制 (Slippage Check)
+      if (orderType === 'LIMIT') {
+        if (txType === 'BUY' && finalPrice > pricePerToken) {
+          throw new Error(`AMM 滑價過高：本次大量購買導致均價飆升至 $${finalPrice.toFixed(4)}，超過您設定的限價 $${pricePerToken}`);
+        }
+        if (txType === 'SELL' && finalPrice < pricePerToken) {
+          throw new Error(`AMM 滑價過高：本次大量拋售導致均價暴跌至 $${finalPrice.toFixed(4)}，低於您設定的限價 $${pricePerToken}`);
+        }
+      }
+      
+      // 交易後的新 AMM 實時單價 (Spot Price)
+      const newSpotPrice = newY / newX;
+      // ==============================================
 
       // Holding limit check
       const holding = await qr.manager.findOne(UserHolding, {
@@ -95,9 +141,7 @@ export class TransactionsService {
         }
       }
 
-      // ── DB transaction ───────────────────────────────────────────────────────
-      const totalValue = tokenAmount * finalPrice;
-
+      // 🚀 執行 DB 寫入 
       const status = chainError ? 'CHAIN_FAILED' : 'SUCCESS';
       const savedTx = await qr.manager.save(AppTransaction, {
         user_id: userId,
@@ -105,7 +149,7 @@ export class TransactionsService {
         tx_type: txType,
         order_type: orderType,
         token_amount: tokenAmount,
-        price_per_token: finalPrice,
+        price_per_token: finalPrice, // 存入 AMM 算出來的含滑價均價
         status,
         tx_hash: txHash ?? undefined,
       });
@@ -125,9 +169,12 @@ export class TransactionsService {
       await qr.manager
         .createQueryBuilder()
         .update(User)
-        .set({ total_asset_value: () => `COALESCE(total_asset_value, 0) + ${change * finalPrice}` })
+        .set({ total_asset_value: () => `COALESCE(total_asset_value, 0) + ${txType === 'BUY' ? totalValue : -totalValue}` })
         .where('id = :userId', { userId })
         .execute();
+
+      // 同步更新房產的最新 AMM 價格 (讓前端 K 線圖跟著變動)
+      await qr.manager.update(Property, { id: propertyId }, { current_price: newSpotPrice });
 
       const typeLabel = txType === 'BUY' ? '買入' : '賣出';
       const txInfo = txHash
