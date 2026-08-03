@@ -9,7 +9,6 @@ interface Transaction {
   tx_type: "BUY" | "SELL";
   token_amount: string;
   price_per_token?: string;
-  limit_price?: string;
   status: string;
   created_at: string;
 }
@@ -174,7 +173,7 @@ export function InvestorTransactions({ userId }: InvestorTransactionsProps) {
                      <div className="font-mono font-black text-lg text-slate-700">{parseFloat(order.token_amount).toLocaleString()} 枚</div>
                   </td>
                   <td className="px-10 py-8 text-center">
-                     <div className="font-mono font-black text-lg text-orange-600">${parseFloat(order.limit_price || '0').toLocaleString()}</div>
+                     <div className="font-mono font-black text-lg text-orange-600">${parseFloat(order.price_per_token || '0').toLocaleString()}</div>
                   </td>
                   <td className="px-10 py-8 text-right">
                      <div className="font-black text-xs text-orange-500 uppercase tracking-tighter animate-pulse mb-2">等待撮合中...</div>

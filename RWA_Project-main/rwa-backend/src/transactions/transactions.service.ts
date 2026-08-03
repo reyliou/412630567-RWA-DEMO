@@ -9,7 +9,6 @@ import { UserNotification } from '../entities/notification.entity';
 import { SystemAlert } from '../entities/system-alert.entity';
 import { SystemService } from '../system/system.service';
 import { BlockchainService } from '../blockchain/blockchain.service';
-import { PendingOrder } from '../entities/pending-order.entity';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
@@ -21,8 +20,6 @@ export class TransactionsService {
     private notifRepo: Repository<UserNotification>,
     @InjectRepository(User)
     private userRepo: Repository<User>,
-    @InjectRepository(PendingOrder)
-    private pendingRepo: Repository<PendingOrder>,
     private dataSource: DataSource,
     private systemService: SystemService,
     private blockchainService: BlockchainService,
@@ -148,16 +145,30 @@ export class TransactionsService {
 
       // 🚀 執行 DB 寫入 
       const status = chainError ? 'CHAIN_FAILED' : 'SUCCESS';
-      const savedTx = await qr.manager.save(AppTransaction, {
-        user_id: userId,
-        property_id: propertyId,
-        tx_type: txType,
-        order_type: orderType,
-        token_amount: tokenAmount,
-        price_per_token: finalPrice, // 存入 AMM 算出來的含滑價均價
-        status,
-        tx_hash: txHash ?? undefined,
-      });
+      // 如果這是一筆原本就在 PENDING 的掛單，我們更新它而不是新增
+      const existingPendingTx = orderType === 'LIMIT_MATCHED' 
+        ? await qr.manager.findOne(AppTransaction, {
+            where: { user_id: userId, property_id: propertyId, token_amount: tokenAmount, status: 'PENDING' }
+          })
+        : null;
+
+      if (existingPendingTx) {
+        existingPendingTx.status = status;
+        existingPendingTx.price_per_token = finalPrice;
+        existingPendingTx.tx_hash = txHash ?? undefined;
+        await qr.manager.save(existingPendingTx);
+      } else {
+        await qr.manager.save(AppTransaction, {
+          user_id: userId,
+          property_id: propertyId,
+          tx_type: txType,
+          order_type: orderType,
+          token_amount: tokenAmount,
+          price_per_token: finalPrice, // 存入 AMM 算出來的含滑價均價
+          status,
+          tx_hash: txHash ?? undefined,
+        });
+      }
 
       const change = txType === 'BUY' ? tokenAmount : -tokenAmount;
       const existing = await qr.manager.findOne(UserHolding, {
@@ -242,16 +253,17 @@ export class TransactionsService {
     }
 
     if (orderType === 'LIMIT') {
-      // 真正的掛單追蹤系統 (Off-chain Order Book Tracker)
-      const order = this.pendingRepo.create({
-        user_id: userId,
-        property_id: propertyId,
-        tx_type: txType,
-        token_amount: tokenAmount,
-        limit_price: pricePerToken,
-        status: 'PENDING',
-      });
-      await this.pendingRepo.save(order);
+      // 真正的掛單追蹤系統 (利用既有的 AppTransaction 表)
+      const order = new AppTransaction();
+      order.user_id = userId;
+      order.property_id = propertyId;
+      order.tx_type = txType;
+      order.order_type = 'LIMIT';
+      order.token_amount = tokenAmount;
+      order.price_per_token = pricePerToken; // 這裡暫存用戶的限價
+      order.status = 'PENDING';
+      
+      await this.dataSource.manager.save(order);
 
       // 同步發送一則通知，讓用戶知道有掛單成功
       await this.notifRepo.save({
@@ -275,7 +287,7 @@ export class TransactionsService {
     if (this.systemService.getState().isPaused) return;
     
     // 找出所有正在掛單的單子
-    const pendingOrders = await this.pendingRepo.find({ where: { status: 'PENDING' } });
+    const pendingOrders = await this.dataSource.manager.find(AppTransaction, { where: { status: 'PENDING' } });
     if (pendingOrders.length === 0) return;
 
     for (const order of pendingOrders) {
@@ -288,27 +300,26 @@ export class TransactionsService {
 
       // 判斷是否滿足觸發條件
       // 買單：市價 <= 我的限價 (代表現在比較便宜，可以撿便宜)
-      if (order.tx_type === 'BUY' && spotPrice <= parseFloat(String(order.limit_price))) {
+      if (order.tx_type === 'BUY' && spotPrice <= parseFloat(String(order.price_per_token))) {
         shouldExecute = true;
       }
       // 賣單：市價 >= 我的限價 (代表現在比較貴，可以高點賣出)
-      if (order.tx_type === 'SELL' && spotPrice >= parseFloat(String(order.limit_price))) {
+      if (order.tx_type === 'SELL' && spotPrice >= parseFloat(String(order.price_per_token))) {
         shouldExecute = true;
       }
 
       if (shouldExecute) {
         this.logger.log(`掛單撮合成功！OrderID: ${order.id}, SpotPrice: ${spotPrice}`);
         // 為了避免再次觸發 Slippage Error，我們給他一個特殊的 orderType 叫做 LIMIT_MATCHED
-        const result = await this.runTrade(order.user_id, order.property_id, order.tx_type, 'LIMIT_MATCHED', order.token_amount, spotPrice);
+        const result = await this.runTrade(order.user_id, order.property_id, order.tx_type, 'LIMIT_MATCHED', parseFloat(String(order.token_amount)), spotPrice);
         if (result.success) {
-          order.status = 'EXECUTED';
-          await this.pendingRepo.save(order);
+          // runTrade 裡面已經更新狀態了
         } else {
           this.logger.error(`掛單自動執行失敗: ${result.message}`);
           // 如果是因為餘額不足等嚴重錯誤，可以考慮直接設為 CANCELLED，這裡我們先不改，讓他下一次繼續試。
           if (result.message?.includes('餘額不足')) {
             order.status = 'CANCELLED';
-            await this.pendingRepo.save(order);
+            await this.dataSource.manager.save(order);
           }
         }
       }
@@ -316,16 +327,16 @@ export class TransactionsService {
   }
 
   async getPendingOrders(userId: number) {
-    return this.pendingRepo.find({ where: { user_id: userId, status: 'PENDING' }, order: { created_at: 'DESC' } });
+    return this.dataSource.manager.find(AppTransaction, { where: { user_id: userId, status: 'PENDING' }, order: { created_at: 'DESC' } });
   }
 
   async cancelPendingOrder(orderId: number, userId: number) {
-    const order = await this.pendingRepo.findOne({ where: { id: orderId, user_id: userId } });
+    const order = await this.dataSource.manager.findOne(AppTransaction, { where: { id: orderId, user_id: userId } });
     if (!order) throw new BadRequestException('找不到該掛單或無權取消');
     if (order.status !== 'PENDING') throw new BadRequestException('該掛單已被執行或取消');
     
     order.status = 'CANCELLED';
-    await this.pendingRepo.save(order);
+    await this.dataSource.manager.save(order);
     return { success: true, message: '已成功取消掛單' };
   }
 }
