@@ -309,9 +309,10 @@ export class TransactionsService {
       }
 
       if (shouldExecute) {
-        this.logger.log(`掛單撮合成功！OrderID: ${order.id}, SpotPrice: ${spotPrice}`);
-        // 為了避免再次觸發 Slippage Error，我們給他一個特殊的 orderType 叫做 LIMIT_MATCHED
-        const result = await this.runTrade(order.user_id, order.property_id, order.tx_type, 'LIMIT_MATCHED', parseFloat(String(order.token_amount)), spotPrice);
+        this.logger.log(`掛單觸發！OrderID: ${order.id}, SpotPrice: ${spotPrice}`);
+        // 為了避免再次觸發 Slippage Error，必須傳入使用者真實設定的限價 (order.price_per_token)，而不是目前的市價 (spotPrice)
+        const limitPrice = parseFloat(String(order.price_per_token));
+        const result = await this.runTrade(order.user_id, order.property_id, order.tx_type, 'LIMIT_MATCHED', parseFloat(String(order.token_amount)), limitPrice);
         if (result.success) {
           // runTrade 裡面已經更新狀態了
         } else {
