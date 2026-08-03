@@ -155,7 +155,7 @@ export class TransactionsService {
       if (existingPendingTx) {
         existingPendingTx.status = status;
         existingPendingTx.price_per_token = finalPrice;
-        existingPendingTx.tx_hash = txHash ?? undefined;
+        existingPendingTx.tx_hash = txHash ?? '';
         await qr.manager.save(existingPendingTx);
       } else {
         await qr.manager.save(AppTransaction, {
