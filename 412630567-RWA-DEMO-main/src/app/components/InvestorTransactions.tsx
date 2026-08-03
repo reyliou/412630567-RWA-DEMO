@@ -47,7 +47,6 @@ export function InvestorTransactions({ userId }: InvestorTransactionsProps) {
         setIsLoading(false);
       }
     };
-    };
     fetchTx();
   }, [userId, viewMode]);
 
