@@ -36,4 +36,9 @@ export class TransactionsController {
   getOrderBook(@Param('propertyId') propertyId: string) {
     return this.transactionsService.getOrderBook(parseInt(propertyId));
   }
+
+  @Get('stats/:propertyId')
+  getMarketStats(@Param('propertyId') propertyId: string) {
+    return this.transactionsService.getMarketStats(parseInt(propertyId));
+  }
 }

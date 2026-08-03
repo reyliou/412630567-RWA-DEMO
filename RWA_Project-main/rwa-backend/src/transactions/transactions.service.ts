@@ -378,4 +378,21 @@ export class TransactionsService {
       asks: asks.map(formatOrder),
     };
   }
+
+  async getMarketStats(propertyId: number) {
+    const stats = await this.dataSource.manager
+      .createQueryBuilder(AppTransaction, 'tx')
+      .select('MAX(tx.price_per_token)', 'high')
+      .addSelect('MIN(tx.price_per_token)', 'low')
+      .addSelect('SUM(tx.token_amount)', 'volume')
+      .where('tx.property_id = :propertyId', { propertyId })
+      .andWhere('tx.status = :status', { status: 'SUCCESS' })
+      .getRawOne();
+    
+    return {
+      high: stats?.high ? parseFloat(stats.high) : null,
+      low: stats?.low ? parseFloat(stats.low) : null,
+      volume: stats?.volume ? parseFloat(stats.volume) : 0,
+    };
+  }
 }

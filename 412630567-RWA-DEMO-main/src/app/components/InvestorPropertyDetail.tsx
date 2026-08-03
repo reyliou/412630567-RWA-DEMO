@@ -17,19 +17,30 @@ export function InvestorPropertyDetail({ userId, property, onBack }: PropertyDet
   const [vLogs, setVLogs] = useState<any[]>([]);
   const [isLoadingLogs, setIsLoadingLogs] = useState(true);
   const [selectedOrderPrice, setSelectedOrderPrice] = useState<number | null>(null);
-
-  // 模擬市場數據
-  const marketStats = { high: (property.price * 1.05).toFixed(2), low: (property.price * 0.95).toFixed(2), vol: "1.2M" };
+  
+  const [marketStats, setMarketStats] = useState({ high: property.price.toFixed(2), low: property.price.toFixed(2), vol: "0" });
 
   useEffect(() => {
     const fetchLogs = async () => {
-      try {
-        const response = await apiFetch(`/api/properties/${property.id}/kline`);
-        if (response.ok) {
-          const res = await response.json();
-          setVLogs(res);
-        }
-      } catch (e) { console.error("Logs sync failed"); } finally { setIsLoadingLogs(false); }
+        try {
+          const [klineRes, statsRes] = await Promise.all([
+            apiFetch(`/api/properties/${property.id}/kline`),
+            apiFetch(`/api/stats/${property.id}`)
+          ]);
+          
+          if (klineRes.ok) {
+            const res = await klineRes.json();
+            setVLogs(res);
+          }
+          if (statsRes.ok) {
+            const stats = await statsRes.json();
+            setMarketStats({
+              high: (stats.high || property.price).toFixed(2),
+              low: (stats.low || property.price).toFixed(2),
+              vol: stats.volume ? stats.volume.toLocaleString() : "0"
+            });
+          }
+        } catch (e) { console.error("Logs sync failed"); } finally { setIsLoadingLogs(false); }
     };
     fetchLogs();
   }, [property.id]);
