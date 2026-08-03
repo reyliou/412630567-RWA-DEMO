@@ -30,8 +30,8 @@ export function InvestorTransactions({ userId }: InvestorTransactionsProps) {
       setIsLoading(true);
       try {
         const [txRes, pendingRes] = await Promise.all([
-          apiFetch(`/api/transactions/${userId}`),
-          apiFetch(`/api/pending-orders`)
+          apiFetch(`/api/transactions/${userId}?t=${Date.now()}`),
+          apiFetch(`/api/pending-orders?t=${Date.now()}`)
         ]);
         if (txRes.ok) {
           const data = await txRes.json();
