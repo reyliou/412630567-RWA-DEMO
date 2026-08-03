@@ -316,8 +316,8 @@ export class TransactionsService {
           // runTrade 裡面已經更新狀態了
         } else {
           this.logger.error(`掛單自動執行失敗: ${result.message}`);
-          // 如果是因為餘額不足等嚴重錯誤，可以考慮直接設為 CANCELLED，這裡我們先不改，讓他下一次繼續試。
-          if (result.message?.includes('餘額不足')) {
+          // 如果是餘額不足或持倉不足的錯誤，直接設為 CANCELLED，避免無限輪迴嘗試
+          if (result.message?.includes('餘額不足') || result.message?.includes('持倉不足')) {
             order.status = 'CANCELLED';
             await this.dataSource.manager.save(order);
           }
