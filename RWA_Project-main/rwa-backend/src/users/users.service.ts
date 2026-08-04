@@ -65,10 +65,24 @@ export class UsersService {
   }
 
   async decryptKycImages(targetId: number, adminKey: string, adminId: number) {
-    // 【完美資安防護】從伺服器環境變數讀取資料庫密碼，程式碼中不再有任何寫死的密碼字串
-    const realDbPassword = process.env.SUPABASE_DB_PASSWORD;
+    // 【完美資安防護】智慧型讀取資料庫密碼：
+    // 優先讀取專用密鑰，若無則嘗試從 DATABASE_URL (如 postgres://user:password@host...) 中萃取密碼
+    let realDbPassword = process.env.SUPABASE_DB_PASSWORD;
     
-    // 如果系統尚未設定環境變數，或密碼驗證失敗，均視為 Forbidden
+    if (!realDbPassword && process.env.DATABASE_URL) {
+      try {
+        const dbUrl = new URL(process.env.DATABASE_URL);
+        realDbPassword = dbUrl.password;
+      } catch (e) {
+        this.logger.warn('無法從 DATABASE_URL 解析密碼');
+      }
+    }
+
+    if (!realDbPassword) {
+      realDbPassword = process.env.DB_PASSWORD;
+    }
+    
+    // 如果系統完全找不到任何密碼，或輸入的密碼比對失敗，均視為 Forbidden
     if (!realDbPassword || adminKey !== realDbPassword) {
       // 記錄資安異常事件 (密碼錯誤)
       await this.alertRepo.save(
