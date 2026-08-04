@@ -19,12 +19,16 @@ export function UserManagementCard() {
   const [decryptionKey, setDecryptionKey] = useState("");
   const [isDecrypted, setIsDecrypted] = useState(false);
   const [decryptionError, setDecryptionError] = useState("");
+  const [frontImageUrl, setFrontImageUrl] = useState("https://images.unsplash.com/photo-1633265486064-086b219458ce?w=800&q=80");
+  const [backImageUrl, setBackImageUrl] = useState("https://images.unsplash.com/photo-1614064641913-6b70fc8cb2c1?w=800&q=80");
 
   const closeKycModal = () => {
     setKycUser(null);
     setIsDecrypted(false);
     setDecryptionKey("");
     setDecryptionError("");
+    setFrontImageUrl("https://images.unsplash.com/photo-1633265486064-086b219458ce?w=800&q=80");
+    setBackImageUrl("https://images.unsplash.com/photo-1614064641913-6b70fc8cb2c1?w=800&q=80");
   };
 
   useEffect(() => {
@@ -189,6 +193,8 @@ export function UserManagementCard() {
                              setIsDecrypted(false);
                              setDecryptionKey("");
                              setDecryptionError("");
+                             setFrontImageUrl("https://images.unsplash.com/photo-1633265486064-086b219458ce?w=800&q=80");
+                             setBackImageUrl("https://images.unsplash.com/photo-1614064641913-6b70fc8cb2c1?w=800&q=80");
                            }} 
                            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-black text-blue-600 hover:bg-blue-50 mt-1"
                          >
@@ -256,8 +262,9 @@ export function UserManagementCard() {
                        });
                        
                        if (response.ok) {
-                         // const data = await response.json();
-                         // (實務上這裡可以把 data.frontIdUrl 替換掉預設的圖片 state)
+                         const data = await response.json();
+                         if (data.frontIdUrl) setFrontImageUrl(data.frontIdUrl);
+                         if (data.backIdUrl) setBackImageUrl(data.backIdUrl);
                          setIsDecrypted(true);
                          setDecryptionError("");
                        } else {
@@ -290,7 +297,7 @@ export function UserManagementCard() {
                        <span className="text-slate-500 font-black text-sm uppercase tracking-widest bg-white/50 px-4 py-2 rounded-xl">資料已加密</span>
                     </div>
                   )}
-                  <img src="https://images.unsplash.com/photo-1633265486064-086b219458ce?w=800&q=80" alt="Front ID" className={`w-full h-full object-cover rounded-2xl transition-all duration-1000 ${!isDecrypted ? 'opacity-30 grayscale blur-xl' : 'opacity-100'}`} />
+                  <img src={frontImageUrl} alt="Front ID" className={`w-full h-full object-cover rounded-2xl transition-all duration-1000 ${!isDecrypted ? 'opacity-30 grayscale blur-xl' : 'opacity-100'}`} />
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 via-transparent to-transparent flex items-end p-6 rounded-3xl pointer-events-none">
                      <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10">
                         <span className="text-white font-bold text-xs">ID_FRONT_ENCRYPTED.enc</span>
@@ -310,7 +317,7 @@ export function UserManagementCard() {
                        <span className="text-slate-500 font-black text-sm uppercase tracking-widest bg-white/50 px-4 py-2 rounded-xl">資料已加密</span>
                     </div>
                   )}
-                  <img src="https://images.unsplash.com/photo-1614064641913-6b70fc8cb2c1?w=800&q=80" alt="Back ID" className={`w-full h-full object-cover rounded-2xl transition-all duration-1000 ${!isDecrypted ? 'opacity-30 grayscale blur-xl' : 'opacity-100'}`} />
+                  <img src={backImageUrl} alt="Back ID" className={`w-full h-full object-cover rounded-2xl transition-all duration-1000 ${!isDecrypted ? 'opacity-30 grayscale blur-xl' : 'opacity-100'}`} />
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 via-transparent to-transparent flex items-end p-6 rounded-3xl pointer-events-none">
                      <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10">
                         <span className="text-white font-bold text-xs">ID_BACK_ENCRYPTED.enc</span>
