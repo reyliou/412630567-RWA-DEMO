@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Param, Body, UseGuards, Request, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Patch, Post, Param, Body, UseGuards, Request, ForbiddenException } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { UsersService } from './users.service';
 
@@ -27,5 +27,15 @@ export class UsersController {
   approveKyc(@Request() req: any, @Param('id') id: string) {
     if (req.user.role !== 'BUSINESS') throw new ForbiddenException('需要管理員權限');
     return this.usersService.approveKyc(parseInt(id), req.user.id);
+  }
+
+  @Post('kyc/:id/decrypt')
+  decryptKyc(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Body() body: { adminKey: string }
+  ) {
+    if (req.user.role !== 'BUSINESS') throw new ForbiddenException('需要管理員權限');
+    return this.usersService.decryptKycImages(parseInt(id), body.adminKey, req.user.id);
   }
 }
