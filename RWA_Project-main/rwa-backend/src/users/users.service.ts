@@ -134,17 +134,24 @@ export class UsersService {
         if (error) throw error;
 
         const arrayBuffer = await data.arrayBuffer();
-        const encryptedBuffer = Buffer.from(arrayBuffer);
+        const downloadedBuffer = Buffer.from(arrayBuffer);
 
-        // 核心解密演算法
-        const decryptedBuffer = decryptImage(encryptedBuffer);
+        let finalBuffer: Buffer;
+        try {
+          // 嘗試進行核心解密演算法
+          finalBuffer = decryptImage(downloadedBuffer);
+        } catch (decryptError) {
+          // 如果解密失敗 (bad decrypt / wrong block length)，代表這可能是舊版未加密的圖片，或是圖片損毀
+          this.logger.warn(`UID ${targetId} decryption failed, falling back to raw image (possibly unencrypted legacy account).`);
+          finalBuffer = downloadedBuffer; // 直接沿用原始資料，達成向下相容
+        }
 
-        // 轉為 Base64 Data URI 回傳給前端直接渲染，不留存在伺服器硬碟
-        finalImageUrl = `data:image/jpeg;base64,${decryptedBuffer.toString('base64')}`;
-        this.logger.log(`Successfully decrypted KYC image for UID ${targetId}`);
+        // 轉為 Base64 Data URI 回傳給前端直接渲染
+        finalImageUrl = `data:image/jpeg;base64,${finalBuffer.toString('base64')}`;
+        this.logger.log(`Successfully processed KYC image for UID ${targetId}`);
       } catch (e: any) {
-        this.logger.error(`Failed to decrypt image for UID ${targetId}: ${e.message}`);
-        // 如果真實解密失敗，仍維持 Fallback 圖片，避免前端全死
+        this.logger.error(`Failed to download or process image for UID ${targetId}: ${e.message}`);
+        // 如果連線 Supabase 失敗或發生嚴重錯誤，維持 Fallback 圖片，保證系統不崩潰
       }
     }
 
