@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../entities/user.entity';
@@ -78,7 +78,7 @@ export class UsersService {
           message: `Admin UID ${adminId} failed to decrypt KYC images for UID ${targetId}. Invalid database key.`,
         }),
       );
-      throw new ForbiddenException('資料庫密鑰錯誤，解密失敗');
+      throw new BadRequestException('資料庫密鑰錯誤，解密失敗');
     }
 
     // 驗證成功，記錄 audit log
