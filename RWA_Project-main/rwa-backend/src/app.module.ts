@@ -18,7 +18,6 @@ import { RentPayoutDetail } from './entities/rent-payout-detail.entity';
 import { BankTrustAccount } from './entities/bank-trust.entity';
 import { BankTrustTransaction } from './entities/bank-trust-transaction.entity';
 import { ValuationLog } from './entities/valuation-log.entity';
-import { RwaTransaction } from './transaction.entity';
 import { BlockchainConfig } from './entities/blockchain-config.entity';
 
 import { AuthModule } from './auth/auth.module';
@@ -60,7 +59,6 @@ import { SeedModule } from './seed/seed.module';
         BankTrustAccount,
         BankTrustTransaction,
         ValuationLog,
-        RwaTransaction,
         BlockchainConfig,
       ],
       synchronize: false,

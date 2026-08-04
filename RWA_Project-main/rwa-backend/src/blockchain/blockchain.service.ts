@@ -4,7 +4,6 @@ import { Repository } from 'typeorm';
 import { ethers } from 'ethers';
 import * as fs from 'fs';
 import * as path from 'path';
-import { RwaTransaction } from '../transaction.entity';
 import { Property } from '../entities/property.entity';
 import { User } from '../entities/user.entity';
 import { BlockchainConfig } from '../entities/blockchain-config.entity';
@@ -36,8 +35,6 @@ export class BlockchainService implements OnModuleInit {
   private artifactsDir: string;
 
   constructor(
-    @InjectRepository(RwaTransaction)
-    private rwaRepo: Repository<RwaTransaction>,
     @InjectRepository(Property)
     private propertyRepo: Repository<Property>,
     @InjectRepository(User)
@@ -670,17 +667,4 @@ export class BlockchainService implements OnModuleInit {
     return { standard: 'ERC-3643 (T-REX v4)', identityRegistry: irAddr, tokens };
   }
 
-  async transferWithSpeedTest(to: string) {
-    const properties = await this.propertyRepo.findOne({ where: {}, select: ['id', 'title', 'token_address'] as any });
-    if (!properties?.token_address || !(await this.isNodeReachable())) {
-      return { error: '尚未部署。請先呼叫 POST /api/blockchain/setup' };
-    }
-    const start = Date.now();
-    const txHash = await this.executeOnChainBuy(properties.token_address, to, 1);
-    const duration = Date.now() - start;
-    await this.rwaRepo.save(
-      this.rwaRepo.create({ txHash, fromAddress: this.adminAddress, toAddress: to, amount: '1', executionTimeMs: duration }),
-    );
-    return { status: 'Success', duration: `${duration}ms`, txHash, tokenAddress: properties.token_address };
-  }
 }
