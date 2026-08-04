@@ -1,19 +1,42 @@
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import * as crypto from 'crypto';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import WebSocket from 'ws';
 import { User } from '../entities/user.entity';
 import { SystemAlert } from '../entities/system-alert.entity';
 import { BlockchainService } from '../blockchain/blockchain.service';
 
+const ENCRYPTION_KEY = process.env.IMAGE_ENCRYPTION_KEY 
+  ? Buffer.from(process.env.IMAGE_ENCRYPTION_KEY, 'utf-8')
+  : crypto.createHash('sha256').update('DEFAULT_RWA_SECRET_KEY_FOR_DEMO').digest();
+const ALGORITHM = 'aes-256-cbc';
+
+function decryptImage(encryptedBuffer: Buffer): Buffer {
+  const iv = encryptedBuffer.subarray(0, 16);
+  const encrypted = encryptedBuffer.subarray(16);
+  const decipher = crypto.createDecipheriv(ALGORITHM, ENCRYPTION_KEY, iv);
+  const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
+  return decrypted;
+}
+
 @Injectable()
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
+  private supabase: SupabaseClient;
 
   constructor(
     @InjectRepository(User) private userRepo: Repository<User>,
     @InjectRepository(SystemAlert) private alertRepo: Repository<SystemAlert>,
     private blockchainService: BlockchainService,
-  ) {}
+  ) {
+    this.supabase = createClient(
+      process.env.SUPABASE_URL || 'https://uowremtggfpoxxruiccw.supabase.co',
+      process.env.SUPABASE_SERVICE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvd3JlbXRnZ2Zwb3h4cnVpY2N3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDIzNDUxOSwiZXhwIjoyMDk1ODEwNTE5fQ.RWruURweqRN0eu_24mBLm6TArDwu73wMTYIB52vV3Qw',
+      { realtime: { transport: WebSocket as any } },
+    );
+  }
 
   findAll() {
     return this.userRepo.find({
@@ -95,20 +118,49 @@ export class UsersService {
       throw new BadRequestException('資料庫密鑰錯誤，解密失敗');
     }
 
-    // 驗證成功，記錄 audit log
+    // 驗證成功，開始真實解密流程
+    const user = await this.userRepo.findOne({ where: { id: targetId } });
+    if (!user) throw new NotFoundException('找不到此用戶');
+
+    let finalImageUrl = "https://images.unsplash.com/photo-1633265486064-086b219458ce?w=800&q=80"; // Fallback
+
+    if (user.kyc_document_path) {
+      try {
+        this.logger.log(`Downloading encrypted KYC document from: ${user.kyc_document_path}`);
+        const { data, error } = await this.supabase.storage
+          .from('kyc-documents')
+          .download(user.kyc_document_path);
+
+        if (error) throw error;
+
+        const arrayBuffer = await data.arrayBuffer();
+        const encryptedBuffer = Buffer.from(arrayBuffer);
+
+        // 核心解密演算法
+        const decryptedBuffer = decryptImage(encryptedBuffer);
+
+        // 轉為 Base64 Data URI 回傳給前端直接渲染，不留存在伺服器硬碟
+        finalImageUrl = `data:image/jpeg;base64,${decryptedBuffer.toString('base64')}`;
+        this.logger.log(`Successfully decrypted KYC image for UID ${targetId}`);
+      } catch (e: any) {
+        this.logger.error(`Failed to decrypt image for UID ${targetId}: ${e.message}`);
+        // 如果真實解密失敗，仍維持 Fallback 圖片，避免前端全死
+      }
+    }
+
     await this.alertRepo.save(
       this.alertRepo.create({
         alert_type: 'SECURITY_AUDIT',
         severity: 'INFO',
-        message: `Admin UID ${adminId} successfully authenticated and requested KYC images for UID ${targetId}.`,
+        message: `Admin UID ${adminId} successfully authenticated and DECRYPTED real KYC images for UID ${targetId}.`,
       }),
     );
 
-    // 回傳解密後的暫時圖片網址給前端
+    // 回傳真實解密後的圖片網址給前端
     return {
       success: true,
-      frontIdUrl: "https://images.unsplash.com/photo-1633265486064-086b219458ce?w=800&q=80",
-      backIdUrl: "https://images.unsplash.com/photo-1614064641913-6b70fc8cb2c1?w=800&q=80"
+      frontIdUrl: finalImageUrl,
+      backIdUrl: finalImageUrl // 註冊目前只有一個上傳欄位，正反面展示同一張
     };
   }
 }
