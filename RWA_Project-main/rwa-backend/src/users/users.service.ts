@@ -65,10 +65,11 @@ export class UsersService {
   }
 
   async decryptKycImages(targetId: number, adminKey: string, adminId: number) {
-    // 實務上這裡會去環境變數撈取真實的 Supabase 密鑰來驗證
-    const REAL_DATABASE_KEY = 'newsun87S6202963';
+    // 【完美資安防護】從伺服器環境變數讀取資料庫密碼，程式碼中不再有任何寫死的密碼字串
+    const realDbPassword = process.env.SUPABASE_DB_PASSWORD;
     
-    if (adminKey !== REAL_DATABASE_KEY) {
+    // 如果系統尚未設定環境變數，或密碼驗證失敗，均視為 Forbidden
+    if (!realDbPassword || adminKey !== realDbPassword) {
       // 記錄資安異常事件 (密碼錯誤)
       await this.alertRepo.save(
         this.alertRepo.create({
