@@ -4,10 +4,24 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ethers } from 'ethers';
 import * as bcrypt from 'bcryptjs';
+import * as crypto from 'crypto';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import WebSocket from 'ws';
 import { User } from '../entities/user.entity';
 import { Role } from '../entities/role.entity';
+
+// ⚠️ 注意：正式上線時務必將此 KEY 放入環境變數，並確保長度為 32 bytes。
+const ENCRYPTION_KEY = process.env.IMAGE_ENCRYPTION_KEY 
+  ? Buffer.from(process.env.IMAGE_ENCRYPTION_KEY, 'utf-8')
+  : crypto.createHash('sha256').update('DEFAULT_RWA_SECRET_KEY_FOR_DEMO').digest();
+const ALGORITHM = 'aes-256-cbc';
+
+function encryptImage(fileBuffer: Buffer): Buffer {
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv(ALGORITHM, ENCRYPTION_KEY, iv);
+  const encrypted = Buffer.concat([cipher.update(fileBuffer), cipher.final()]);
+  return Buffer.concat([iv, encrypted]);
+}
 
 @Injectable()
 export class AuthService {
@@ -66,9 +80,11 @@ export class AuthService {
     let kyc_document_path: string | undefined = undefined;
     if (file) {
       const fileName = `kyc_${username}_${Date.now()}.jpg`;
+      const encryptedBuffer = encryptImage(file.buffer);
+      
       const { data, error } = await this.supabase.storage
         .from('kyc-documents')
-        .upload(fileName, file.buffer, {
+        .upload(fileName, encryptedBuffer, {
           contentType: file.mimetype,
         });
       
