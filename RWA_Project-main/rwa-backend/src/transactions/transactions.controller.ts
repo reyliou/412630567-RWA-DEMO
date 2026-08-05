@@ -9,7 +9,7 @@ export class TransactionsController {
 
   @Post('transactions')
   createTransaction(@Request() req: any, @Body() body: any) {
-    const { user_id, property_id, tx_type, order_type, token_amount, price_per_token } = body;
+    const { user_id, property_id, tx_type, order_type, token_amount, price_per_token, idempotency_key } = body;
     if (req.user.id !== parseInt(user_id)) throw new ForbiddenException('權限不足');
 
     return this.transactionsService.createTransaction(
@@ -19,6 +19,7 @@ export class TransactionsController {
       order_type,
       parseFloat(token_amount),
       parseFloat(price_per_token),
+      idempotency_key
     );
   }
 

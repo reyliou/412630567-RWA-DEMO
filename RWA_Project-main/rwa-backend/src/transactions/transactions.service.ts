@@ -32,6 +32,7 @@ export class TransactionsService {
     orderType: string,
     tokenAmount: number,
     pricePerToken: number,
+    idempotencyKey?: string,
   ): Promise<{ success: boolean; message?: string; txHash?: string }> {
     // Look up user (needed for wallet info before DB tx)
     const user = await this.userRepo.findOne({ where: { id: userId } });
@@ -41,6 +42,15 @@ export class TransactionsService {
     let chainError: string | null = null;
     const qr = this.dataSource.createQueryRunner();
     await qr.connect();
+
+    if (idempotencyKey) {
+      const existing = await qr.manager.findOne(AppTransaction, { where: { idempotency_key: idempotencyKey } });
+      if (existing) {
+        await qr.release();
+        return { success: false, message: '偵測到重複交易，已為您安全攔截' };
+      }
+    }
+
     await qr.startTransaction();
 
     try {
@@ -167,6 +177,7 @@ export class TransactionsService {
           price_per_token: finalPrice, // 存入 AMM 算出來的含滑價均價
           status,
           tx_hash: txHash ?? undefined,
+          idempotency_key: idempotencyKey ?? undefined,
         });
       }
 
@@ -238,6 +249,7 @@ export class TransactionsService {
     orderType: string,
     tokenAmount: number,
     pricePerToken: number,
+    idempotencyKey?: string,
   ) {
     if (this.systemService.getState().isPaused) {
       throw new ForbiddenException('系統已暫停交易，請等待技術端解除鎖定。');
@@ -262,8 +274,16 @@ export class TransactionsService {
       order.token_amount = tokenAmount;
       order.price_per_token = pricePerToken; // 這裡暫存用戶的限價
       order.status = 'PENDING';
+      order.idempotency_key = idempotencyKey ?? undefined;
       
-      await this.dataSource.manager.save(order);
+      try {
+        await this.dataSource.manager.save(order);
+      } catch (err: any) {
+        if (err.code === '23505') { // Postgres unique violation
+           throw new BadRequestException('偵測到重複的限價委託，已為您阻擋');
+        }
+        throw err;
+      }
 
       // 同步發送一則通知，讓用戶知道有掛單成功
       await this.notifRepo.save({
@@ -276,7 +296,7 @@ export class TransactionsService {
       return { success: true, message: '委託已送出，已加入掛單追蹤系統等候價格撮合' };
     }
 
-    const result = await this.runTrade(userId, propertyId, txType, orderType, tokenAmount, pricePerToken);
+    const result = await this.runTrade(userId, propertyId, txType, orderType, tokenAmount, pricePerToken, idempotencyKey);
     if (!result.success) throw new BadRequestException(result.message);
     return { success: true, txHash: result.txHash ?? null };
   }

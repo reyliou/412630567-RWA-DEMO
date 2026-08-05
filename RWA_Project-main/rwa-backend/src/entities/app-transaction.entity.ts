@@ -29,6 +29,9 @@ export class AppTransaction {
   @Column({ nullable: true })
   tx_hash: string;
 
+  @Column({ type: 'uuid', nullable: true, unique: true })
+  idempotency_key: string;
+
   @CreateDateColumn()
   created_at: Date;
 }

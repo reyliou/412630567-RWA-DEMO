@@ -20,6 +20,7 @@ export function OrderEntryForm({ userId, property, selectedPrice }: OrderEntryFo
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [idempotencyKey, setIdempotencyKey] = useState("");
 
   // 當使用者在 OrderBook 點擊價格時，自動切換至限價單並填入價格
   useEffect(() => {
@@ -55,7 +56,8 @@ export function OrderEntryForm({ userId, property, selectedPrice }: OrderEntryFo
           tx_type: txType, 
           order_type: orderType.toUpperCase(), 
           token_amount: amount, 
-          price_per_token: price 
+          price_per_token: price,
+          idempotency_key: idempotencyKey
         })
       });
       
@@ -124,8 +126,8 @@ export function OrderEntryForm({ userId, property, selectedPrice }: OrderEntryFo
         </div>
 
         <div className="grid grid-cols-2 gap-6">
-          <button disabled={isPaused || isSubmitting} onClick={() => { setTxType("BUY"); setIsConfirmOpen(true); }} className="py-6 bg-red-600 hover:bg-red-700 text-white rounded-[2rem] uppercase font-black shadow-xl shadow-red-200 transition-all active:scale-95 text-lg disabled:opacity-30 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:shadow-none">{isSubmitting && txType === "BUY" ? "處理中..." : "申購 BUY"}</button>
-          <button disabled={isPaused || isSubmitting} onClick={() => { setTxType("SELL"); setIsConfirmOpen(true); }} className="py-6 bg-green-600 hover:bg-green-700 text-white rounded-[2rem] uppercase font-black shadow-xl shadow-green-200 transition-all active:scale-95 text-lg disabled:opacity-30 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:shadow-none">{isSubmitting && txType === "SELL" ? "處理中..." : "委賣 SELL"}</button>
+          <button disabled={isPaused || isSubmitting} onClick={() => { setTxType("BUY"); setIdempotencyKey(crypto.randomUUID()); setIsConfirmOpen(true); }} className="py-6 bg-red-600 hover:bg-red-700 text-white rounded-[2rem] uppercase font-black shadow-xl shadow-red-200 transition-all active:scale-95 text-lg disabled:opacity-30 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:shadow-none">{isSubmitting && txType === "BUY" ? "處理中..." : "申購 BUY"}</button>
+          <button disabled={isPaused || isSubmitting} onClick={() => { setTxType("SELL"); setIdempotencyKey(crypto.randomUUID()); setIsConfirmOpen(true); }} className="py-6 bg-green-600 hover:bg-green-700 text-white rounded-[2rem] uppercase font-black shadow-xl shadow-green-200 transition-all active:scale-95 text-lg disabled:opacity-30 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:shadow-none">{isSubmitting && txType === "SELL" ? "處理中..." : "委賣 SELL"}</button>
         </div>
       </div>
 
