@@ -131,38 +131,47 @@ export class UsersService {
     const user = await this.userRepo.findOne({ where: { id: targetId } });
     if (!user) throw new NotFoundException('找不到此用戶');
 
-    let finalImageUrl = "https://images.unsplash.com/photo-1633265486064-086b219458ce?w=800&q=80"; // Fallback
+    let finalFrontUrl = "https://images.unsplash.com/photo-1633265486064-086b219458ce?w=800&q=80"; // Fallback
+    let finalBackUrl = "https://images.unsplash.com/photo-1614064641913-6b70fc8cb2c1?w=800&q=80"; // Fallback
 
-    if (user.kyc_document_path) {
+    const downloadAndDecrypt = async (path: string): Promise<string | null> => {
       try {
-        this.logger.log(`Downloading encrypted KYC document from: ${user.kyc_document_path}`);
+        this.logger.log(`Downloading encrypted KYC document from: ${path}`);
         const { data, error } = await this.supabase.storage
           .from('kyc-documents')
-          .download(user.kyc_document_path);
+          .download(path);
 
         if (error) throw error;
 
         const arrayBuffer = await data.arrayBuffer();
-        // 使用 Uint8Array 包裝確保在所有 Node/V8 環境下 Buffer.from 行為一致，不會讀到錯誤的偏移量
         const downloadedBuffer = Buffer.from(new Uint8Array(arrayBuffer));
 
         let finalBuffer: Buffer;
         try {
-          // 嘗試進行核心解密演算法
           finalBuffer = decryptImage(downloadedBuffer);
         } catch (decryptError: any) {
-          // 如果解密失敗 (bad decrypt / wrong block length)，代表這可能是舊版未加密的圖片，或是圖片損毀
-          this.logger.warn(`UID ${targetId} decryption failed: ${decryptError.message}. Falling back to raw image (possibly unencrypted legacy account).`);
-          finalBuffer = downloadedBuffer; // 直接沿用原始資料，達成向下相容
+          this.logger.warn(`Decryption failed: ${decryptError.message}. Falling back to raw image.`);
+          finalBuffer = downloadedBuffer;
         }
 
-        // 轉為 Base64 Data URI 回傳給前端直接渲染
-        finalImageUrl = `data:image/jpeg;base64,${finalBuffer.toString('base64')}`;
-        this.logger.log(`Successfully processed KYC image for UID ${targetId}`);
+        return `data:image/jpeg;base64,${finalBuffer.toString('base64')}`;
       } catch (e: any) {
-        this.logger.error(`Failed to download or process image for UID ${targetId}: ${e.message}`);
-        // 如果連線 Supabase 失敗或發生嚴重錯誤，維持 Fallback 圖片，保證系統不崩潰
+        this.logger.error(`Failed to download or process image ${path}: ${e.message}`);
+        return null;
       }
+    };
+
+    if (user.kyc_document_path) {
+      const frontResult = await downloadAndDecrypt(user.kyc_document_path);
+      if (frontResult) finalFrontUrl = frontResult;
+    }
+    
+    if (user.kyc_document_back_path) {
+      const backResult = await downloadAndDecrypt(user.kyc_document_back_path);
+      if (backResult) finalBackUrl = backResult;
+    } else if (user.kyc_document_path) {
+      // 向下相容：如果舊帳號只有正面，反面就預設顯示同一張
+      finalBackUrl = finalFrontUrl;
     }
 
     await this.alertRepo.save(
@@ -176,8 +185,8 @@ export class UsersService {
     // 回傳真實解密後的圖片網址給前端
     return {
       success: true,
-      frontIdUrl: finalImageUrl,
-      backIdUrl: finalImageUrl // 註冊目前只有一個上傳欄位，正反面展示同一張
+      frontIdUrl: finalFrontUrl,
+      backIdUrl: finalBackUrl
     };
   }
 }

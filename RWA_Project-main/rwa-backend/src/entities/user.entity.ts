@@ -34,6 +34,9 @@ export class User {
   kyc_document_path: string;
 
   @Column({ nullable: true })
+  kyc_document_back_path: string;
+
+  @Column({ nullable: true })
   kyc_reviewed_by: number;
 
   @Column({ nullable: true })

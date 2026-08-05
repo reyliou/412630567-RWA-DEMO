@@ -65,7 +65,7 @@ export class AuthService {
     };
   }
 
-  async register(username: string, email: string, phone_number: string, password: string, file?: Express.Multer.File) {
+  async register(username: string, email: string, phone_number: string, password: string, fileFront?: Express.Multer.File, fileBack?: Express.Multer.File) {
     const exists = await this.userRepo.findOne({
       where: [{ username }, { email }],
     });
@@ -78,21 +78,31 @@ export class AuthService {
     const passwordHash = await bcrypt.hash(password, 10);
 
     let kyc_document_path: string | undefined = undefined;
-    if (file) {
-      const fileName = `kyc_${username}_${Date.now()}.jpg`;
-      const encryptedBuffer = encryptImage(file.buffer);
+    let kyc_document_back_path: string | undefined = undefined;
+
+    const uploadEncrypted = async (fileToUpload: Express.Multer.File, suffix: string) => {
+      const fileName = `kyc_${username}_${suffix}_${Date.now()}.jpg`;
+      const encryptedBuffer = encryptImage(fileToUpload.buffer);
       
       const { data, error } = await this.supabase.storage
         .from('kyc-documents')
         .upload(fileName, encryptedBuffer, {
-          contentType: file.mimetype,
+          contentType: fileToUpload.mimetype,
         });
       
       if (error) {
-        console.error("KYC Upload Error:", error);
-        throw new Error('KYC 圖片上傳失敗: ' + error.message);
+        console.error(`KYC Upload Error (${suffix}):`, error);
+        throw new Error(`KYC 圖片上傳失敗 (${suffix}): ` + error.message);
       }
-      kyc_document_path = data.path;
+      return data.path;
+    };
+
+    if (fileFront) {
+      kyc_document_path = await uploadEncrypted(fileFront, 'front');
+    }
+    
+    if (fileBack) {
+      kyc_document_back_path = await uploadEncrypted(fileBack, 'back');
     }
 
     const user = await this.userRepo.save({
@@ -105,6 +115,7 @@ export class AuthService {
       is_email_verified: false,
       kyc_status: 'PENDING',
       kyc_document_path,
+      kyc_document_back_path,
       total_asset_value: 0,
       total_profit_loss: 0,
       wallet_address: wallet.address,

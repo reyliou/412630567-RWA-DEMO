@@ -62,7 +62,8 @@ export function AuthView({ onLogin }: AuthViewProps) {
       formData.append("email", regEmail);
       formData.append("phone_number", regPhone);
       formData.append("password", regPassword);
-      formData.append("kyc_document", kycFileFront); // Demo: 只傳正面，後端目前只收一張
+      formData.append("kyc_document", kycFileFront);
+      formData.append("kyc_document_back", kycFileBack);
 
       // 呼叫後端真正的註冊 API
       const response = await fetch(`${API_BASE_URL}/api/register`, {

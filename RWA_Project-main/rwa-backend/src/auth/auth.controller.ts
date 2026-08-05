@@ -1,5 +1,5 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, UseInterceptors, UploadedFile } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { Controller, Post, Body, HttpCode, HttpStatus, UseInterceptors, UploadedFiles } from '@nestjs/common';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 
@@ -15,11 +15,21 @@ export class AuthController {
   }
 
   @Post('register')
-  @UseInterceptors(FileInterceptor('kyc_document'))
+  @UseInterceptors(FileFieldsInterceptor([
+    { name: 'kyc_document', maxCount: 1 },
+    { name: 'kyc_document_back', maxCount: 1 }
+  ]))
   register(
     @Body() body: any,
-    @UploadedFile() file?: Express.Multer.File
+    @UploadedFiles() files: { kyc_document?: Express.Multer.File[], kyc_document_back?: Express.Multer.File[] }
   ) {
-    return this.authService.register(body.username, body.email, body.phone_number, body.password, file);
+    return this.authService.register(
+      body.username, 
+      body.email, 
+      body.phone_number, 
+      body.password, 
+      files?.kyc_document?.[0], 
+      files?.kyc_document_back?.[0]
+    );
   }
 }
