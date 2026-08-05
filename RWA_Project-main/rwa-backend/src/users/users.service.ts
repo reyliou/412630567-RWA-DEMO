@@ -16,9 +16,18 @@ const ALGORITHM = 'aes-256-cbc';
 function decryptImage(encryptedBuffer: Buffer): Buffer {
   const iv = encryptedBuffer.subarray(0, 16);
   const encrypted = encryptedBuffer.subarray(16);
-  const decipher = crypto.createDecipheriv(ALGORITHM, ENCRYPTION_KEY, iv);
-  const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
-  return decrypted;
+  
+  try {
+    const decipher = crypto.createDecipheriv(ALGORITHM, ENCRYPTION_KEY, iv);
+    const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
+    return decrypted;
+  } catch (e) {
+    // 雙重保險：如果目前的 ENCRYPTION_KEY 失敗，強制嘗試使用預設的 DEMO 金鑰
+    const fallbackKey = crypto.createHash('sha256').update('DEFAULT_RWA_SECRET_KEY_FOR_DEMO').digest();
+    const fallbackDecipher = crypto.createDecipheriv(ALGORITHM, fallbackKey, iv);
+    const decrypted = Buffer.concat([fallbackDecipher.update(encrypted), fallbackDecipher.final()]);
+    return decrypted;
+  }
 }
 
 @Injectable()
@@ -134,15 +143,16 @@ export class UsersService {
         if (error) throw error;
 
         const arrayBuffer = await data.arrayBuffer();
-        const downloadedBuffer = Buffer.from(arrayBuffer);
+        // 使用 Uint8Array 包裝確保在所有 Node/V8 環境下 Buffer.from 行為一致，不會讀到錯誤的偏移量
+        const downloadedBuffer = Buffer.from(new Uint8Array(arrayBuffer));
 
         let finalBuffer: Buffer;
         try {
           // 嘗試進行核心解密演算法
           finalBuffer = decryptImage(downloadedBuffer);
-        } catch (decryptError) {
+        } catch (decryptError: any) {
           // 如果解密失敗 (bad decrypt / wrong block length)，代表這可能是舊版未加密的圖片，或是圖片損毀
-          this.logger.warn(`UID ${targetId} decryption failed, falling back to raw image (possibly unencrypted legacy account).`);
+          this.logger.warn(`UID ${targetId} decryption failed: ${decryptError.message}. Falling back to raw image (possibly unencrypted legacy account).`);
           finalBuffer = downloadedBuffer; // 直接沿用原始資料，達成向下相容
         }
 
