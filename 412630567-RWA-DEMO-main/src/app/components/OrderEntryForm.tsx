@@ -19,6 +19,7 @@ export function OrderEntryForm({ userId, property, selectedPrice }: OrderEntryFo
   const [txType, setTxType] = useState<"BUY" | "SELL">("BUY");
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // 當使用者在 OrderBook 點擊價格時，自動切換至限價單並填入價格
   useEffect(() => {
@@ -38,11 +39,12 @@ export function OrderEntryForm({ userId, property, selectedPrice }: OrderEntryFo
     }
 
     setIsConfirmOpen(false);
+    setIsSubmitting(true);
     try {
       const amount = parseFloat(tokenAmount);
       const price = orderType === 'market' ? property.price : parseFloat(limitTokenPrice);
-      if (isNaN(amount) || amount <= 0) return alert("請輸入有效的數量");
-      if (orderType === 'limit' && (isNaN(price) || price <= 0)) return alert("請輸入有效的限價");
+      if (isNaN(amount) || amount <= 0) { setIsSubmitting(false); return alert("請輸入有效的數量"); }
+      if (orderType === 'limit' && (isNaN(price) || price <= 0)) { setIsSubmitting(false); return alert("請輸入有效的限價"); }
 
       const response = await apiFetch(`/api/transactions`, {
         method: 'POST',
@@ -65,6 +67,8 @@ export function OrderEntryForm({ userId, property, selectedPrice }: OrderEntryFo
       }
     } catch (e) { 
       alert("連線後端 API 失敗"); 
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -79,8 +83,8 @@ export function OrderEntryForm({ userId, property, selectedPrice }: OrderEntryFo
         <h3 className="font-black text-2xl mb-8 border-b pb-4 uppercase mt-2">Trading HUB</h3>
         
         <div className="flex bg-slate-100 p-2 rounded-[1.5rem] mb-10">
-          <button disabled={isPaused} onClick={() => setOrderType("market")} className={`flex-1 py-4 rounded-2xl text-xs font-black uppercase transition-all ${orderType === 'market' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'} disabled:opacity-50 disabled:cursor-not-allowed`}>市價委託</button>
-          <button disabled={isPaused} onClick={() => setOrderType("limit")} className={`flex-1 py-4 rounded-2xl text-xs font-black uppercase transition-all ${orderType === 'limit' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'} disabled:opacity-50 disabled:cursor-not-allowed`}>限價排隊</button>
+          <button disabled={isPaused || isSubmitting} onClick={() => setOrderType("market")} className={`flex-1 py-4 rounded-2xl text-xs font-black uppercase transition-all ${orderType === 'market' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'} disabled:opacity-50 disabled:cursor-not-allowed`}>市價委託</button>
+          <button disabled={isPaused || isSubmitting} onClick={() => setOrderType("limit")} className={`flex-1 py-4 rounded-2xl text-xs font-black uppercase transition-all ${orderType === 'limit' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'} disabled:opacity-50 disabled:cursor-not-allowed`}>限價排隊</button>
         </div>
 
         <div className="space-y-6 mb-12">
@@ -94,7 +98,7 @@ export function OrderEntryForm({ userId, property, selectedPrice }: OrderEntryFo
                   value={limitTokenPrice} 
                   onChange={(e) => setLimitTokenPrice(e.target.value)} 
                   placeholder={property.price.toString()}
-                  disabled={isPaused}
+                  disabled={isPaused || isSubmitting}
                   className="w-full pl-12 pr-8 py-6 bg-slate-50 border border-slate-100 focus:border-blue-200 focus:ring-4 focus:ring-blue-100 rounded-[2rem] text-3xl outline-none font-mono font-black text-blue-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed" 
                 />
               </div>
@@ -108,7 +112,7 @@ export function OrderEntryForm({ userId, property, selectedPrice }: OrderEntryFo
               value={tokenAmount} 
               onChange={(e) => setTokenAmount(e.target.value)} 
               placeholder="0"
-              disabled={isPaused}
+              disabled={isPaused || isSubmitting}
               className="w-full px-8 py-6 bg-slate-50 border border-slate-100 focus:border-blue-200 focus:ring-4 focus:ring-blue-100 rounded-[2rem] text-4xl outline-none font-mono font-black text-slate-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed" 
             />
           </div>
@@ -120,8 +124,8 @@ export function OrderEntryForm({ userId, property, selectedPrice }: OrderEntryFo
         </div>
 
         <div className="grid grid-cols-2 gap-6">
-          <button disabled={isPaused} onClick={() => { setTxType("BUY"); setIsConfirmOpen(true); }} className="py-6 bg-red-600 hover:bg-red-700 text-white rounded-[2rem] uppercase font-black shadow-xl shadow-red-200 transition-all active:scale-95 text-lg disabled:opacity-30 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:shadow-none">申購 BUY</button>
-          <button disabled={isPaused} onClick={() => { setTxType("SELL"); setIsConfirmOpen(true); }} className="py-6 bg-green-600 hover:bg-green-700 text-white rounded-[2rem] uppercase font-black shadow-xl shadow-green-200 transition-all active:scale-95 text-lg disabled:opacity-30 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:shadow-none">委賣 SELL</button>
+          <button disabled={isPaused || isSubmitting} onClick={() => { setTxType("BUY"); setIsConfirmOpen(true); }} className="py-6 bg-red-600 hover:bg-red-700 text-white rounded-[2rem] uppercase font-black shadow-xl shadow-red-200 transition-all active:scale-95 text-lg disabled:opacity-30 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:shadow-none">{isSubmitting && txType === "BUY" ? "處理中..." : "申購 BUY"}</button>
+          <button disabled={isPaused || isSubmitting} onClick={() => { setTxType("SELL"); setIsConfirmOpen(true); }} className="py-6 bg-green-600 hover:bg-green-700 text-white rounded-[2rem] uppercase font-black shadow-xl shadow-green-200 transition-all active:scale-95 text-lg disabled:opacity-30 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:shadow-none">{isSubmitting && txType === "SELL" ? "處理中..." : "委賣 SELL"}</button>
         </div>
       </div>
 
