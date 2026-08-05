@@ -169,9 +169,8 @@ export class UsersService {
     if (user.kyc_document_back_path) {
       const backResult = await downloadAndDecrypt(user.kyc_document_back_path);
       if (backResult) finalBackUrl = backResult;
-    } else if (user.kyc_document_path) {
-      // 向下相容：如果舊帳號只有正面，反面就預設顯示同一張
-      finalBackUrl = finalFrontUrl;
+    } else {
+      finalBackUrl = "broken_image_url"; // 強制讓它變成無效連結以顯示破圖
     }
 
     await this.alertRepo.save(
