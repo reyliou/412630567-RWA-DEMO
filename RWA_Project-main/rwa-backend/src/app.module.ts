@@ -61,7 +61,7 @@ import { SeedModule } from './seed/seed.module';
         ValuationLog,
         BlockchainConfig,
       ],
-      synchronize: true,
+      synchronize: false,
       ssl: (process.env.DATABASE_URL || (process.env.DB_HOST && process.env.DB_HOST !== 'localhost')) ? { rejectUnauthorized: false } : false,
     }),
     AuthModule,
