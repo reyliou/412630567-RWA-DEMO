@@ -37,4 +37,7 @@ export class Property {
 
   @Column({ nullable: true })
   token_address: string;
+
+  @Column({ nullable: true })
+  landlord_id: number;
 }

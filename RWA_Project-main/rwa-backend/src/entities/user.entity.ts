@@ -57,6 +57,9 @@ export class User {
   @Column({ nullable: true })
   wallet_private_key: string;
 
+  @Column({ nullable: true })
+  bank_account_number: string;
+
   @CreateDateColumn()
   created_at: Date;
 

@@ -110,7 +110,7 @@ export class TransactionsService {
 
       // Holding limit check
       const holding = await qr.manager.findOne(UserHolding, {
-        where: { user_id: userId, property_id: propertyId },
+        where: { user_id: userId, property_id: propertyId, holder_type: 'INVESTOR' },
       });
       const currentBalance = holding ? parseFloat(String(holding.balance)) : 0;
 
@@ -184,14 +184,14 @@ export class TransactionsService {
 
       const change = txType === 'BUY' ? tokenAmount : -tokenAmount;
       const existing = await qr.manager.findOne(UserHolding, {
-        where: { user_id: userId, property_id: propertyId },
+        where: { user_id: userId, property_id: propertyId, holder_type: 'INVESTOR' },
       });
       if (existing) {
-        await qr.manager.update(UserHolding, { user_id: userId, property_id: propertyId }, {
+        await qr.manager.update(UserHolding, { user_id: userId, property_id: propertyId, holder_type: 'INVESTOR' }, {
           balance: parseFloat(String(existing.balance)) + change,
         });
       } else {
-        await qr.manager.save(UserHolding, { user_id: userId, property_id: propertyId, balance: change });
+        await qr.manager.save(UserHolding, { user_id: userId, property_id: propertyId, balance: change, holder_type: 'INVESTOR' });
       }
 
       await qr.manager
@@ -275,7 +275,7 @@ export class TransactionsService {
       order.token_amount = tokenAmount;
       order.price_per_token = pricePerToken; // 這裡暫存用戶的限價
       order.status = 'PENDING';
-      order.idempotency_key = idempotencyKey ?? undefined;
+      if (idempotencyKey) order.idempotency_key = idempotencyKey;
       
       try {
         await this.dataSource.manager.save(order);
