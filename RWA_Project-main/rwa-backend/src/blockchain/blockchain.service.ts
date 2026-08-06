@@ -630,7 +630,8 @@ export class BlockchainService implements OnModuleInit {
     return {
       nodeReachable: nodeOk,
       artifactsCompiled: this.artifactsExist(),
-      adminWallet: this.adminWallet?.address ?? null,
+      // adminWallet 被 NonceManager 包過，沒有 .address 屬性；地址存在 adminAddress
+      adminWallet: this.adminAddress ?? null,
       infraDeployed: !!irAddr && !configStale,
       configStale,
       identityRegistry: irAddr,
