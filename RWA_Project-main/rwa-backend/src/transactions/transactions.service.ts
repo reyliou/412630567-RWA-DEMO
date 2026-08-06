@@ -168,17 +168,18 @@ export class TransactionsService {
         existingPendingTx.tx_hash = txHash ?? '';
         await qr.manager.save(existingPendingTx);
       } else {
-        await qr.manager.save(AppTransaction, {
-          user_id: userId,
-          property_id: propertyId,
-          tx_type: txType,
-          order_type: orderType,
-          token_amount: tokenAmount,
-          price_per_token: finalPrice, // 存入 AMM 算出來的含滑價均價
-          status,
-          tx_hash: txHash ?? undefined,
-          idempotency_key: idempotencyKey ?? undefined,
-        });
+        const tx = new AppTransaction();
+        tx.user_id = userId;
+        tx.property_id = propertyId;
+        tx.tx_type = txType;
+        tx.order_type = orderType;
+        tx.token_amount = tokenAmount;
+        tx.price_per_token = finalPrice;
+        tx.status = status;
+        if (txHash) tx.tx_hash = txHash;
+        if (idempotencyKey) tx.idempotency_key = idempotencyKey;
+        
+        await qr.manager.save(tx);
       }
 
       const change = txType === 'BUY' ? tokenAmount : -tokenAmount;
