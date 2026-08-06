@@ -17,6 +17,7 @@ export function InvestorPropertyDetail({ userId, property, onBack }: PropertyDet
   const [vLogs, setVLogs] = useState<any[]>([]);
   const [isLoadingLogs, setIsLoadingLogs] = useState(true);
   const [selectedOrderPrice, setSelectedOrderPrice] = useState<number | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   
   const [marketStats, setMarketStats] = useState({ high: property.price.toFixed(2), low: property.price.toFixed(2), vol: "0" });
 
@@ -43,7 +44,7 @@ export function InvestorPropertyDetail({ userId, property, onBack }: PropertyDet
         } catch (e) { console.error("Logs sync failed"); } finally { setIsLoadingLogs(false); }
     };
     fetchLogs();
-  }, [property.id]);
+  }, [property.id, refreshTrigger]);
 
   return (
     <div className="max-w-7xl mx-auto animate-in fade-in duration-300 pb-20 text-slate-800 font-black">
@@ -69,7 +70,12 @@ export function InvestorPropertyDetail({ userId, property, onBack }: PropertyDet
           </div>
         </div>
         <div className="lg:col-span-4 space-y-8">
-          <OrderEntryForm userId={userId} property={property} selectedPrice={selectedOrderPrice} />
+          <OrderEntryForm 
+            userId={userId} 
+            property={property} 
+            selectedPrice={selectedOrderPrice} 
+            onSuccess={() => setRefreshTrigger(prev => prev + 1)}
+          />
           <OrderBook propertyId={property.id} currentPrice={property.price} onPriceSelect={(p) => setSelectedOrderPrice(p)} />
         </div>
       </div>

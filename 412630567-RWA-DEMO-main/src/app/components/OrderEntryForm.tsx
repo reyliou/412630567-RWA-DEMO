@@ -8,9 +8,10 @@ interface OrderEntryFormProps {
   userId: number;
   property: any;
   selectedPrice?: number | null;
+  onSuccess?: () => void;
 }
 
-export function OrderEntryForm({ userId, property, selectedPrice }: OrderEntryFormProps) {
+export function OrderEntryForm({ userId, property, selectedPrice, onSuccess }: OrderEntryFormProps) {
   const { apiFetch } = useAuth();
   const { isPaused } = useSystemControl(); // 取得系統暫停狀態
   const [orderType, setOrderType] = useState<"market" | "limit">("market");
@@ -64,6 +65,7 @@ export function OrderEntryForm({ userId, property, selectedPrice }: OrderEntryFo
       const data = await response.json();
       if (response.ok && data.success) {
         setIsSuccessOpen(true);
+        onSuccess?.();
       } else {
         alert(data.message || "交易失敗");
       }
