@@ -19,6 +19,9 @@ export function InvestorPropertyDetail({ userId, property, onBack }: PropertyDet
   const [selectedOrderPrice, setSelectedOrderPrice] = useState<number | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   
+  // 修正 #6: 使用 local state 來同步即時價格
+  const [livePrice, setLivePrice] = useState(property.price);
+  
   const [marketStats, setMarketStats] = useState({ high: property.price.toFixed(2), low: property.price.toFixed(2), vol: "0" });
 
   useEffect(() => {
@@ -32,6 +35,10 @@ export function InvestorPropertyDetail({ userId, property, onBack }: PropertyDet
           if (klineRes.ok) {
             const res = await klineRes.json();
             setVLogs(res);
+            // 修正 #6: 同步最新成交價給大字體與掛單簿
+            if (res && res.length > 0) {
+              setLivePrice(res[res.length - 1].close);
+            }
           }
           if (statsRes.ok) {
             const stats = await statsRes.json();
@@ -57,10 +64,10 @@ export function InvestorPropertyDetail({ userId, property, onBack }: PropertyDet
           <div className="bg-white border border-border rounded-[3rem] p-10 shadow-sm">
             <h2 className="text-5xl font-black tracking-tighter mb-4">{property.name}</h2>
             <div className="flex items-center gap-8 mb-10">
-               <div className="flex flex-col"><span className="text-[10px] text-slate-400 uppercase tracking-widest">Price</span><span className="font-mono text-blue-600 text-5xl tracking-tighter">${property.price}</span></div>
+               <div className="flex flex-col"><span className="text-[10px] text-slate-400 uppercase tracking-widest">Price</span><span className="font-mono text-blue-600 text-5xl tracking-tighter">${Number(livePrice).toFixed(4)}</span></div>
             </div>
             <div className="aspect-[21/9] bg-slate-900 border border-slate-800 rounded-[2.5rem] relative flex items-center justify-center p-2 overflow-hidden shadow-inner">
-               <KLineChart currentPrice={property.price} dataLogs={vLogs} />
+               <KLineChart currentPrice={livePrice} dataLogs={vLogs} />
             </div>
           </div>
           <div className="grid grid-cols-3 gap-6">
@@ -76,7 +83,7 @@ export function InvestorPropertyDetail({ userId, property, onBack }: PropertyDet
             selectedPrice={selectedOrderPrice} 
             onSuccess={() => setRefreshTrigger(prev => prev + 1)}
           />
-          <OrderBook propertyId={property.id} currentPrice={property.price} onPriceSelect={(p) => setSelectedOrderPrice(p)} />
+          <OrderBook propertyId={property.id} currentPrice={livePrice} onPriceSelect={(p) => setSelectedOrderPrice(p)} />
         </div>
       </div>
     </div>
