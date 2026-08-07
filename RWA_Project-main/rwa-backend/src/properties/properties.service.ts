@@ -65,7 +65,10 @@ export class PropertiesService {
 
     for (const ev of events) {
       if (!ev.time) continue;
-      const dateStr = new Date(ev.time).toISOString().split('T')[0];
+      // 修正 #1: 使用台北時間 (UTC+8) 計算，避免凌晨 00:00~08:00 的交易被錯歸類到前一天
+      const utcDate = new Date(ev.time);
+      const taipeiDate = new Date(utcDate.getTime() + 8 * 60 * 60 * 1000);
+      const dateStr = taipeiDate.toISOString().split('T')[0];
       if (!dailyData.has(dateStr)) {
         dailyData.set(dateStr, { open: ev.price, high: ev.price, low: ev.price, close: ev.price, volume: ev.volume });
       } else {
