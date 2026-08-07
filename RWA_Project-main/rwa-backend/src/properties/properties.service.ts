@@ -48,16 +48,15 @@ export class PropertiesService {
   }
 
   async getKLineData(propertyId: number) {
-    const valuations = await this.valuationRepo.find({
-      where: { property_id: propertyId },
-    });
-    
+    // 修正 #4: 加上查詢上限與正確的排序，避免資料量無限增長時記憶體溢出
     const transactions = await this.appTxRepo.find({
       where: { property_id: propertyId, status: 'SUCCESS' },
+      order: { created_at: 'DESC' },
+      take: 3000,
     });
 
+    // 修正 #3: 移除 valuations，讓 K 線單純反映真實的市場買賣情緒，避免被鑑價強制拉動出現假紅黑 K
     const events = [
-      ...valuations.map(v => ({ time: v.recorded_at, price: Number(v.value), volume: 0 })),
       ...transactions.map(t => ({ time: t.created_at, price: Number(t.price_per_token), volume: Number(t.token_amount) }))
     ].sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
 
