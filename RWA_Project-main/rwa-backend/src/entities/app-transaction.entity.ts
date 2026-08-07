@@ -34,4 +34,7 @@ export class AppTransaction {
 
   @CreateDateColumn()
   created_at: Date;
+
+  @Column({ default: false })
+  is_simulated: boolean;
 }

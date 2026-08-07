@@ -307,8 +307,8 @@ export class TransactionsService {
   async checkPendingOrders() {
     if (this.systemService.getState().isPaused) return;
     
-    // 找出所有正在掛單的單子
-    const pendingOrders = await this.dataSource.manager.find(AppTransaction, { where: { status: 'PENDING' } });
+    // 撈出所有在線的委託單 (過濾掉造市機器人的假單)
+    const pendingOrders = await this.dataSource.manager.find(AppTransaction, { where: { status: 'PENDING', is_simulated: false } });
     if (pendingOrders.length === 0) return;
 
     for (const order of pendingOrders) {
