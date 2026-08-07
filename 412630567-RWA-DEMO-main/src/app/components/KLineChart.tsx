@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { createChart, ColorType } from 'lightweight-charts';
+import { createChart, ColorType, IChartApi, ISeriesApi } from 'lightweight-charts';
 
 interface KLineChartProps {
   currentPrice: number;
@@ -8,6 +8,9 @@ interface KLineChartProps {
 
 export function KLineChart({ currentPrice, dataLogs }: KLineChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<IChartApi | null>(null);
+  const candlestickSeriesRef = useRef<any>(null);
+  const volumeSeriesRef = useRef<any>(null);
 
   useEffect(() => {
     if (!chartContainerRef.current) return;
@@ -33,6 +36,13 @@ export function KLineChart({ currentPrice, dataLogs }: KLineChartProps) {
       },
     });
 
+    // 修正 #9: 將 scaleMargins 設定在 priceScale
+    chart.priceScale('').applyOptions({
+      scaleMargins: { top: 0.8, bottom: 0 },
+    });
+
+    chartRef.current = chart;
+
     let candlestickSeries: any;
     let volumeSeries: any;
     
@@ -45,16 +55,17 @@ export function KLineChart({ currentPrice, dataLogs }: KLineChartProps) {
           wickUpColor: '#26a69a',
           wickDownColor: '#ef5350',
         });
+        candlestickSeriesRef.current = candlestickSeries;
 
         volumeSeries = (chart as any).addHistogramSeries({
           color: '#26a69a',
           priceFormat: { type: 'volume' },
           priceScaleId: '', 
-          scaleMargins: {
-            top: 0.8, 
-            bottom: 0,
-          },
+          // 修正 #8: 隱藏成交量的錯誤價格標籤
+          lastValueVisible: false,
+          priceLineVisible: false,
         });
+        volumeSeriesRef.current = volumeSeries;
       }
     } catch (err) {
       console.error('Failed to create series:', err);
@@ -65,7 +76,28 @@ export function KLineChart({ currentPrice, dataLogs }: KLineChartProps) {
       return;
     }
 
-    // 2. 準備資料 (如果資料太少，自動產生過去 30 天的平盤紀錄讓圖表看起來正常)
+    const handleResize = () => {
+      if (chartContainerRef.current && chartRef.current) {
+        chartRef.current.applyOptions({ width: chartContainerRef.current.clientWidth });
+      }
+    };
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      if (chartRef.current) {
+        chartRef.current.remove();
+        chartRef.current = null;
+        candlestickSeriesRef.current = null;
+        volumeSeriesRef.current = null;
+      }
+    };
+  }, []); // 修正 #5: 空的 dependency array，圖表只在 mount 時建立一次
+
+  // 2. 資料更新邏輯 (只呼叫 setData，不重建圖表)
+  useEffect(() => {
+    if (!candlestickSeriesRef.current || !chartRef.current) return;
+
     const generateData = () => {
       let baseData = [];
       
@@ -83,64 +115,31 @@ export function KLineChart({ currentPrice, dataLogs }: KLineChartProps) {
         }];
       }
 
-      // 如果資料筆數小於 30，我們自動往回推算歷史平盤假資料，避免圖表太空
-      if (baseData.length > 0 && baseData.length < 30) {
-        const firstPoint = baseData[0];
-        const firstDate = new Date(firstPoint.time);
-        const paddingData = [];
-        
-        for (let i = 30 - baseData.length; i > 0; i--) {
-          const d = new Date(firstDate);
-          d.setDate(d.getDate() - i);
-          paddingData.push({
-            time: d.toISOString().split('T')[0],
-            open: firstPoint.open,
-            high: firstPoint.open,
-            low: firstPoint.open,
-            close: firstPoint.open,
-            volume: 0
-          });
-        }
-        baseData = [...paddingData, ...baseData];
-      }
-      
+      // 修正 #2: 拔除 30 天平盤假資料，直接回傳真實數據
       return baseData;
     };
 
     try {
       const data = generateData();
       
-      if (candlestickSeries.setData) {
-        candlestickSeries.setData(data);
+      if (candlestickSeriesRef.current.setData) {
+        candlestickSeriesRef.current.setData(data);
         
-        if (volumeSeries) {
+        if (volumeSeriesRef.current) {
           const volumeData = data.map((d: any) => ({
             time: d.time,
             value: d.volume,
             color: d.close >= d.open ? '#26a69a80' : '#ef535080' 
           }));
-          volumeSeries.setData(volumeData);
+          volumeSeriesRef.current.setData(volumeData);
         }
       }
       
-      // 改用 scrollToRealTime，而不是 fitContent (fitContent 會把少數 K 線強制拉長填滿螢幕)
-      chart.timeScale().scrollToRealTime();
+      chartRef.current.timeScale().scrollToRealTime();
       
     } catch (err) {
       console.error('Failed to set data:', err);
     }
-
-    const handleResize = () => {
-      if (chartContainerRef.current) {
-        chart.applyOptions({ width: chartContainerRef.current.clientWidth });
-      }
-    };
-    window.addEventListener('resize', handleResize);
-
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      chart.remove();
-    };
   }, [currentPrice, dataLogs]);
 
   return (
