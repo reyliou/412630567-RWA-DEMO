@@ -14,8 +14,10 @@ export function KLineChart({ currentPrice, dataLogs }: KLineChartProps) {
 
   useEffect(() => {
     if (!chartContainerRef.current) return;
-    if (chartContainerRef.current.clientWidth === 0) return; 
 
+    // 建立圖表 (初始給定 400 寬度防止報錯，稍後由 ResizeObserver 接手)
+    const initialWidth = chartContainerRef.current.clientWidth || 400;
+    const initialHeight = chartContainerRef.current.clientHeight || 300;
     // 1. 初始化圖表 (深色主題)
     const chart = createChart(chartContainerRef.current, {
       layout: {
@@ -26,19 +28,14 @@ export function KLineChart({ currentPrice, dataLogs }: KLineChartProps) {
         vertLines: { color: 'rgba(51, 65, 85, 0.4)' }, // slate-700
         horzLines: { color: 'rgba(51, 65, 85, 0.4)' },
       },
-      width: chartContainerRef.current.clientWidth,
-      height: chartContainerRef.current.clientHeight || 300,
+      width: initialWidth,
+      height: initialHeight,
       timeScale: {
         timeVisible: true,
         secondsVisible: false,
         barSpacing: 12, // 固定 K 線寬度，避免只有兩三筆時被無限放大
         rightOffset: 5, // 右側留白
       },
-    });
-
-    // 修正 #9: 將 scaleMargins 設定在 priceScale
-    chart.priceScale('').applyOptions({
-      scaleMargins: { top: 0.8, bottom: 0 },
     });
 
     chartRef.current = chart;
@@ -66,6 +63,11 @@ export function KLineChart({ currentPrice, dataLogs }: KLineChartProps) {
           priceLineVisible: false,
         });
         volumeSeriesRef.current = volumeSeries;
+
+        // 修正 #6 (原先在外層): 將 scaleMargins 設定在 priceScale 並放進 try 區塊
+        chart.priceScale('').applyOptions({
+          scaleMargins: { top: 0.8, bottom: 0 },
+        });
       }
     } catch (err) {
       console.error('Failed to create series:', err);
@@ -78,13 +80,21 @@ export function KLineChart({ currentPrice, dataLogs }: KLineChartProps) {
 
     const handleResize = () => {
       if (chartContainerRef.current && chartRef.current) {
-        chartRef.current.applyOptions({ width: chartContainerRef.current.clientWidth });
+        chartRef.current.applyOptions({ 
+          width: chartContainerRef.current.clientWidth,
+          height: chartContainerRef.current.clientHeight || 300
+        });
       }
     };
-    window.addEventListener('resize', handleResize);
+    
+    // 修正: 解決分頁隱藏時 clientWidth = 0 導致的圖表永久空白問題
+    const resizeObserver = new ResizeObserver(() => {
+      handleResize();
+    });
+    resizeObserver.observe(chartContainerRef.current);
 
     return () => {
-      window.removeEventListener('resize', handleResize);
+      resizeObserver.disconnect();
       if (chartRef.current) {
         chartRef.current.remove();
         chartRef.current = null;
@@ -104,7 +114,10 @@ export function KLineChart({ currentPrice, dataLogs }: KLineChartProps) {
       if (dataLogs && dataLogs.length > 0) {
         baseData = [...dataLogs];
       } else {
-        const today = new Date().toISOString().split('T')[0];
+        // 修正 #9: fallback 日期也改用 UTC+8 台北時間
+        const d = new Date();
+        const taipeiDate = new Date(d.getTime() + 8 * 60 * 60 * 1000);
+        const today = taipeiDate.toISOString().split('T')[0];
         baseData = [{
           time: today,
           open: currentPrice,
@@ -135,7 +148,8 @@ export function KLineChart({ currentPrice, dataLogs }: KLineChartProps) {
         }
       }
       
-      chartRef.current.timeScale().scrollToRealTime();
+      // 修正 #5: 移除 scrollToRealTime，避免每次有人交易使用者的視角就被強迫拉回最右邊
+      // chartRef.current.timeScale().scrollToRealTime();
       
     } catch (err) {
       console.error('Failed to set data:', err);
