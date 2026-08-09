@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Param, Body, UseGuards, Req, ForbiddenException } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PropertiesService } from './properties.service';
 
@@ -23,7 +23,13 @@ export class PropertiesController {
   }
 
   @Post('properties/:id/payout')
-  async distributeRent(@Param('id') id: string, @Body() body: { amount: number }) {
+  async distributeRent(@Param('id') id: string, @Body() body: { amount: number }, @Req() req: any) {
+    if (req.user?.role !== 'BUSINESS' && req.user?.role !== 'TECHNICAL') {
+      throw new ForbiddenException('Only BUSINESS accounts can execute payouts.');
+    }
+    if (body.amount <= 0 || body.amount > 1000000) {
+      throw new ForbiddenException('Invalid payout amount.');
+    }
     return this.propertiesService.executePayout(parseInt(id), body.amount);
   }
 }

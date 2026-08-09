@@ -68,6 +68,7 @@ export class TransactionsService {
       const holdingResult = await qr.manager.createQueryBuilder(UserHolding, 'h')
         .select('SUM(h.balance)', 'total')
         .where('h.property_id = :id', { id: propertyId })
+        .andWhere('h.holder_type = :holderType', { holderType: 'INVESTOR' })
         .getRawOne();
       const circulatingSupply = parseFloat(holdingResult?.total || '0');
 

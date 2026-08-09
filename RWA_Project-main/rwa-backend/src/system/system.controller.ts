@@ -31,6 +31,7 @@ export class SystemController {
   }
 
   @Post('system/crawler-report')
+  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   async crawlerReport(@Body() body: { failures: number; integrity: number; status: string }) {
     await this.systemService.updateCrawlerReport(body.failures, body.integrity, body.status);

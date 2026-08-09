@@ -12,7 +12,7 @@ import { Role } from '../entities/role.entity';
   imports: [
     PassportModule,
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'rwa-bank-super-secret-key-2026',
+      secret: process.env.JWT_SECRET,
       signOptions: { expiresIn: '8h' },
     }),
     TypeOrmModule.forFeature([User, Role]),

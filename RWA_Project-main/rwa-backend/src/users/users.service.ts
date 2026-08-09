@@ -10,7 +10,10 @@ import { BlockchainService } from '../blockchain/blockchain.service';
 
 const ENCRYPTION_KEY = process.env.IMAGE_ENCRYPTION_KEY 
   ? Buffer.from(process.env.IMAGE_ENCRYPTION_KEY, 'utf-8')
-  : crypto.createHash('sha256').update('DEFAULT_RWA_SECRET_KEY_FOR_DEMO').digest();
+  : undefined;
+if (!ENCRYPTION_KEY) {
+  throw new Error('FATAL: IMAGE_ENCRYPTION_KEY is required but not set.');
+}
 const ALGORITHM = 'aes-256-cbc';
 
 function decryptImage(encryptedBuffer: Buffer): Buffer {
@@ -40,9 +43,12 @@ export class UsersService {
     @InjectRepository(SystemAlert) private alertRepo: Repository<SystemAlert>,
     private blockchainService: BlockchainService,
   ) {
+    if (!process.env.SUPABASE_SERVICE_KEY) {
+      throw new Error('FATAL: SUPABASE_SERVICE_KEY is required but not set.');
+    }
     this.supabase = createClient(
       process.env.SUPABASE_URL || 'https://uowremtggfpoxxruiccw.supabase.co',
-      process.env.SUPABASE_SERVICE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvd3JlbXRnZ2Zwb3h4cnVpY2N3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDIzNDUxOSwiZXhwIjoyMDk1ODEwNTE5fQ.RWruURweqRN0eu_24mBLm6TArDwu73wMTYIB52vV3Qw',
+      process.env.SUPABASE_SERVICE_KEY,
       { realtime: { transport: WebSocket as any } },
     );
   }

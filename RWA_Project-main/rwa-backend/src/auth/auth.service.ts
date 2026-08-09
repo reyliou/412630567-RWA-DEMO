@@ -13,7 +13,10 @@ import { Role } from '../entities/role.entity';
 // ⚠️ 注意：正式上線時務必將此 KEY 放入環境變數，並確保長度為 32 bytes。
 const ENCRYPTION_KEY = process.env.IMAGE_ENCRYPTION_KEY 
   ? Buffer.from(process.env.IMAGE_ENCRYPTION_KEY, 'utf-8')
-  : crypto.createHash('sha256').update('DEFAULT_RWA_SECRET_KEY_FOR_DEMO').digest();
+  : undefined;
+if (!ENCRYPTION_KEY) {
+  throw new Error('FATAL: IMAGE_ENCRYPTION_KEY is required but not set.');
+}
 const ALGORITHM = 'aes-256-cbc';
 
 function encryptImage(fileBuffer: Buffer): Buffer {
@@ -32,9 +35,12 @@ export class AuthService {
     @InjectRepository(Role) private roleRepo: Repository<Role>,
     private jwtService: JwtService,
   ) {
+    if (!process.env.SUPABASE_SERVICE_KEY) {
+      throw new Error('FATAL: SUPABASE_SERVICE_KEY is required but not set.');
+    }
     this.supabase = createClient(
       process.env.SUPABASE_URL || 'https://uowremtggfpoxxruiccw.supabase.co',
-      process.env.SUPABASE_SERVICE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvd3JlbXRnZ2Zwb3h4cnVpY2N3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDIzNDUxOSwiZXhwIjoyMDk1ODEwNTE5fQ.RWruURweqRN0eu_24mBLm6TArDwu73wMTYIB52vV3Qw',
+      process.env.SUPABASE_SERVICE_KEY,
       // Node 20 沒有原生 WebSocket，supabase-js 的 realtime client 會在建構時直接拋錯。
       // 這裡只用 storage API（KYC 上傳），完全不需要 realtime，補一個 ws 實作讓它能正常初始化就好。
       { realtime: { transport: WebSocket as any } },
