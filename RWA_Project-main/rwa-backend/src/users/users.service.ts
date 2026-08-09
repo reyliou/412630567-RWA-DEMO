@@ -21,7 +21,7 @@ function decryptImage(encryptedBuffer: Buffer): Buffer {
   const encrypted = encryptedBuffer.subarray(16);
   
   try {
-    const decipher = crypto.createDecipheriv(ALGORITHM, ENCRYPTION_KEY, iv);
+    const decipher = crypto.createDecipheriv(ALGORITHM, ENCRYPTION_KEY!, iv);
     const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
     return decrypted;
   } catch (e) {

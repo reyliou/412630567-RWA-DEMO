@@ -21,7 +21,7 @@ const ALGORITHM = 'aes-256-cbc';
 
 function encryptImage(fileBuffer: Buffer): Buffer {
   const iv = crypto.randomBytes(16);
-  const cipher = crypto.createCipheriv(ALGORITHM, ENCRYPTION_KEY, iv);
+  const cipher = crypto.createCipheriv(ALGORITHM, ENCRYPTION_KEY!, iv);
   const encrypted = Buffer.concat([cipher.update(fileBuffer), cipher.final()]);
   return Buffer.concat([iv, encrypted]);
 }
