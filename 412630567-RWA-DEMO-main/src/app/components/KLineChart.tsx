@@ -11,6 +11,7 @@ export function KLineChart({ currentPrice, dataLogs }: KLineChartProps) {
   const chartRef = useRef<IChartApi | null>(null);
   const candlestickSeriesRef = useRef<any>(null);
   const volumeSeriesRef = useRef<any>(null);
+  const isFirstLoad = useRef(true);
 
   useEffect(() => {
     if (!chartContainerRef.current) return;
@@ -149,8 +150,11 @@ export function KLineChart({ currentPrice, dataLogs }: KLineChartProps) {
       }
       
       // 修正 #5: 移除 scrollToRealTime，避免每次有人交易使用者的視角就被強迫拉回最右邊
-      // chartRef.current.timeScale().scrollToRealTime();
-      
+      // 改為只在首次載入時呼叫
+      if (isFirstLoad.current) {
+        chartRef.current.timeScale().scrollToRealTime();
+        isFirstLoad.current = false;
+      }
     } catch (err) {
       console.error('Failed to set data:', err);
     }
