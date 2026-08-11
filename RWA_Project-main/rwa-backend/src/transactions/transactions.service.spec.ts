@@ -62,13 +62,22 @@ function makeQueryRunnerFactory(opts: {
   circulatingSupply?: number;
   savedIdempotencyKeys: string[];
   capturedTransactions: any[];
+  // 記錄每次 findOne 的 entity 與 options，供「鎖定策略」測試檢查是否帶了 pessimistic_write
+  findOneCalls?: { entity: any; options: any }[];
 }) {
-  const { holdingBalance = 0, circulatingSupply = 0, savedIdempotencyKeys, capturedTransactions } = opts;
+  const {
+    holdingBalance = 0,
+    circulatingSupply = 0,
+    savedIdempotencyKeys,
+    capturedTransactions,
+    findOneCalls,
+  } = opts;
 
   return () => {
     const manager = {
       // idempotency 檢查（第一次查詢） + Property / UserHolding 查詢，依 entity 分派
       findOne: jest.fn(async (entity: any, options: any) => {
+        findOneCalls?.push({ entity, options });
         // 讓每個 await 都真的走一次 microtask，模擬真實 I/O 的交錯時機
         await Promise.resolve();
 
@@ -136,6 +145,7 @@ function buildService(opts: {
 }) {
   const savedIdempotencyKeys = opts.savedIdempotencyKeys ?? [];
   const capturedTransactions: any[] = [];
+  const findOneCalls: { entity: any; options: any }[] = [];
 
   const notifRepo = { save: jest.fn().mockResolvedValue(undefined) } as any;
 
@@ -151,6 +161,7 @@ function buildService(opts: {
     circulatingSupply: opts.circulatingSupply,
     savedIdempotencyKeys,
     capturedTransactions,
+    findOneCalls,
   });
 
   const dataSource = { createQueryRunner } as any;
@@ -160,7 +171,7 @@ function buildService(opts: {
 
   const service = new TransactionsService(notifRepo, userRepo, dataSource, systemService, blockchainService);
 
-  return { service, notifRepo, userRepo, savedIdempotencyKeys, capturedTransactions };
+  return { service, notifRepo, userRepo, savedIdempotencyKeys, capturedTransactions, findOneCalls };
 }
 
 // ==================================================================
@@ -347,5 +358,45 @@ describe('TransactionsService — 併發測試', () => {
     expect(r1.success).toBe(true);
     expect(r2.success).toBe(true);
     expect(savedIdempotencyKeys.sort()).toEqual(['KEY-A', 'KEY-B']);
+  });
+});
+
+// ==================================================================
+// 併發測試 — AMM 定價的鎖定策略
+// ==================================================================
+//
+// AMM 的流程是「讀取流通量 → 依 k=x*y 計算價格與滑價 → 寫入」。這三步之間若沒有
+// 鎖定，在 PostgreSQL 預設的 READ COMMITTED 隔離等級下，兩筆同時進入的交易會讀到
+// 相同的流通量、算出相同價格，各自通過滑價檢查後雙雙成交 —— 第二筆等同以過期價格
+// 成交（lost update）。
+//
+// 修正方式是在資料庫交易一開始就對該建案列取得 pessimistic_write 排他鎖。
+//
+// ⚠️ 本測試的效力範圍：這裡驗證的是「服務層確實向 TypeORM 要求了排他鎖」，屬於
+//    程式碼契約層級的驗證。鎖在真實併發下的實際阻塞行為由 PostgreSQL 保證，需要
+//    連線真實資料庫、以兩條連線同時下單才能觀察，不在本測試涵蓋範圍內。
+describe('TransactionsService — 併發測試：AMM 定價的鎖定策略', () => {
+  it('讀取建案資料時應帶入 pessimistic_write 排他鎖，使同一建案的交易序列化', async () => {
+    const { service, findOneCalls } = buildService({ circulatingSupply: 0 });
+
+    await service.createTransaction(1, 1, 'BUY', 'MARKET', 10, 189.19);
+
+    const propertyLookup = findOneCalls.find((c) => c.entity === Property);
+    expect(propertyLookup).toBeDefined();
+    expect(propertyLookup!.options?.lock).toEqual({ mode: 'pessimistic_write' });
+  });
+
+  it('鎖應在資料庫交易開啟之後才取得，否則鎖不會生效', async () => {
+    const { service, findOneCalls } = buildService({ circulatingSupply: 0 });
+
+    await service.createTransaction(1, 1, 'BUY', 'MARKET', 10, 189.19);
+
+    // 建案查詢（帶鎖）必須晚於冪等性查詢 —— 後者刻意在 startTransaction 之前執行，
+    // 因此建案查詢若排在它之前，就代表鎖被放到交易之外，不具效力。
+    const lockedIndex = findOneCalls.findIndex(
+      (c) => c.entity === Property && c.options?.lock,
+    );
+    expect(lockedIndex).toBeGreaterThan(-1);
+    expect(findOneCalls.slice(0, lockedIndex).some((c) => c.entity === Property)).toBe(false);
   });
 });
