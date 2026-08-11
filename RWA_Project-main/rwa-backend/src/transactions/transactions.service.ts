@@ -33,6 +33,8 @@ export class TransactionsService {
     tokenAmount: number,
     pricePerToken: number,
     idempotencyKey?: string,
+    // 修正 M-4：撮合既有掛單時直接帶主鍵，不要靠欄位組合反查
+    pendingOrderId?: number,
   ): Promise<{ success: boolean; message?: string; txHash?: string }> {
     // Look up user (needed for wallet info before DB tx)
     const user = await this.userRepo.findOne({ where: { id: userId } });
@@ -54,7 +56,15 @@ export class TransactionsService {
     await qr.startTransaction();
 
     try {
-      const property = await qr.manager.findOne(Property, { where: { id: propertyId } });
+      // 修正 H-1：AMM 的「讀流通量 → 算價與滑價 → 寫入」之間原本沒有任何鎖，
+      // 預設 READ COMMITTED 下兩筆同時進來的交易會讀到相同的流通量、算出相同價格，
+      // 各自通過滑價檢查後都成交，等於第二筆用了過期的價格（lost update）。
+      // 在交易一開始就對該建案列取得排他鎖，讓同一建案的交易彼此序列化。
+      // 這是本交易的第一個語句且永遠只鎖單一列，不會造成死鎖。
+      const property = await qr.manager.findOne(Property, {
+        where: { id: propertyId },
+        lock: { mode: 'pessimistic_write' },
+      });
       if (!property) throw new Error('建案不存在');
 
       // ======== AMM 流動性池計算 (x * y = k) ========
@@ -157,9 +167,12 @@ export class TransactionsService {
       // 🚀 執行 DB 寫入 
       const status = chainError ? 'CHAIN_FAILED' : 'SUCCESS';
       // 如果這是一筆原本就在 PENDING 的掛單，我們更新它而不是新增
-      const existingPendingTx = orderType === 'LIMIT_MATCHED' 
+      // 修正 M-4：原本用 user_id + property_id + token_amount + status 反查，
+      // 同一使用者對同一建案掛了兩張數量相同但限價不同的單時會任意結算其中一張。
+      // 改為由撮合引擎傳入該筆掛單的主鍵，語意明確且不會挑錯。
+      const existingPendingTx = pendingOrderId
         ? await qr.manager.findOne(AppTransaction, {
-            where: { user_id: userId, property_id: propertyId, token_amount: tokenAmount, status: 'PENDING' }
+            where: { id: pendingOrderId, status: 'PENDING' },
           })
         : null;
 
@@ -334,7 +347,7 @@ export class TransactionsService {
         this.logger.log(`掛單觸發！OrderID: ${order.id}, SpotPrice: ${spotPrice}`);
         // 為了避免再次觸發 Slippage Error，必須傳入使用者真實設定的限價 (order.price_per_token)，而不是目前的市價 (spotPrice)
         const limitPrice = parseFloat(String(order.price_per_token));
-        const result = await this.runTrade(order.user_id, order.property_id, order.tx_type, 'LIMIT_MATCHED', parseFloat(String(order.token_amount)), limitPrice);
+        const result = await this.runTrade(order.user_id, order.property_id, order.tx_type, 'LIMIT_MATCHED', parseFloat(String(order.token_amount)), limitPrice, undefined, order.id);
         if (result.success) {
           // runTrade 裡面已經更新狀態了
         } else {

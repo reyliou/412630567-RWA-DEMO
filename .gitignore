@@ -35,3 +35,14 @@ migrations/
 
 # Coverage
 coverage/
+
+# 一次性除錯腳本 —— 這類檔案過去把 Supabase service_role key 與正式環境帳號密碼
+# 帶進了版本庫，請勿提交。需要長期保留的工具請放進 rwa-backend/scripts/ 並改讀環境變數。
+/check-*.js
+/test-*.js
+/test[0-9]*.js
+/debug-*.js
+RWA_Project-main/rwa-backend/check-*.js
+RWA_Project-main/rwa-backend/test-*.js
+RWA_Project-main/rwa-backend/debug-*.js
+RWA_Project-main/rwa-backend/list-files.js
