@@ -44,28 +44,46 @@ async function run() {
 
   for (const property of properties) {
     const propertyId = property.id;
-    let currentPrice = Number(property.current_price || 189.19);
+
+    // AMM 以 k = total_supply × fundraising_goal 定價，與 current_price 無關。
+    // 流通量接近 0 時，實際成交價就是 fundraising_goal / total_supply。
+    // 過去以 current_price 當基準會出問題：每跑一次腳本都從上次結果 ×0.95 起算再走約 +17%，
+    // 淨效果約 ×1.11，重複執行後價格複利飆離 AMM 區間（實測已偏離 18 倍），
+    // 造成畫面顯示 $541 但實際成交 $28.8。改用 AMM 隱含價當基準，重跑幾次都不會漂移。
+    const totalSupply = Number(property.total_supply_x) || 100000;
+    const ammPrice = Number(property.fundraising_goal)
+      ? Number(property.fundraising_goal) / totalSupply
+      : Number(property.current_price || 189.19);
+
     console.log(`\n========================================`);
-    console.log(`處理建案: [${propertyId}] ${property.title}, 基準價: ${currentPrice}`);
+    console.log(`處理建案: [${propertyId}] ${property.title}, AMM 基準價: ${ammPrice.toFixed(4)}`);
 
     // --- 2. 注入 30 天歷史假交易 (給 K 線圖用) ---
     console.log("開始生成過去 30 天的歷史交易...");
     const historicalTxs = [];
-    let simulatedPrice = currentPrice * 0.95; 
-    
+    let simulatedPrice = ammPrice * 0.95;
+
     const now = Date.now();
 
     for (let i = 30; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
-      
+
       const dailyTxCount = Math.floor(Math.random() * 10) + 5;
+
+      // 後端 getKLineData 會依 created_at 排序後才分日、取當天第一筆為 open、最後一筆為 close。
+      // 原本 created_at 是當天內的純隨機值，與價格的遞推順序無關，等於把當天價格順序打亂，
+      // open/close 變成隨機抽樣，K 棒的實體長度與紅綠方向都不具意義。
+      // 把一天切成 dailyTxCount 個時段，第 j 筆落在第 j 段內，時間與價格就同步遞增。
+      const dayStart = new Date(d).setHours(0, 0, 0, 0);
+      const slotMs = (24 * 60 * 60 * 1000) / dailyTxCount;
+
       for (let j = 0; j < dailyTxCount; j++) {
         const changePercent = (Math.random() * 1.1 - 0.5) / 100;
         simulatedPrice = simulatedPrice * (1 + changePercent);
-        
-        // 🔴 修正：加上 Math.min 確保不會生成未來的時間戳
-        const timeOffset = new Date(Math.min(d.getTime() + Math.random() * 24 * 60 * 60 * 1000, now));
+
+        // Math.min 確保不會生成未來的時間戳
+        const timeOffset = new Date(Math.min(dayStart + slotMs * j + Math.random() * slotMs, now));
         const botId = botIds[Math.floor(Math.random() * botIds.length)];
         
         historicalTxs.push({
@@ -83,8 +101,18 @@ async function run() {
       }
     }
 
+    // 隨機漫步的每步區間是 [-0.5%, +0.6%)，平均 +0.05%，310 筆下來會累積約 +17%。
+    // 走勢向上看起來比較像真實市場，但終點會高於 AMM 實際成交價，畫面與成交價就對不起來。
+    // 等比縮放整條序列，讓最後一筆恰好等於 AMM 價 —— K 線形狀完全不變，但收在正確的價位。
+    const scale = ammPrice / simulatedPrice;
+    for (const tx of historicalTxs) {
+      tx.price_per_token = Number((tx.price_per_token * scale).toFixed(4));
+    }
+    simulatedPrice = ammPrice;
+    console.log(`  價格序列已校正，收盤價 = AMM 價 ${ammPrice.toFixed(4)}`);
+
     await supabase.from('transactions').delete().eq('property_id', propertyId).eq('is_simulated', true).eq('status', 'SUCCESS');
-    
+
     const { error: histErr } = await supabase.from('transactions').insert(historicalTxs);
     if (histErr) console.error("寫入歷史資料失敗:", histErr);
     else console.log(`✅ 成功寫入 ${historicalTxs.length} 筆歷史假交易！`);
