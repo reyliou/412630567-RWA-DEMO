@@ -1,8 +1,11 @@
-import { Controller, Get, Post, Param, Query, Body, UseGuards, Request, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Post, Param, Body, UseGuards, Request, ForbiddenException } from '@nestjs/common';
 import { BlockchainService } from './blockchain.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
+// 守衛提到類別層級：status 與 metadata 先前完全公開，會對外洩漏 admin 錢包位址、
+// IdentityRegistry 與所有代幣合約位址。與 properties/users/portfolio 的寫法一致。
 @Controller('api')
+@UseGuards(JwtAuthGuard)
 export class BlockchainController {
   constructor(private readonly blockchainService: BlockchainService) {}
 
@@ -11,35 +14,30 @@ export class BlockchainController {
     return this.blockchainService.getStatus();
   }
 
-  @UseGuards(JwtAuthGuard)
   @Post('blockchain/setup')
   setup(@Request() req: any) {
     if (req.user.role !== 'TECHNICAL') throw new ForbiddenException('需要技術員權限');
     return this.blockchainService.setupBlockchain();
   }
 
-  @UseGuards(JwtAuthGuard)
   @Post('blockchain/register-user/:userId')
   registerUser(@Request() req: any, @Param('userId') userId: string) {
     if (req.user.role !== 'TECHNICAL') throw new ForbiddenException('需要技術員權限');
     return this.blockchainService.registerUserOnChain(parseInt(userId));
   }
 
-  @UseGuards(JwtAuthGuard)
   @Post('blockchain/pause-toggle')
   setPause(@Request() req: any, @Body() body: { isPaused: boolean }) {
     if (req.user.role !== 'TECHNICAL') throw new ForbiddenException('需要技術員權限');
     return this.blockchainService.setPauseState(!!body.isPaused);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Get('blockchain/reconcile')
   reconcile(@Request() req: any) {
     if (req.user.role !== 'TECHNICAL') throw new ForbiddenException('需要技術員權限');
     return this.blockchainService.reconcile();
   }
 
-  @UseGuards(JwtAuthGuard)
   @Post('blockchain/reconcile/repair')
   reconcileAndRepair(@Request() req: any) {
     if (req.user.role !== 'TECHNICAL') throw new ForbiddenException('需要技術員權限');

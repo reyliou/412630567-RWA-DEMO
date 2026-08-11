@@ -77,11 +77,24 @@ export class BlockchainService implements OnModuleInit {
       'SimpleRWA.sol',
     );
 
+    // Hardhat 節點固定的第 0 號測試帳戶私鑰，是公開且全世界都知道的值。
+    // 只有本機開發能用；正式環境若沒設 ADMIN_KEY 就絕不能默默拿它當 admin 錢包。
+    const HARDHAT_DEFAULT_KEY =
+      '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
+    const isProduction = process.env.NODE_ENV === 'production';
+
+    if (!process.env.ADMIN_KEY && isProduction) {
+      this.log(
+        'ERROR',
+        '❌ 正式環境未設定 ADMIN_KEY — 拒絕以公開的 Hardhat 測試私鑰啟動區塊鏈功能。' +
+          '所有鏈上操作將維持停用，請在雲端環境變數補上 ADMIN_KEY 後重新部署。',
+      );
+      return; // isProviderReady 維持 false，鏈上端點會回報節點未就緒而非用已洩漏的金鑰簽章
+    }
+
     try {
       const rpcUrl = process.env.RPC_URL || 'http://127.0.0.1:8545';
-      const adminKey =
-        process.env.ADMIN_KEY ||
-        '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
+      const adminKey = process.env.ADMIN_KEY || HARDHAT_DEFAULT_KEY;
       this.provider = new ethers.JsonRpcProvider(rpcUrl);
       const baseWallet = new ethers.Wallet(adminKey, this.provider);
       this.adminAddress = baseWallet.address;
