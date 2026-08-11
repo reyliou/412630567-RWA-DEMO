@@ -75,15 +75,21 @@ async function run() {
       // 原本 created_at 是當天內的純隨機值，與價格的遞推順序無關，等於把當天價格順序打亂，
       // open/close 變成隨機抽樣，K 棒的實體長度與紅綠方向都不具意義。
       // 把一天切成 dailyTxCount 個時段，第 j 筆落在第 j 段內，時間與價格就同步遞增。
+      // 迴圈最後一圈是「今天」，而今天通常還沒過完。若照整日 24 小時切時段，
+      // 超過當下的那些時段會被夾到現在時刻，導致當天多筆交易共用同一個 created_at；
+      // 後端依 created_at 排序時遇到相同值順序不確定，open/close 又會退化成隨機抽樣，
+      // 收盤價也就對不上校正後的 AMM 價。改成把時段壓縮進「已經過去」的區間。
       const dayStart = new Date(d).setHours(0, 0, 0, 0);
-      const slotMs = (24 * 60 * 60 * 1000) / dailyTxCount;
+      const dayEnd = Math.min(dayStart + 24 * 60 * 60 * 1000, now);
+      const span = Math.max(dayEnd - dayStart, dailyTxCount); // 至少讓每筆相差 1ms
+      const slotMs = span / dailyTxCount;
 
       for (let j = 0; j < dailyTxCount; j++) {
         const changePercent = (Math.random() * 1.1 - 0.5) / 100;
         simulatedPrice = simulatedPrice * (1 + changePercent);
 
-        // Math.min 確保不會生成未來的時間戳
-        const timeOffset = new Date(Math.min(dayStart + slotMs * j + Math.random() * slotMs, now));
+        // 時段上限已是 dayEnd（不超過現在），因此這裡不會產生未來時間，也不需再夾一次
+        const timeOffset = new Date(dayStart + slotMs * j + Math.random() * slotMs);
         const botId = botIds[Math.floor(Math.random() * botIds.length)];
         
         historicalTxs.push({
