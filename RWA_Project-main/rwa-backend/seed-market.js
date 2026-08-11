@@ -85,8 +85,13 @@ async function run() {
       const slotMs = span / dailyTxCount;
 
       for (let j = 0; j < dailyTxCount; j++) {
-        const changePercent = (Math.random() * 1.1 - 0.5) / 100;
-        simulatedPrice = simulatedPrice * (1 + changePercent);
+        // 每天第一筆不套用波動，直接沿用前一日最後的成交價 ——
+        // 連續市場中「今日開盤 = 昨日收盤」，這樣相鄰 K 棒之間完全不會出現跳空。
+        // 第一天的第一筆則以基準價開盤。
+        if (j > 0) {
+          const changePercent = (Math.random() * 1.1 - 0.5) / 100;
+          simulatedPrice = simulatedPrice * (1 + changePercent);
+        }
 
         // 時段上限已是 dayEnd（不超過現在），因此這裡不會產生未來時間，也不需再夾一次
         const timeOffset = new Date(dayStart + slotMs * j + Math.random() * slotMs);
