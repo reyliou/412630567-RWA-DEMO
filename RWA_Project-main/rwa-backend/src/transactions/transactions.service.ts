@@ -243,6 +243,15 @@ export class TransactionsService {
       return { success: true, txHash: txHash ?? undefined };
     } catch (e: any) {
       await qr.rollbackTransaction();
+
+      // 上方以 findOne 做的重複交易檢查發生在 startTransaction() 之前，屬於 TOCTOU：
+      // 兩筆帶相同 idempotency_key 的請求可能都通過檢查，再由資料庫的 UNIQUE 約束擋下
+      // 後到的那筆。少了這段判斷，那筆會以未處理的資料庫例外冒出去變成 500，
+      // 而不是語意明確的「重複交易」。限價單路徑已有相同處理，這裡補齊市價單。
+      if (e.code === '23505') {
+        return { success: false, message: '偵測到重複交易，已為您安全攔截' };
+      }
+
       if (e.message?.includes('持倉上限')) {
         await this.notifRepo.save({
           user_id: userId,

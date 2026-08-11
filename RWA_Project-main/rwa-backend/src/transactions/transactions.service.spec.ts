@@ -64,6 +64,8 @@ function makeQueryRunnerFactory(opts: {
   capturedTransactions: any[];
   // 記錄每次 findOne 的 entity 與 options，供「鎖定策略」測試檢查是否帶了 pessimistic_write
   findOneCalls?: { entity: any; options: any }[];
+  // 讓 save() 拋出指定例外，用來模擬資料庫層級的約束違反（例如 UNIQUE 的 23505）
+  saveError?: any;
 }) {
   const {
     holdingBalance = 0,
@@ -71,6 +73,7 @@ function makeQueryRunnerFactory(opts: {
     savedIdempotencyKeys,
     capturedTransactions,
     findOneCalls,
+    saveError,
   } = opts;
 
   return () => {
@@ -110,6 +113,7 @@ function makeQueryRunnerFactory(opts: {
 
       save: jest.fn(async (entityOrPayload: any, maybePayload?: any) => {
         await Promise.resolve();
+        if (saveError) throw saveError;
         // qr.manager.save(AppTransaction, payload) 或 qr.manager.save(instance) 兩種呼叫方式都要接住
         const payload = maybePayload ?? entityOrPayload;
         if (payload?.idempotency_key) {
@@ -142,6 +146,7 @@ function buildService(opts: {
   holdingBalance?: number;
   circulatingSupply?: number;
   savedIdempotencyKeys?: string[];
+  saveError?: any;
 }) {
   const savedIdempotencyKeys = opts.savedIdempotencyKeys ?? [];
   const capturedTransactions: any[] = [];
@@ -162,6 +167,7 @@ function buildService(opts: {
     savedIdempotencyKeys,
     capturedTransactions,
     findOneCalls,
+    saveError: opts.saveError,
   });
 
   const dataSource = { createQueryRunner } as any;
@@ -384,6 +390,21 @@ describe('TransactionsService — 併發測試：AMM 定價的鎖定策略', () 
     const propertyLookup = findOneCalls.find((c) => c.entity === Property);
     expect(propertyLookup).toBeDefined();
     expect(propertyLookup!.options?.lock).toEqual({ mode: 'pessimistic_write' });
+  });
+
+  it('資料庫以 UNIQUE 約束擋下重複的 idempotency_key 時，應轉為明確的重複交易訊息而非 500', async () => {
+    // 模擬 TOCTOU 實際發生：兩筆請求都通過了 startTransaction 之前的 findOne 檢查，
+    // 後到的那筆在寫入時才被 PostgreSQL 的 UNIQUE 約束擋下（錯誤碼 23505）。
+    const uniqueViolation: any = new Error(
+      'duplicate key value violates unique constraint "UQ_transactions_idempotency_key"',
+    );
+    uniqueViolation.code = '23505';
+
+    const { service } = buildService({ saveError: uniqueViolation });
+
+    await expect(
+      service.createTransaction(1, 1, 'BUY', 'MARKET', 10, 189.19, 'DUPLICATE-KEY'),
+    ).rejects.toThrow('偵測到重複交易');
   });
 
   it('鎖應在資料庫交易開啟之後才取得，否則鎖不會生效', async () => {
