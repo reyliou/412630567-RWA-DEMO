@@ -1,4 +1,6 @@
 require("@nomicfoundation/hardhat-ethers");
+// 提供 expect(...).to.be.reverted / .to.emit 等斷言，供 test/ 底下的合約測試使用
+require("@nomicfoundation/hardhat-chai-matchers");
 
 module.exports = {
   solidity: {
