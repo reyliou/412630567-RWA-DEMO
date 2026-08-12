@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { MoreThanOrEqual, Repository } from 'typeorm';
 import { Property } from '../entities/property.entity';
 import { ValuationLog } from '../entities/valuation-log.entity';
 import { RentPayoutBatch } from '../entities/rent-payout-batch.entity';
@@ -47,10 +47,22 @@ export class PropertiesService {
     });
   }
 
+  // K 線只呈現近期區間。沒有時間下限時，數月前的零星交易也會被畫進來，
+  // 與主要區間之間隔著一大段沒有任何成交的空白，在圖上變成孤立的 K 棒。
+  // 交易所的 K 線本來就是以視窗呈現，這裡取 60 天，足以涵蓋造市資料的 30 天歷史並留有餘裕。
+  private static readonly KLINE_WINDOW_DAYS = 60;
+
   async getKLineData(propertyId: number) {
+    const since = new Date();
+    since.setDate(since.getDate() - PropertiesService.KLINE_WINDOW_DAYS);
+
     // 修正 #4: 加上查詢上限與正確的排序，避免資料量無限增長時記憶體溢出
     const transactions = await this.appTxRepo.find({
-      where: { property_id: propertyId, status: 'SUCCESS' },
+      where: {
+        property_id: propertyId,
+        status: 'SUCCESS',
+        created_at: MoreThanOrEqual(since),
+      },
       order: { created_at: 'DESC' },
       take: 3000,
     });

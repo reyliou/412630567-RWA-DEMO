@@ -127,9 +127,9 @@ describe('PropertiesService.getKLineData — 合約測試：回傳格式', () =>
 });
 
 // ==================================================================
-// 效能面：查詢上限 (take: 3000)
+// 效能面：查詢上限 (take: 3000) 與時間視窗
 // ==================================================================
-describe('PropertiesService.getKLineData — 查詢上限', () => {
+describe('PropertiesService.getKLineData — 查詢範圍', () => {
   it('appTxRepo.find 呼叫時應帶入 take: 3000，避免無上限查詢全部歷史', async () => {
     const { service, appTxRepo } = buildService([]);
 
@@ -137,9 +137,24 @@ describe('PropertiesService.getKLineData — 查詢上限', () => {
 
     expect(appTxRepo.find).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { property_id: 1, status: 'SUCCESS' },
+        where: expect.objectContaining({ property_id: 1, status: 'SUCCESS' }),
         take: 3000,
       }),
     );
+  });
+
+  it('應帶入 60 天的時間下限，避免數月前的零星交易在圖上變成孤立 K 棒', async () => {
+    const { service, appTxRepo } = buildService([]);
+
+    await service.getKLineData(1);
+
+    const where = appTxRepo.find.mock.calls[0][0].where;
+    expect(where.created_at).toBeDefined();
+
+    // TypeORM 的 MoreThanOrEqual 會把比較值放在 _value
+    const since: Date = (where.created_at as any)._value;
+    const daysAgo = (Date.now() - since.getTime()) / (24 * 60 * 60 * 1000);
+    expect(daysAgo).toBeGreaterThan(59.9);
+    expect(daysAgo).toBeLessThan(60.1);
   });
 });
