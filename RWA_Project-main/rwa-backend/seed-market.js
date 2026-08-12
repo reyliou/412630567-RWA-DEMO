@@ -89,8 +89,13 @@ async function run() {
         // 連續市場中「今日開盤 = 昨日收盤」，這樣相鄰 K 棒之間完全不會出現跳空。
         // 第一天的第一筆則以基準價開盤。
         if (j > 0) {
-          const changePercent = (Math.random() * 1.1 - 0.5) / 100;
-          simulatedPrice = simulatedPrice * (1 + changePercent);
+          // 真實交易一律成交在 AMM 價（流通量幾乎不變時就是 fundraising_goal / total_supply）。
+          // 若模擬序列單向漂移離 AMM 價太遠，那些真實成交畫進同一張 K 線時就會變成離群的長棒
+          // —— 實測 7/23 有一筆 509.2 的真實交易，落在模擬價僅約 490 的那天，拉出一根 4% 的紅棒。
+          // 因此改為在 AMM 價附近溫和均值回歸，讓模擬區間與真實成交價重疊。
+          const reversion = ((ammPrice - simulatedPrice) / ammPrice) * 0.06;
+          const noise = (Math.random() - 0.5) * 0.009;
+          simulatedPrice = simulatedPrice * (1 + reversion + noise);
         }
 
         // 時段上限已是 dayEnd（不超過現在），因此這裡不會產生未來時間，也不需再夾一次
