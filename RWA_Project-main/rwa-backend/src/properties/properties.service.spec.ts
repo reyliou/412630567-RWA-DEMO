@@ -143,7 +143,7 @@ describe('PropertiesService.getKLineData — 查詢範圍', () => {
     );
   });
 
-  it('應帶入 60 天的時間下限，避免數月前的零星交易在圖上變成孤立 K 棒', async () => {
+  it('時間下限應與造市資料的 31 天歷史對齊，使視窗內每一天都有資料、真實交易不會落單', async () => {
     const { service, appTxRepo } = buildService([]);
 
     await service.getKLineData(1);
@@ -154,7 +154,7 @@ describe('PropertiesService.getKLineData — 查詢範圍', () => {
     // TypeORM 的 MoreThanOrEqual 會把比較值放在 _value
     const since: Date = (where.created_at as any)._value;
     const daysAgo = (Date.now() - since.getTime()) / (24 * 60 * 60 * 1000);
-    expect(daysAgo).toBeGreaterThan(59.9);
-    expect(daysAgo).toBeLessThan(60.1);
+    expect(daysAgo).toBeGreaterThan(30.9);
+    expect(daysAgo).toBeLessThan(31.1);
   });
 });

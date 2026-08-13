@@ -49,8 +49,12 @@ export class PropertiesService {
 
   // K 線只呈現近期區間。沒有時間下限時，數月前的零星交易也會被畫進來，
   // 與主要區間之間隔著一大段沒有任何成交的空白，在圖上變成孤立的 K 棒。
-  // 交易所的 K 線本來就是以視窗呈現，這裡取 60 天，足以涵蓋造市資料的 30 天歷史並留有餘裕。
-  private static readonly KLINE_WINDOW_DAYS = 60;
+  //
+  // 視窗長度必須與造市資料的歷史長度一致（seed-market.js 產生過去 31 天）。
+  // 先前設 60 天時，落在 31～60 天前的真實交易雖然進得了圖，卻沒有任何模擬資料
+  // 陪襯，於是又變成孤島 —— 御心綻 6 月中的兩筆成交就是這樣冒出來的。
+  // 對齊之後，視窗內的每一天都有造市資料，任何真實交易都不可能落單。
+  private static readonly KLINE_WINDOW_DAYS = 31;
 
   async getKLineData(propertyId: number) {
     const since = new Date();
