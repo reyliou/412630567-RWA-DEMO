@@ -36,8 +36,23 @@ export class PropertiesService {
     private blockchainService: BlockchainService,
   ) {}
 
-  findAll() {
-    return this.propertyRepo.find({ order: { id: 'DESC' } });
+  async findAll() {
+    const properties = await this.propertyRepo.find({ order: { id: 'DESC' } });
+    
+    // 撈取所有使用者的持倉紀錄
+    const holdings = await this.holdingRepo.find();
+    
+    // 依據 property_id 加總流通量
+    const circulatingSupplies = holdings.reduce((acc, holding) => {
+      acc[holding.property_id] = (acc[holding.property_id] || 0) + Number(holding.balance);
+      return acc;
+    }, {} as Record<number, number>);
+
+    // 將流通量 (circulating_supply) 附加上去回傳給前端
+    return properties.map(p => ({
+      ...p,
+      circulating_supply: circulatingSupplies[p.id] || 0,
+    }));
   }
 
   async getValuationLogs(propertyId: number) {
