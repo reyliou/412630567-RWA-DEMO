@@ -11,7 +11,7 @@ from playwright.async_api import async_playwright
 from dotenv import load_dotenv
 
 # 載入環境變數
-env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'server', '.env')
+env_path = os.path.join(os.path.dirname(__file__), '.env')
 load_dotenv(env_path)
 
 # 資料庫連線設定 (改用環境變數，解決密碼明文問題)

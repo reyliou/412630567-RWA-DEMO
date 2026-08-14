@@ -22,6 +22,11 @@ export function InvestorPropertyDetail({ userId, property, onBack }: PropertyDet
   // 修正 #6: 使用 local state 來同步即時價格
   const [livePrice, setLivePrice] = useState(property.price);
   
+  // 確保當外部傳入的真實資料庫價格變更時，livePrice 會同步更新
+  useEffect(() => {
+    setLivePrice(property.price);
+  }, [property.price]);
+  
   const [marketStats, setMarketStats] = useState({ high: property.price.toFixed(2), low: property.price.toFixed(2), vol: "0" });
 
   useEffect(() => {
@@ -32,13 +37,9 @@ export function InvestorPropertyDetail({ userId, property, onBack }: PropertyDet
             apiFetch(`/api/stats/${property.id}`)
           ]);
           
-          if (klineRes.ok) {
+            if (klineRes.ok) {
             const res = await klineRes.json();
             setVLogs(res);
-            // 修正 #6: 同步最新成交價給大字體與掛單簿
-            if (res && res.length > 0) {
-              setLivePrice(res[res.length - 1].close);
-            }
           }
           if (statsRes.ok) {
             const stats = await statsRes.json();
@@ -73,7 +74,7 @@ export function InvestorPropertyDetail({ userId, property, onBack }: PropertyDet
           <div className="grid grid-cols-4 gap-6">
              <div className="bg-white border p-8 rounded-[2rem] text-center shadow-sm"><div className="text-xs text-slate-400 uppercase mb-2">High</div><div className="text-3xl text-red-500">${marketStats.high}</div></div>
              <div className="bg-white border p-8 rounded-[2rem] text-center shadow-sm"><div className="text-xs text-slate-400 uppercase mb-2">Low</div><div className="text-3xl text-green-500">${marketStats.low}</div></div>
-             <div className="bg-white border p-8 rounded-[2rem] text-center shadow-sm"><div className="text-xs text-slate-400 uppercase mb-2">Base</div><div className="text-3xl text-slate-800">${((property.price * 100000)/10000).toLocaleString()}萬</div></div>
+             <div className="bg-white border p-8 rounded-[2rem] text-center shadow-sm"><div className="text-xs text-slate-400 uppercase mb-2">Market Cap</div><div className="text-3xl text-slate-800">${((property.price * 100000)/10000).toLocaleString()}萬</div></div>
              <div className="bg-white border p-8 rounded-[2rem] text-center shadow-sm"><div className="text-xs text-slate-400 uppercase mb-2">Supply</div><div className="text-3xl text-blue-500">{(property.circulating_supply || 0).toLocaleString()}</div></div>
           </div>
         </div>
