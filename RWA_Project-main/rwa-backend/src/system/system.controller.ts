@@ -61,19 +61,19 @@ export class SystemController {
 
   @UseGuards(JwtAuthGuard)
   @Get('chat')
-  getChat(@Request() req: any) {
+  async getChat(@Request() req: any) {
     const { role } = req.user;
     if (role !== 'TECHNICAL' && role !== 'BUSINESS') throw new ForbiddenException('權限不足');
-    return this.systemService.getChat();
+    return await this.systemService.getChat();
   }
 
   @UseGuards(JwtAuthGuard)
   @Post('chat')
   @HttpCode(HttpStatus.OK)
-  sendChat(@Request() req: any, @Body() body: { sender: string; content: string }) {
+  async sendChat(@Request() req: any, @Body() body: { sender: string; content: string }) {
     const { role } = req.user;
     if (role !== 'TECHNICAL' && role !== 'BUSINESS') throw new ForbiddenException('權限不足');
-    const msg = this.systemService.addChat(body.sender, body.content);
+    const msg = await this.systemService.addChat(body.sender, body.content);
     return { success: true, message: msg };
   }
 

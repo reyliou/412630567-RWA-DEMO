@@ -14,9 +14,6 @@ export class SystemService {
     requestReason: '',
   };
 
-  private chatMessages: { id: number; sender: string; content: string; timestamp: Date }[] = [
-    { id: 1, sender: 'system', content: '💬 跨部門協作頻道已建立', timestamp: new Date() },
-  ];
 
   private healthCheckCounter = 0;
   private lastCpuIdle = 0;
@@ -55,15 +52,33 @@ export class SystemService {
     return Date.now() - this.state.throttleStartTime.getTime() < 2 * 60 * 60 * 1000;
   }
 
-  getChat() {
-    return [...this.chatMessages];
+  async getChat() {
+    const alerts = await this.alertRepo.find({
+      where: { alert_type: 'CHAT_MESSAGE' },
+      order: { id: 'DESC' },
+      take: 100,
+    });
+    return alerts.reverse().map((a) => ({
+      id: a.id,
+      sender: a.severity,
+      content: a.message,
+      timestamp: a.created_at,
+    }));
   }
 
-  addChat(sender: string, content: string) {
-    const msg = { id: Date.now(), sender, content, timestamp: new Date() };
-    this.chatMessages.push(msg);
-    if (this.chatMessages.length > 100) this.chatMessages.shift();
-    return msg;
+  async addChat(sender: string, content: string) {
+    const alert = this.alertRepo.create({
+      alert_type: 'CHAT_MESSAGE',
+      severity: sender,
+      message: content,
+    });
+    const saved = await this.alertRepo.save(alert);
+    return {
+      id: saved.id,
+      sender: saved.severity,
+      content: saved.message,
+      timestamp: saved.created_at,
+    };
   }
 
   async getPerformance() {
