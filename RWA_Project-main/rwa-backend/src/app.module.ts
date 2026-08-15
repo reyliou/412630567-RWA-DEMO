@@ -19,7 +19,8 @@ import { BankTrustAccount } from './entities/bank-trust.entity';
 import { BankTrustTransaction } from './entities/bank-trust-transaction.entity';
 import { ValuationLog } from './entities/valuation-log.entity';
 import { BlockchainConfig } from './entities/blockchain-config.entity';
-
+import { PropertyOwnership } from './entities/property-ownership.entity';
+import { ChatLog } from './entities/chat-log.entity';
 import { AuthModule } from './auth/auth.module';
 import { SystemModule } from './system/system.module';
 import { PropertiesModule } from './properties/properties.module';
@@ -60,6 +61,8 @@ import { SeedModule } from './seed/seed.module';
         BankTrustTransaction,
         ValuationLog,
         BlockchainConfig,
+        PropertyOwnership,
+        ChatLog,
       ],
       synchronize: false,
       ssl: (process.env.DATABASE_URL || (process.env.DB_HOST && process.env.DB_HOST !== 'localhost')) ? { rejectUnauthorized: false } : false,

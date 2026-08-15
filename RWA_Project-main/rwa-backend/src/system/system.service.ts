@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { SystemAlert } from '../entities/system-alert.entity';
 import { CrawlerMetrics } from '../entities/crawler-metrics.entity';
+import { ChatLog } from '../entities/chat-log.entity';
 import * as os from 'os';
 
 @Injectable()
@@ -20,6 +21,8 @@ export class SystemService {
   private lastCpuTick = 0;
 
   constructor(
+    @InjectRepository(ChatLog)
+    private chatRepo: Repository<ChatLog>,
     @InjectRepository(SystemAlert)
     private alertRepo: Repository<SystemAlert>,
     @InjectRepository(CrawlerMetrics)
@@ -53,29 +56,28 @@ export class SystemService {
   }
 
   async getChat() {
-    const alerts = await this.alertRepo.find({
-      where: { alert_type: 'CHAT_MESSAGE' },
+    const chats = await this.chatRepo.find({
       order: { id: 'DESC' },
       take: 100,
     });
-    return alerts.reverse().map((a) => ({
-      id: a.id,
-      sender: a.severity,
-      content: a.message,
-      timestamp: a.created_at,
+    return chats.reverse().map((c) => ({
+      id: c.id,
+      sender: c.channel,
+      content: c.message,
+      timestamp: c.created_at,
     }));
   }
 
-  async addChat(sender: string, content: string) {
-    const alert = this.alertRepo.create({
-      alert_type: 'CHAT_MESSAGE',
-      severity: sender,
-      message: content,
+  async addChat(sender_id: number, channel: string, message: string) {
+    const chat = this.chatRepo.create({
+      sender_id,
+      channel,
+      message,
     });
-    const saved = await this.alertRepo.save(alert);
+    const saved = await this.chatRepo.save(chat);
     return {
       id: saved.id,
-      sender: saved.severity,
+      sender: saved.channel,
       content: saved.message,
       timestamp: saved.created_at,
     };

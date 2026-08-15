@@ -71,9 +71,9 @@ export class SystemController {
   @Post('chat')
   @HttpCode(HttpStatus.OK)
   async sendChat(@Request() req: any, @Body() body: { sender: string; content: string }) {
-    const { role } = req.user;
+    const { role, id } = req.user;
     if (role !== 'TECHNICAL' && role !== 'BUSINESS') throw new ForbiddenException('權限不足');
-    const msg = await this.systemService.addChat(body.sender, body.content);
+    const msg = await this.systemService.addChat(id, role, body.content);
     return { success: true, message: msg };
   }
 
