@@ -10,21 +10,7 @@ import WebSocket from 'ws';
 import { User } from '../entities/user.entity';
 import { Role } from '../entities/role.entity';
 
-// ⚠️ 注意：正式上線時務必將此 KEY 放入環境變數，並確保長度為 32 bytes。
-const ENCRYPTION_KEY = process.env.IMAGE_ENCRYPTION_KEY 
-  ? Buffer.from(process.env.IMAGE_ENCRYPTION_KEY, 'utf-8')
-  : undefined;
-if (!ENCRYPTION_KEY) {
-  throw new Error('FATAL: IMAGE_ENCRYPTION_KEY is required but not set.');
-}
-const ALGORITHM = 'aes-256-cbc';
-
-function encryptImage(fileBuffer: Buffer): Buffer {
-  const iv = crypto.randomBytes(16);
-  const cipher = crypto.createCipheriv(ALGORITHM, ENCRYPTION_KEY!, iv);
-  const encrypted = Buffer.concat([cipher.update(fileBuffer), cipher.final()]);
-  return Buffer.concat([iv, encrypted]);
-}
+import { encryptBuffer, encryptString } from '../utils/crypto.util';
 
 @Injectable()
 export class AuthService {
@@ -88,7 +74,7 @@ export class AuthService {
 
     const uploadEncrypted = async (fileToUpload: Express.Multer.File, suffix: string) => {
       const fileName = `kyc_${username}_${suffix}_${Date.now()}.jpg`;
-      const encryptedBuffer = encryptImage(fileToUpload.buffer);
+      const encryptedBuffer = encryptBuffer(fileToUpload.buffer);
       
       const { data, error } = await this.supabase.storage
         .from('kyc-documents')
@@ -125,7 +111,7 @@ export class AuthService {
       total_asset_value: 0,
       total_profit_loss: 0,
       wallet_address: wallet.address,
-      wallet_private_key: wallet.privateKey,
+      wallet_private_key: encryptString(wallet.privateKey),
     });
 
     return {

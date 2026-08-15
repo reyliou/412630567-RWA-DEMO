@@ -1,4 +1,5 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import { encryptString } from '../utils/crypto.util';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
@@ -34,13 +35,12 @@ export class SeedService implements OnApplicationBootstrap {
       { role_name: 'TECHNICAL' },
       { role_name: 'BUSINESS' },
       { role_name: 'INVESTOR' },
-    ]);
     this.logger.log('Roles seeded');
   }
 
   private makeWallet(): { wallet_address: string; wallet_private_key: string } {
     const w = ethers.Wallet.createRandom();
-    return { wallet_address: w.address, wallet_private_key: w.privateKey };
+    return { wallet_address: w.address, wallet_private_key: encryptString(w.privateKey) };
   }
 
   private async seedUsers() {
