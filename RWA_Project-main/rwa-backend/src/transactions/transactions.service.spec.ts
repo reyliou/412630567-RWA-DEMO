@@ -399,12 +399,33 @@ describe('TransactionsService — 併發測試：AMM 定價的鎖定策略', () 
       'duplicate key value violates unique constraint "UQ_transactions_idempotency_key"',
     );
     uniqueViolation.code = '23505';
+    // 真實的 pg 錯誤會帶上這兩個欄位，用來分辨究竟是哪個約束被違反
+    uniqueViolation.constraint = 'UQ_transactions_idempotency_key';
+    uniqueViolation.table = 'transactions';
 
     const { service } = buildService({ saveError: uniqueViolation });
 
     await expect(
       service.createTransaction(1, 1, 'BUY', 'MARKET', 10, 189.19, 'DUPLICATE-KEY'),
     ).rejects.toThrow('偵測到重複交易');
+  });
+
+  it('其他唯一約束的衝突不應被誤報成重複交易，訊息要指出實際違反的約束', async () => {
+    // user_holdings 的 (user_id, property_id, holder_type) 約束衝突也是 23505，
+    // 但語意完全不同。先前一律回報「重複交易」會讓真正的結構問題被掩蓋 ——
+    // 線上就出現過限價單每 5 秒重試一次、log 只寫「重複交易」而查不出原因的情況。
+    const holdingViolation: any = new Error(
+      'duplicate key value violates unique constraint "UQ_user_holdings_user_property"',
+    );
+    holdingViolation.code = '23505';
+    holdingViolation.constraint = 'UQ_user_holdings_user_property';
+    holdingViolation.table = 'user_holdings';
+
+    const { service } = buildService({ saveError: holdingViolation });
+
+    await expect(
+      service.createTransaction(1, 1, 'BUY', 'MARKET', 10, 189.19, 'SOME-KEY'),
+    ).rejects.toThrow('UQ_user_holdings_user_property');
   });
 
   it('鎖應在資料庫交易開啟之後才取得，否則鎖不會生效', async () => {

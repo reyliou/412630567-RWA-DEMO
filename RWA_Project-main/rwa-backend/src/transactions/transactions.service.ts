@@ -248,8 +248,23 @@ export class TransactionsService {
       // 兩筆帶相同 idempotency_key 的請求可能都通過檢查，再由資料庫的 UNIQUE 約束擋下
       // 後到的那筆。少了這段判斷，那筆會以未處理的資料庫例外冒出去變成 500，
       // 而不是語意明確的「重複交易」。限價單路徑已有相同處理，這裡補齊市價單。
+      //
+      // 只認 idempotency_key 這一個約束。先前這裡攔截所有 23505，結果把
+      // user_holdings 等其他唯一約束的衝突也一律回報成「重複交易」，
+      // 真正的違反原因被吃掉，log 上完全看不出是哪個約束出問題。
       if (e.code === '23505') {
-        return { success: false, message: '偵測到重複交易，已為您安全攔截' };
+        // 不同驅動填的欄位不一致，三個來源都看過再判斷
+        const constraintInfo = `${e.constraint ?? ''} ${e.detail ?? ''} ${e.message ?? ''}`.toLowerCase();
+        if (constraintInfo.includes('idempotency')) {
+          return { success: false, message: '偵測到重複交易，已為您安全攔截' };
+        }
+        this.logger.error(
+          `唯一約束違反（非冪等性）: constraint=${e.constraint ?? '未知'} detail=${e.detail ?? '無'} table=${e.table ?? '未知'}`,
+        );
+        return {
+          success: false,
+          message: `資料庫唯一約束衝突（${e.constraint ?? '未知約束'}），請檢查資料表結構是否與 entity 定義一致`,
+        };
       }
 
       if (e.message?.includes('持倉上限')) {
