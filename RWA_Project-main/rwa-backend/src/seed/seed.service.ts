@@ -35,6 +35,7 @@ export class SeedService implements OnApplicationBootstrap {
       { role_name: 'TECHNICAL' },
       { role_name: 'BUSINESS' },
       { role_name: 'INVESTOR' },
+    ]);
     this.logger.log('Roles seeded');
   }
 
