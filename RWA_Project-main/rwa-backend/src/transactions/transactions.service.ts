@@ -1,6 +1,6 @@
 import { Injectable, ForbiddenException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { AppTransaction } from '../entities/app-transaction.entity';
 import { Property } from '../entities/property.entity';
 import { UserHolding } from '../entities/user-holdings.entity';
@@ -345,6 +345,46 @@ export class TransactionsService {
   }
 
   // 背景輪詢機器人 (每 5 秒檢查一次)
+  /**
+   * 依 AMM 曲線試算指定數量的成交均價（含滑價），不寫入任何資料。
+   *
+   * 撮合引擎必須用這個價格判斷是否觸發，而不是現貨價：沿著 x·y=k 成交時，
+   * 買入會把價格往上推、賣出往下壓，因此成交均價永遠偏離現貨價。
+   * 若以現貨價判斷，限價設得貼近市價的單會「觸發 → 被滑價檢查拒絕 → 5 秒後再觸發」
+   * 無限循環 —— 線上就出現過一張限價 189.709 的買單，現貨 189.7088 通過觸發，
+   * 但均價 189.71 超過限價而反覆失敗。
+   */
+  private async quoteAveragePrice(
+    manager: EntityManager,
+    property: Property,
+    txType: string,
+    tokenAmount: number,
+  ): Promise<number | null> {
+    const totalSupply = parseFloat(String(property.total_supply_x ?? 100000));
+    const fundraisingGoal = parseFloat(
+      String(property.fundraising_goal ?? totalSupply * parseFloat(String(property.current_price))),
+    );
+    const k = totalSupply * fundraisingGoal;
+
+    const holdingResult = await manager
+      .createQueryBuilder(UserHolding, 'h')
+      .select('SUM(h.balance)', 'total')
+      .where('h.property_id = :id', { id: property.id })
+      .andWhere('h.holder_type = :holderType', { holderType: 'INVESTOR' })
+      .getRawOne();
+    const circulatingSupply = parseFloat(holdingResult?.total || '0');
+
+    const currentX = totalSupply - circulatingSupply;
+    if (currentX <= 0) return null;
+    const currentY = k / currentX;
+
+    const newX = txType === 'BUY' ? currentX - tokenAmount : currentX + tokenAmount;
+    if (newX <= 0) return null;
+    const newY = k / newX;
+
+    return Math.abs(newY - currentY) / tokenAmount;
+  }
+
   @Cron(CronExpression.EVERY_5_SECONDS)
   async checkPendingOrders() {
     if (this.systemService.getState().isPaused) return;
@@ -359,20 +399,33 @@ export class TransactionsService {
       if (!property) continue;
 
       const spotPrice = parseFloat(String(property.current_price || 0));
+      const limitPriceOfOrder = parseFloat(String(order.price_per_token));
+
+      // 用「這筆數量實際會成交的均價」判斷，而不是現貨價 —— 兩者的差距就是滑價，
+      // 而 runTrade 稍後正是以均價做限價檢查。用現貨價判斷會觸發注定被拒的單。
+      const fillPrice = await this.quoteAveragePrice(
+        this.dataSource.manager,
+        property,
+        order.tx_type,
+        parseFloat(String(order.token_amount)),
+      );
+      if (fillPrice === null) continue; // 流動性池已抽乾，等下一輪
+
       let shouldExecute = false;
 
-      // 判斷是否滿足觸發條件
-      // 買單：市價 <= 我的限價 (代表現在比較便宜，可以撿便宜)
-      if (order.tx_type === 'BUY' && spotPrice <= parseFloat(String(order.price_per_token))) {
+      // 買單：實際要付的均價 <= 我的限價
+      if (order.tx_type === 'BUY' && fillPrice <= limitPriceOfOrder) {
         shouldExecute = true;
       }
-      // 賣單：市價 >= 我的限價 (代表現在比較貴，可以高點賣出)
-      if (order.tx_type === 'SELL' && spotPrice >= parseFloat(String(order.price_per_token))) {
+      // 賣單：實際能拿到的均價 >= 我的限價
+      if (order.tx_type === 'SELL' && fillPrice >= limitPriceOfOrder) {
         shouldExecute = true;
       }
 
       if (shouldExecute) {
-        this.logger.log(`掛單觸發！OrderID: ${order.id}, SpotPrice: ${spotPrice}`);
+        this.logger.log(
+          `掛單觸發！OrderID: ${order.id}, 現貨價: ${spotPrice}, 預估成交均價: ${fillPrice.toFixed(4)}, 限價: ${limitPriceOfOrder}`,
+        );
         // 為了避免再次觸發 Slippage Error，必須傳入使用者真實設定的限價 (order.price_per_token)，而不是目前的市價 (spotPrice)
         const limitPrice = parseFloat(String(order.price_per_token));
         const result = await this.runTrade(order.user_id, order.property_id, order.tx_type, 'LIMIT_MATCHED', parseFloat(String(order.token_amount)), limitPrice, undefined, order.id);

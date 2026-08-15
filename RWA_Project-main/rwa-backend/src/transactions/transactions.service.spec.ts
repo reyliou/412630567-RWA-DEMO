@@ -155,6 +155,7 @@ function buildService(opts: {
   savedIdempotencyKeys?: string[];
   saveError?: any;
   existingPendingOrder?: any;
+  pendingOrdersForCron?: any[];
 }) {
   const savedIdempotencyKeys = opts.savedIdempotencyKeys ?? [];
   const capturedTransactions: any[] = [];
@@ -179,14 +180,36 @@ function buildService(opts: {
     existingPendingOrder: opts.existingPendingOrder,
   });
 
-  const dataSource = { createQueryRunner } as any;
+  // 撮合引擎（checkPendingOrders）用的是 dataSource.manager，不是 queryRunner.manager
+  const cronOrders = opts.pendingOrdersForCron ?? [];
+  const dataSourceManager = {
+    find: jest.fn(async (entity: any) => (entity === AppTransaction ? cronOrders : [])),
+    findOne: jest.fn(async (entity: any) => (entity === Property ? { ...MOCK_PROPERTY } : null)),
+    save: jest.fn(async (payload: any) => payload),
+    createQueryBuilder: jest.fn(() => ({
+      select: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getRawOne: jest.fn(async () => ({ total: String(opts.circulatingSupply ?? 0) })),
+    })),
+  };
+
+  const dataSource = { createQueryRunner, manager: dataSourceManager } as any;
 
   const systemService = makeSystemServiceMock(opts.systemState);
   const blockchainService = makeBlockchainServiceMock();
 
   const service = new TransactionsService(notifRepo, userRepo, dataSource, systemService, blockchainService);
 
-  return { service, notifRepo, userRepo, savedIdempotencyKeys, capturedTransactions, findOneCalls };
+  return {
+    service,
+    notifRepo,
+    userRepo,
+    savedIdempotencyKeys,
+    capturedTransactions,
+    findOneCalls,
+    dataSourceManager,
+  };
 }
 
 // ==================================================================
@@ -435,6 +458,37 @@ describe('TransactionsService — 併發測試：AMM 定價的鎖定策略', () 
     await expect(
       service.createTransaction(1, 1, 'BUY', 'MARKET', 10, 189.19, 'SOME-KEY'),
     ).rejects.toThrow('UQ_user_holdings_user_property');
+  });
+
+  it('撮合引擎應以含滑價的成交均價判斷觸發，不可只看現貨價', async () => {
+    // 現貨 189.7088、限價 189.709：只看現貨會判定可以成交，
+    // 但買入沿 AMM 曲線推高價格，實際均價 189.71 超過限價，runTrade 一定拒絕。
+    // 若以現貨價觸發，就會變成「觸發 → 被拒 → 5 秒後再觸發」的無限循環（線上已發生）。
+    const order = {
+      id: 155945,
+      user_id: 1,
+      property_id: 1,
+      tx_type: 'BUY',
+      token_amount: 1,
+      price_per_token: 189.709,
+      status: 'PENDING',
+    };
+    // MOCK_PROPERTY 的 current_price 為 189.19，改成貼近限價的情境
+    const { service, dataSourceManager } = buildService({
+      pendingOrdersForCron: [order],
+      circulatingSupply: 187,
+    });
+    dataSourceManager.findOne = jest.fn(async (_entity: any) => ({
+      ...MOCK_PROPERTY,
+      current_price: 189.7088,
+      fundraising_goal: 18900000,
+    }));
+
+    await service.checkPendingOrders();
+
+    // 不該進入成交流程，掛單維持 PENDING
+    expect(order.status).toBe('PENDING');
+    expect(dataSourceManager.save).not.toHaveBeenCalled();
   });
 
   it('限價單結算時若沒有鏈上雜湊，tx_hash 應維持未設定而非空字串', async () => {
