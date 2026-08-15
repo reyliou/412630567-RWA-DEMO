@@ -20,20 +20,25 @@ export class SystemController {
     return { status: 'OK', message: 'RWA Server is healthy' };
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get('system/performance')
-  getPerformance() {
+  getPerformance(@Request() req: any) {
+    if (req.user.role !== 'TECHNICAL' && req.user.role !== 'BUSINESS') throw new ForbiddenException('權限不足');
     return this.systemService.getPerformance();
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get('system/crawler-status')
-  getCrawlerStatus() {
+  getCrawlerStatus(@Request() req: any) {
+    if (req.user.role !== 'TECHNICAL' && req.user.role !== 'BUSINESS') throw new ForbiddenException('權限不足');
     return this.systemService.getCrawlerStatus();
   }
 
   @Post('system/crawler-report')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
-  async crawlerReport(@Body() body: { failures: number; integrity: number; status: string }) {
+  async crawlerReport(@Request() req: any, @Body() body: { failures: number; integrity: number; status: string }) {
+    if (req.user.role !== 'TECHNICAL') throw new ForbiddenException('需要技術員權限');
     await this.systemService.updateCrawlerReport(body.failures, body.integrity, body.status);
     return { success: true };
   }
