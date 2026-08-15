@@ -38,7 +38,7 @@ export function StaffChatModal({
 
   const handleSendMessage = () => {
     if (!inputValue.trim()) return;
-    const sender = isBanker ? "banker" : "tech";
+    const sender = isBanker ? "BUSINESS" : "TECHNICAL";
     sendMessage(sender, inputValue);
     setInputValue("");
   };
@@ -78,7 +78,7 @@ export function StaffChatModal({
         <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50/20 dark:bg-transparent">
           {messages.map((message) => (
             <div key={message.id} className={`flex ${message.sender === "system" ? "justify-center" : (
-              (isBanker && message.sender === "banker") || (isTechnical && message.sender === "tech") ? "justify-end" : "justify-start"
+              (isBanker && message.sender === "BUSINESS") || (isTechnical && message.sender === "TECHNICAL") ? "justify-end" : "justify-start"
             )}`}>
               {message.sender === "system" ? (
                 <div className="py-1 px-4 bg-muted/80 rounded-full text-[10px] font-black text-muted-foreground border border-border uppercase tracking-widest">
@@ -86,10 +86,10 @@ export function StaffChatModal({
                 </div>
               ) : (
                 <div className={`max-w-[80%] flex flex-col ${
-                  (isBanker && message.sender === "banker") || (isTechnical && message.sender === "tech") ? "items-end" : "items-start"
+                  (isBanker && message.sender === "BUSINESS") || (isTechnical && message.sender === "TECHNICAL") ? "items-end" : "items-start"
                 }`}>
                   <div className={`p-4 rounded-2xl shadow-sm text-sm font-medium ${
-                    (isBanker && message.sender === "banker") || (isTechnical && message.sender === "tech")
+                    (isBanker && message.sender === "BUSINESS") || (isTechnical && message.sender === "TECHNICAL")
                       ? 'bg-blue-600 text-white rounded-tr-none' 
                       : 'bg-card border border-border text-foreground rounded-tl-none'
                   }`}>
