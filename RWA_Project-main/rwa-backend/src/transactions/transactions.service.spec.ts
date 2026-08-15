@@ -66,6 +66,8 @@ function makeQueryRunnerFactory(opts: {
   findOneCalls?: { entity: any; options: any }[];
   // 讓 save() 拋出指定例外，用來模擬資料庫層級的約束違反（例如 UNIQUE 的 23505）
   saveError?: any;
+  // 依主鍵查詢待結算掛單時要回傳的物件，供撮合路徑的測試使用
+  existingPendingOrder?: any;
 }) {
   const {
     holdingBalance = 0,
@@ -74,6 +76,7 @@ function makeQueryRunnerFactory(opts: {
     capturedTransactions,
     findOneCalls,
     saveError,
+    existingPendingOrder,
   } = opts;
 
   return () => {
@@ -84,6 +87,10 @@ function makeQueryRunnerFactory(opts: {
         // 讓每個 await 都真的走一次 microtask，模擬真實 I/O 的交錯時機
         await Promise.resolve();
 
+        // 撮合路徑會以主鍵反查待結算的掛單
+        if (entity === AppTransaction && options?.where?.id) {
+          return existingPendingOrder ?? null;
+        }
         if (entity === AppTransaction && options?.where?.idempotency_key) {
           const key = options.where.idempotency_key;
           return savedIdempotencyKeys.includes(key) ? { id: 999, idempotency_key: key } : null;
@@ -147,6 +154,7 @@ function buildService(opts: {
   circulatingSupply?: number;
   savedIdempotencyKeys?: string[];
   saveError?: any;
+  existingPendingOrder?: any;
 }) {
   const savedIdempotencyKeys = opts.savedIdempotencyKeys ?? [];
   const capturedTransactions: any[] = [];
@@ -168,6 +176,7 @@ function buildService(opts: {
     capturedTransactions,
     findOneCalls,
     saveError: opts.saveError,
+    existingPendingOrder: opts.existingPendingOrder,
   });
 
   const dataSource = { createQueryRunner } as any;
@@ -426,6 +435,26 @@ describe('TransactionsService — 併發測試：AMM 定價的鎖定策略', () 
     await expect(
       service.createTransaction(1, 1, 'BUY', 'MARKET', 10, 189.19, 'SOME-KEY'),
     ).rejects.toThrow('UQ_user_holdings_user_property');
+  });
+
+  it('限價單結算時若沒有鏈上雜湊，tx_hash 應維持未設定而非空字串', async () => {
+    // 資料庫在 tx_hash 上有唯一約束。空字串是真實的值，只有第一筆能佔用，
+    // 之後每次結算都會撞 23505 —— 線上就出現過限價單每 5 秒重試、永遠無法成交的情況。
+    // PostgreSQL 的 UNIQUE 允許多個 NULL，因此沒有雜湊時必須留空。
+    const pendingOrder: any = {
+      id: 155944,
+      status: 'PENDING',
+      price_per_token: 190.7,
+      token_amount: 1,
+    };
+    const { service } = buildService({ existingPendingOrder: pendingOrder });
+
+    // 直接走撮合引擎呼叫的那條路徑：帶入掛單主鍵、不帶 idempotencyKey。
+    // MOCK_PROPERTY 沒有 token_address，因此不會產生鏈上雜湊。
+    await (service as any).runTrade(1, 1, 'BUY', 'LIMIT_MATCHED', 1, 190.7, undefined, 155944);
+
+    expect(pendingOrder.status).not.toBe('PENDING');
+    expect(pendingOrder.tx_hash).toBeUndefined();
   });
 
   it('鎖應在資料庫交易開啟之後才取得，否則鎖不會生效', async () => {

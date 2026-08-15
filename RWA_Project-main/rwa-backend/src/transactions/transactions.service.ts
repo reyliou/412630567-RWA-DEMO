@@ -179,7 +179,11 @@ export class TransactionsService {
       if (existingPendingTx) {
         existingPendingTx.status = status;
         existingPendingTx.price_per_token = finalPrice;
-        existingPendingTx.tx_hash = txHash ?? '';
+        // 沒有鏈上雜湊時必須維持 NULL，不能寫入空字串。
+        // 資料庫在 tx_hash 上有 transactions_tx_hash_unique 約束，而空字串是一個真實的值，
+        // 只有第一筆能佔用；之後每筆結算都會撞 23505。PostgreSQL 的 UNIQUE 允許多個 NULL，
+        // 所以留空即可 —— 市價單路徑本來就是這樣寫的（if (txHash) ...），這裡與之對齊。
+        if (txHash) existingPendingTx.tx_hash = txHash;
         await qr.manager.save(existingPendingTx);
       } else {
         const tx = new AppTransaction();
