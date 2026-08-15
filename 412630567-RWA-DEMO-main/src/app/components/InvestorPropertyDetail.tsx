@@ -19,25 +19,28 @@ export function InvestorPropertyDetail({ userId, property, onBack }: PropertyDet
   const [selectedOrderPrice, setSelectedOrderPrice] = useState<number | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   
-  // 修正 #6: 使用 local state 來同步即時價格
+  // 修正 #6: 使用 local state 來同步即時價格與數量
   const [livePrice, setLivePrice] = useState(property.price);
+  const [liveSupply, setLiveSupply] = useState(property.circulating_supply || 0);
   
   // 確保當外部傳入的真實資料庫價格變更時，livePrice 會同步更新
   useEffect(() => {
     setLivePrice(property.price);
-  }, [property.price]);
+    setLiveSupply(property.circulating_supply || 0);
+  }, [property]);
   
   const [marketStats, setMarketStats] = useState({ high: property.price.toFixed(2), low: property.price.toFixed(2), vol: "0" });
 
   useEffect(() => {
     const fetchLogs = async () => {
         try {
-          const [klineRes, statsRes] = await Promise.all([
+          const [klineRes, statsRes, propsRes] = await Promise.all([
             apiFetch(`/api/properties/${property.id}/kline`),
-            apiFetch(`/api/stats/${property.id}`)
+            apiFetch(`/api/stats/${property.id}`),
+            apiFetch(`/api/properties`)
           ]);
           
-            if (klineRes.ok) {
+          if (klineRes.ok) {
             const res = await klineRes.json();
             setVLogs(res);
           }
@@ -48,6 +51,14 @@ export function InvestorPropertyDetail({ userId, property, onBack }: PropertyDet
               low: (stats.low || property.price).toFixed(2),
               vol: stats.volume ? stats.volume.toLocaleString() : "0"
             });
+          }
+          if (propsRes.ok) {
+            const allProps = await propsRes.json();
+            const updatedProp = allProps.find((p: any) => p.id === property.id);
+            if (updatedProp) {
+              setLivePrice(updatedProp.current_price || updatedProp.price);
+              setLiveSupply(updatedProp.circulating_supply || 0);
+            }
           }
         } catch (e) { console.error("Logs sync failed"); } finally { setIsLoadingLogs(false); }
     };
@@ -75,7 +86,7 @@ export function InvestorPropertyDetail({ userId, property, onBack }: PropertyDet
              <div className="bg-white border p-8 rounded-[2rem] text-center shadow-sm"><div className="text-xs text-slate-400 uppercase mb-2">High</div><div className="text-3xl text-red-500">${marketStats.high}</div></div>
              <div className="bg-white border p-8 rounded-[2rem] text-center shadow-sm"><div className="text-xs text-slate-400 uppercase mb-2">Low</div><div className="text-3xl text-green-500">${marketStats.low}</div></div>
              <div className="bg-white border p-8 rounded-[2rem] text-center shadow-sm"><div className="text-xs text-slate-400 uppercase mb-2">Market Cap</div><div className="text-3xl text-slate-800">${((property.price * 100000)/10000).toLocaleString()}萬</div></div>
-             <div className="bg-white border p-8 rounded-[2rem] text-center shadow-sm"><div className="text-xs text-slate-400 uppercase mb-2">Supply</div><div className="text-3xl text-blue-500">{(property.circulating_supply || 0).toLocaleString()}</div></div>
+             <div className="bg-white border p-8 rounded-[2rem] text-center shadow-sm"><div className="text-xs text-slate-400 uppercase mb-2">Supply</div><div className="text-3xl text-blue-500">{liveSupply.toLocaleString()}</div></div>
           </div>
         </div>
         <div className="lg:col-span-4 space-y-8">
