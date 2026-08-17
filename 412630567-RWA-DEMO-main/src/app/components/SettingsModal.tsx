@@ -1,5 +1,5 @@
-import { X, Lock, Key, CheckCircle2, ShieldCheck } from "lucide-react";
-import { useState } from "react";
+import { X, Lock, Key, CheckCircle2, ShieldCheck, Bell, ChevronRight, BellRing, Settings } from "lucide-react";
+import { useState, useEffect } from "react";
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -10,12 +10,35 @@ interface SettingsModalProps {
 export function SettingsModal({ isOpen, onClose, userName }: SettingsModalProps) {
   const [step, setStep] = useState(1);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission>("default");
+
+  useEffect(() => {
+    if ("Notification" in window) {
+      setNotifPermission(Notification.permission);
+    }
+  }, [isOpen]);
+
+  const requestNotification = async () => {
+    if (!("Notification" in window)) {
+      alert("您的瀏覽器不支援桌面通知");
+      return;
+    }
+    const permission = await Notification.requestPermission();
+    setNotifPermission(permission);
+    if (permission === "granted") {
+      new Notification("通知已開啟", {
+        body: "您將會在此收到系統的即時通知！",
+        icon: "/favicon.ico" // 假設有 favicon
+      });
+    }
+  };
 
   const handleUpdate = () => {
     setIsUpdating(true);
+    // 模擬修改密碼（後端尚未實作）
     setTimeout(() => {
       setIsUpdating(false);
-      setStep(2);
+      setStep(3);
     }, 1500);
   };
 
@@ -24,22 +47,72 @@ export function SettingsModal({ isOpen, onClose, userName }: SettingsModalProps)
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[200] p-4 backdrop-blur-sm">
       <div className="bg-white rounded-[2.5rem] border border-slate-200 max-w-md w-full shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+        
         {/* Header */}
         <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div className="flex items-center gap-3">
              <div className="w-10 h-10 bg-slate-800 rounded-2xl flex items-center justify-center text-white shadow-lg">
-                <Lock className="w-5 h-5" />
+                {step === 1 ? <Settings className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
              </div>
              <div>
-                <h3 className="font-black text-sm text-slate-800">帳戶安全設定</h3>
+                <h3 className="font-black text-sm text-slate-800">
+                  {step === 1 ? "系統設定" : step === 2 ? "修改密碼" : "設定完成"}
+                </h3>
                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">User: {userName}</p>
              </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors"><X className="w-5 h-5 text-slate-400" /></button>
+          <button onClick={() => { setStep(1); onClose(); }} className="p-2 hover:bg-slate-100 rounded-full transition-colors"><X className="w-5 h-5 text-slate-400" /></button>
         </div>
 
-        {step === 1 ? (
-          <div className="p-8 space-y-6">
+        {step === 1 && (
+          <div className="p-6 space-y-4">
+            {/* 網頁通知設定 */}
+            <button 
+              onClick={requestNotification}
+              disabled={notifPermission === "granted"}
+              className={`w-full p-4 rounded-2xl flex items-center justify-between transition-all ${
+                notifPermission === "granted" 
+                  ? "bg-green-50 border border-green-100 cursor-default" 
+                  : "bg-slate-50 hover:bg-slate-100 border border-slate-100 cursor-pointer active:scale-[0.98]"
+              }`}
+            >
+              <div className="flex items-center gap-4">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${notifPermission === "granted" ? "bg-green-100 text-green-600" : "bg-white text-slate-600 shadow-sm"}`}>
+                  {notifPermission === "granted" ? <BellRing className="w-5 h-5" /> : <Bell className="w-5 h-5" />}
+                </div>
+                <div className="text-left">
+                  <h4 className={`font-black text-sm ${notifPermission === "granted" ? "text-green-800" : "text-slate-700"}`}>桌面推播通知</h4>
+                  <p className="text-[11px] text-slate-500 font-medium">接收訂單成交與系統警報</p>
+                </div>
+              </div>
+              {notifPermission === "granted" ? (
+                <span className="text-[10px] font-black bg-green-200 text-green-700 px-2 py-1 rounded-lg">已開啟</span>
+              ) : (
+                <span className="text-[10px] font-black bg-blue-100 text-blue-600 px-2 py-1 rounded-lg">點擊開啟</span>
+              )}
+            </button>
+
+            {/* 修改密碼入口 */}
+            <button 
+              onClick={() => setStep(2)}
+              className="w-full p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-100 flex items-center justify-between transition-all cursor-pointer active:scale-[0.98]"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-white text-slate-600 shadow-sm flex items-center justify-center">
+                  <Key className="w-5 h-5" />
+                </div>
+                <div className="text-left">
+                  <h4 className="font-black text-sm text-slate-700">帳戶安全與密碼</h4>
+                  <p className="text-[11px] text-slate-500 font-medium">修改登入密碼 (待實作)</p>
+                </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-slate-400" />
+            </button>
+          </div>
+        )}
+
+        {step === 2 && (
+          <div className="p-8 space-y-6 animate-in slide-in-from-right-4 duration-300">
             <div className="space-y-4">
               <div>
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">當前密碼</label>
@@ -56,25 +129,35 @@ export function SettingsModal({ isOpen, onClose, userName }: SettingsModalProps)
               </div>
             </div>
 
-            <button 
-              onClick={handleUpdate}
-              disabled={isUpdating}
-              className="w-full py-5 bg-slate-800 text-white rounded-[1.5rem] font-black text-lg shadow-xl shadow-slate-200 hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-2"
-            >
-              {isUpdating ? <span className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></span> : <Key className="w-5 h-5" />}
-              更新安全密碼
-            </button>
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setStep(1)}
+                className="w-1/3 py-5 bg-slate-100 text-slate-600 rounded-[1.5rem] font-black hover:bg-slate-200 transition-all"
+              >
+                返回
+              </button>
+              <button 
+                onClick={handleUpdate}
+                disabled={isUpdating}
+                className="w-2/3 py-5 bg-slate-800 text-white rounded-[1.5rem] font-black shadow-xl shadow-slate-200 hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-2"
+              >
+                {isUpdating ? <span className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></span> : <Key className="w-5 h-5" />}
+                更新密碼
+              </button>
+            </div>
           </div>
-        ) : (
+        )}
+
+        {step === 3 && (
           <div className="p-12 text-center space-y-6 animate-in fade-in zoom-in duration-500">
              <div className="w-20 h-20 bg-green-500 rounded-[2rem] flex items-center justify-center text-white mx-auto shadow-xl shadow-green-100">
                 <ShieldCheck className="w-10 h-10" />
              </div>
              <div>
                 <h4 className="text-2xl font-black text-slate-800">密碼修改成功</h4>
-                <p className="text-sm text-slate-400 mt-2 font-medium">您的帳戶安全設定已更新，<br/>下次登入請使用新密碼。</p>
+                <p className="text-sm text-slate-400 mt-2 font-medium">這是前端模擬畫面，<br/>後端 API 尚未實作此功能。</p>
              </div>
-             <button onClick={onClose} className="w-full py-4 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-2xl font-black transition-colors">
+             <button onClick={() => { setStep(1); onClose(); }} className="w-full py-4 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-2xl font-black transition-colors">
                 關閉視窗
              </button>
           </div>
