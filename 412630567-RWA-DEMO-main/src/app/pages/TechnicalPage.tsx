@@ -8,11 +8,10 @@ import { ThrottleTimerCard } from "../components/ThrottleTimerCard";
 import { SystemLogsCard, SystemLogsCardHandle } from "../components/SystemLogsCard";
 import { useSystemControl } from "../context/SystemControlContext";
 import { useAuth } from "../context/AuthContext";
-import { apiFetch } from "../utils/apiFetch";
 import { API_BASE_URL } from "../config";
 
 export function TechnicalPage() {
-  const { userName } = useAuth();
+  const { userName, apiFetch } = useAuth();
   const { activeRequest, isPaused, throttleStartTime, activeTransactions, unreadCount, openChat } = useSystemControl();
   const logRef = useRef<SystemLogsCardHandle>(null);
 
