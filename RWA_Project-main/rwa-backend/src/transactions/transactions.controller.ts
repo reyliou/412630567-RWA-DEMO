@@ -8,8 +8,8 @@ import { Throttle } from '@nestjs/throttler';
 export class TransactionsController {
   constructor(private transactionsService: TransactionsService) {}
 
-  // 防刷機制：限制同一個使用者(IP) 每分鐘最多只能送出 10 筆委託單，防範惡意腳本洗單
-  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  // 防刷機制：限制同一個使用者(IP) 每分鐘最多只能送出 50 筆委託單，防範惡意腳本洗單，同時確保 Demo 順暢
+  @Throttle({ default: { limit: 50, ttl: 60000 } })
   @Post('transactions')
   createTransaction(@Request() req: any, @Body() body: any) {
     const { user_id, property_id, tx_type, order_type, token_amount, price_per_token, idempotency_key } = body;

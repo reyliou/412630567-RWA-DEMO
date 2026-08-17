@@ -30,6 +30,7 @@ import { PortfolioModule } from './portfolio/portfolio.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { BlockchainModule } from './blockchain/blockchain.module';
 import { SeedModule } from './seed/seed.module';
+import { ActivityMiddleware } from './middleware/activity.middleware';
 
 @Module({
   imports: [
@@ -81,4 +82,8 @@ import { SeedModule } from './seed/seed.module';
     { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
 })
-export class AppModule {}
+export class AppModule {
+  configure(consumer: any) {
+    consumer.apply(ActivityMiddleware).forRoutes('*');
+  }
+}

@@ -388,9 +388,19 @@ export class TransactionsService {
   @Cron(CronExpression.EVERY_5_SECONDS)
   async checkPendingOrders() {
     if (this.systemService.getState().isPaused) return;
-    
-    // 如果系統超過 60 秒沒有人打 API，進入 Idle 模式，自動暫停排程以節省運算與資料庫資源
-    if (Date.now() - this.systemService.lastActiveTime > 60 * 1000) return;
+
+    // 先確認是否有待處理的訂單
+    const hasPending = await this.dataSource.manager.count(AppTransaction, {
+      where: { status: 'PENDING', is_simulated: false },
+    });
+
+    // 如果沒有待處理訂單，且系統已閒置超過 60 秒，則暫停排程以節省運算資源
+    if (hasPending === 0 && Date.now() - this.systemService.lastActiveTime > 60 * 1000) {
+      return;
+    }
+
+    // 若沒有訂單但還沒閒置，或是根本沒有訂單，提早結束
+    if (hasPending === 0) return;
 
     // 找出所有在線的委託單 (過濾掉造市機器人的假單)
     const pendingOrders = await this.dataSource.manager.find(AppTransaction, { where: { status: 'PENDING', is_simulated: false } });
