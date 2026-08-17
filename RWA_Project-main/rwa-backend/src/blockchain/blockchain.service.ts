@@ -1,4 +1,5 @@
 import { Injectable, Logger, OnModuleInit, ServiceUnavailableException } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ethers } from 'ethers';
@@ -147,8 +148,36 @@ export class BlockchainService implements OnModuleInit {
     try {
       await this.provider.getBlockNumber();
       return true;
-    } catch {
+    } catch (e) {
       return false;
+    }
+  }
+
+  private isRecovering = false;
+
+  @Cron(CronExpression.EVERY_30_SECONDS)
+  async autoRecoverNodeState() {
+    if (this.isRecovering) return;
+
+    if (!this.isProviderReady || !(await this.isNodeReachable())) {
+      // Node is offline or not reachable. Wait until it boots up.
+      return;
+    }
+
+    const irAddr = await this.getConfig('ir_address');
+    if (!irAddr) return; // System has never been setup
+
+    if (await this.isConfigStale(irAddr)) {
+      this.logger.warn('⚠️ 偵測到區塊鏈節點記憶體遺失 (因休眠重啟)！啟動全自動防護與重建程序...');
+      this.isRecovering = true;
+      try {
+        await this.setupBlockchain();
+        this.logger.log('✅ 全自動重建合約與資料同步完成！');
+      } catch (e: any) {
+        this.logger.error(`❌ 自動重建失敗: ${e.message}`);
+      } finally {
+        this.isRecovering = false;
+      }
     }
   }
 
