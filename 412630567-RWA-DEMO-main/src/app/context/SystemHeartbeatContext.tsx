@@ -13,8 +13,11 @@ export const HeartbeatProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setTick((prev) => prev + 1);
-    }, 1000); // 基準節奏：每 1 秒跳動一次
+      // 只有在網頁處於可見狀態時才觸發心跳，避免在背景無意義發送 API 浪費額度
+      if (!document.hidden) {
+        setTick((prev) => prev + 1);
+      }
+    }, 1000); // 基準：每 1 秒跳動一次
 
     return () => clearInterval(interval);
   }, []);
