@@ -41,4 +41,3 @@ ForEach-Object {
 }
 
 Write-Host "Done! File saved to: $OutputFile"
-Pause

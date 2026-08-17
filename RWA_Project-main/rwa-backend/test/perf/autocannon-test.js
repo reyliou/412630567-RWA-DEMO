@@ -39,6 +39,6 @@ async function run(name, url) {
 }
 
 (async () => {
-  await run('K線查詢 /api/klines/:id', `${baseUrl}/api/klines/${propertyId}`);
+  await run('K線查詢 /api/properties/:id/kline', `${baseUrl}/api/properties/${propertyId}/kline`);
   await run('掛單簿 /api/orderbook/:id', `${baseUrl}/api/orderbook/${propertyId}`);
 })();
