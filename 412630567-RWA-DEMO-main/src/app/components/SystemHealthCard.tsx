@@ -3,9 +3,11 @@ import { useState, useEffect } from "react";
 import { SystemHealthLogModal } from "./SystemHealthLogModal";
 import { useHeartbeat } from "../context/SystemHeartbeatContext"; // 訂閱心跳
 import { API_BASE_URL } from "../config";
+import { useAuth } from "../context/AuthContext";
 
 export function SystemHealthCard() {
   const { tick } = useHeartbeat(); // 獲取全域 tick
+  const { apiFetch } = useAuth();
   const [metrics, setMetrics] = useState({
     apiResponse: 0,
     dbLatency: 0,
@@ -17,7 +19,7 @@ export function SystemHealthCard() {
   const fetchPerformance = async () => {
     const startTime = Date.now();
     try {
-      const response = await fetch(`${API_BASE_URL}/api/system/performance`);
+      const response = await apiFetch(`/api/system/performance`);
       if (response.ok) {
         const data = await response.json();
         setMetrics({

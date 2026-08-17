@@ -3,9 +3,11 @@ import { useState, useEffect } from "react";
 import { OracleMonitorLogModal } from "./OracleMonitorLogModal";
 import { useHeartbeat } from "../context/SystemHeartbeatContext";
 import { API_BASE_URL } from "../config";
+import { useAuth } from "../context/AuthContext";
 
 export function OracleMonitorCard() {
   const { tick } = useHeartbeat();
+  const { apiFetch } = useAuth();
   const [metrics, setMetrics] = useState({
     lastRunAt: new Date(),
     failures: 0,
@@ -16,7 +18,7 @@ export function OracleMonitorCard() {
 
   const fetchCrawlerStatus = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/system/crawler-status`);
+      const response = await apiFetch(`/api/system/crawler-status`);
       if (response.ok) {
         const data = await response.json();
         setMetrics({
