@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, ServiceUnavailableException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ethers } from 'ethers';
@@ -455,7 +455,7 @@ export class BlockchainService implements OnModuleInit {
 
   async reconcile(repair = false): Promise<{ checkedProperties: number; discrepancies: ReconcileDiscrepancy[] }> {
     if (!this.isProviderReady || !(await this.isNodeReachable())) {
-      throw new Error('Hardhat 節點未啟動，無法進行鏈上對帳');
+      throw new ServiceUnavailableException('區塊鏈節點目前離線休眠中，請等待喚醒後再試 (約需30~60秒)');
     }
 
     const properties = await this.propertyRepo.find();
