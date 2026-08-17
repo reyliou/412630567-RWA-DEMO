@@ -389,7 +389,10 @@ export class TransactionsService {
   async checkPendingOrders() {
     if (this.systemService.getState().isPaused) return;
     
-    // 撈出所有在線的委託單 (過濾掉造市機器人的假單)
+    // 如果系統超過 60 秒沒有人打 API，進入 Idle 模式，自動暫停排程以節省運算與資料庫資源
+    if (Date.now() - this.systemService.lastActiveTime > 60 * 1000) return;
+
+    // 找出所有在線的委託單 (過濾掉造市機器人的假單)
     const pendingOrders = await this.dataSource.manager.find(AppTransaction, { where: { status: 'PENDING', is_simulated: false } });
     if (pendingOrders.length === 0) return;
 

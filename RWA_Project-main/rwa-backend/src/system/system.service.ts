@@ -19,6 +19,7 @@ export class SystemService {
   private healthCheckCounter = 0;
   private lastCpuIdle = 0;
   private lastCpuTick = 0;
+  public lastActiveTime = Date.now();
 
   constructor(
     @InjectRepository(ChatLog)
@@ -84,6 +85,7 @@ export class SystemService {
   }
 
   async getPerformance() {
+    this.lastActiveTime = Date.now();
     const start = Date.now();
     await this.dataSource.query('SELECT 1');
     const dbLatency = Date.now() - start;
