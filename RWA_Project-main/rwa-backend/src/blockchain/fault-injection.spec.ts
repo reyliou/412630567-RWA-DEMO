@@ -152,7 +152,7 @@ describe('BlockchainService — 故障注入：區塊鏈節點無法連線', () 
     const { service } = buildService();
     service.onModuleInit();
 
-    await expect(service.reconcile()).rejects.toThrow(/節點未啟動/);
+    await expect(service.reconcile()).rejects.toThrow(/區塊鏈節點目前離線休眠中/);
   });
 });
 
