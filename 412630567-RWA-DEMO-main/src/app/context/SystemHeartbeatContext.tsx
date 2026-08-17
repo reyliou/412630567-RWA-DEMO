@@ -14,12 +14,18 @@ export const HeartbeatProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   useEffect(() => {
     let timeout: ReturnType<typeof setTimeout>;
+    let hiddenAt: number | null = null;
 
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        setIsResyncing(true);
-        // 2.5 秒後關閉提示，這段時間足夠各種 tick 的資料抓取完成
-        timeout = setTimeout(() => setIsResyncing(false), 2500);
+      if (document.visibilityState === 'hidden') {
+        hiddenAt = Date.now();
+      } else if (document.visibilityState === 'visible') {
+        // 只有當離開超過 10 秒才顯示這個動畫，避免頻繁切換分頁時覺得很煩
+        if (hiddenAt && Date.now() - hiddenAt > 10000) {
+          setIsResyncing(true);
+          timeout = setTimeout(() => setIsResyncing(false), 2500);
+        }
+        hiddenAt = null;
       }
     };
 
