@@ -192,8 +192,11 @@ export class BlockchainService implements OnModuleInit {
     try {
       const code = await this.provider.getCode(irAddr);
       return code === '0x';
-    } catch {
-      return true;
+    } catch (e) {
+      // 隊友發現的致命風險：如果只是網路瞬斷 (RPC timeout)，不能當作合約消失！
+      // 只有明確拿到 '0x' 才是真的消失。若發生錯誤，保守起見先當作沒失憶 (false)。
+      this.logger.warn(`isConfigStale 檢查時發生網路異常: ${e.message}`);
+      return false;
     }
   }
 
