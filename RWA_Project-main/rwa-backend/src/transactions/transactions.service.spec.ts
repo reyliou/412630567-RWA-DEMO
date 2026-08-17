@@ -42,6 +42,7 @@ function makeSystemServiceMock(overrides: Partial<{ isPaused: boolean; throttled
   return {
     getState: jest.fn(() => ({ isPaused: overrides.isPaused ?? false })),
     isThrottled: jest.fn(() => overrides.throttled ?? false),
+    lastActiveTime: Date.now(),
   } as unknown as SystemService;
 }
 
