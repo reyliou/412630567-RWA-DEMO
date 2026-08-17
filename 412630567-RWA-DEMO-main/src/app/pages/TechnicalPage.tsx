@@ -8,6 +8,7 @@ import { ThrottleTimerCard } from "../components/ThrottleTimerCard";
 import { SystemLogsCard, SystemLogsCardHandle } from "../components/SystemLogsCard";
 import { useSystemControl } from "../context/SystemControlContext";
 import { useAuth } from "../context/AuthContext";
+import { apiFetch } from "../utils/apiFetch";
 import { API_BASE_URL } from "../config";
 
 export function TechnicalPage() {
@@ -17,9 +18,7 @@ export function TechnicalPage() {
 
   const handleReconcile = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/blockchain/reconcile`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('rwa_jwt')}` }
-      });
+      const res = await apiFetch(`/api/blockchain/reconcile`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Reconcile failed');
       
