@@ -394,12 +394,7 @@ export class TransactionsService {
       where: { status: 'PENDING', is_simulated: false },
     });
 
-    // 如果沒有待處理訂單，且系統已閒置超過 60 秒，則暫停排程以節省運算資源
-    if (hasPending === 0 && Date.now() - this.systemService.lastActiveTime > 60 * 1000) {
-      return;
-    }
-
-    // 若沒有訂單但還沒閒置，或是根本沒有訂單，提早結束
+    // 如果沒有訂單，提早結束，避免無謂的資料庫查詢，達成自然閒置休眠
     if (hasPending === 0) return;
 
     // 找出所有在線的委託單 (過濾掉造市機器人的假單)
