@@ -184,6 +184,8 @@ function buildService(opts: {
   // 撮合引擎（checkPendingOrders）用的是 dataSource.manager，不是 queryRunner.manager
   const cronOrders = opts.pendingOrdersForCron ?? [];
   const dataSourceManager = {
+    // 撮合引擎會先 count 待處理訂單，沒有就直接跳過本輪
+    count: jest.fn(async (entity: any) => (entity === AppTransaction ? cronOrders.length : 0)),
     find: jest.fn(async (entity: any) => (entity === AppTransaction ? cronOrders : [])),
     findOne: jest.fn(async (entity: any) => (entity === Property ? { ...MOCK_PROPERTY } : null)),
     save: jest.fn(async (payload: any) => payload),
