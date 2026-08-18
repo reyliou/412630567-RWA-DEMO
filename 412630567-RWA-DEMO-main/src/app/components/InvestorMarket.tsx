@@ -1,6 +1,7 @@
-import { Search, MapPin, TrendingUp, Filter, LayoutGrid, List, Check, TrendingDown } from "lucide-react";
+import { Search, MapPin, TrendingUp, Filter, LayoutGrid, List, Check, TrendingDown, Info } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
+import { PropertyInfoModal } from "./PropertyInfoModal";
 
 interface Property {
   id: number;
@@ -12,6 +13,13 @@ interface Property {
   city_tag: string;
   price_display?: string;
   total_value?: number;
+  total_supply?: number;
+  total_supply_x?: number;
+  expected_apy?: number;
+  token_address?: string;
+  token_symbol?: string;
+  fundraising_goal?: number;
+  complete_address?: string;
 }
 
 interface InvestorMarketProps {
@@ -23,6 +31,7 @@ export function InvestorMarket({ onSelectProperty }: InvestorMarketProps) {
   const [selectedCity, setSelectedCity] = useState("全部");
   const [searchQuery, setSearchQuery] = useState("");
   const [properties, setProperties] = useState<Property[]>([]);
+  const [selectedInfoProperty, setSelectedInfoProperty] = useState<Property | null>(null);
 
   const regions = [
     { label: "北部", cities: ["全部", "台北市", "新北市", "桃園市", "新竹市", "新竹縣", "宜蘭縣", "基隆市"] },
@@ -43,12 +52,17 @@ export function InvestorMarket({ onSelectProperty }: InvestorMarketProps) {
             id: p.id,
             name: p.title,
             addr: p.complete_address,
+            complete_address: p.complete_address,
             price: parseFloat(p.current_price),
             change: p.status === '交易中' ? '+0.00' : '-0.00',
             img: p.main_image || "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=400",
             city_tag: p.location,
-            total_supply: parseFloat(p.total_supply_x || "100000"), // 抓取資料庫中的總量
-            total_value: parseFloat(p.current_price) * parseFloat(p.total_supply_x || "100000") // 動態計算總值
+            total_supply: parseFloat(p.total_supply_x || "100000"),
+            total_value: parseFloat(p.current_price) * parseFloat(p.total_supply_x || "100000"),
+            expected_apy: parseFloat(p.expected_apy || "4.5"),
+            token_address: p.token_address || "0x95401dc811bb5740090279ba06cfa8fcf6113778",
+            fundraising_goal: parseFloat(p.fundraising_goal || "18900000"),
+            token_symbol: p.token_symbol || "RWA"
           }));
           setProperties(mappedData);
         }
@@ -124,22 +138,51 @@ export function InvestorMarket({ onSelectProperty }: InvestorMarketProps) {
             <div 
               key={prop.id} 
               onClick={() => onSelectProperty(prop)}
-              className="group bg-white border border-border rounded-[2.5rem] overflow-hidden shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 cursor-pointer"
+              className="group bg-white border border-border rounded-[2.5rem] overflow-hidden shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 cursor-pointer flex flex-col justify-between"
             >
-              <div className="relative h-56 overflow-hidden">
-                <img src={prop.img} alt={prop.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                <div className="absolute top-4 left-4 flex gap-2">
-                   <div className="px-3 py-1 bg-white/90 backdrop-blur shadow-sm rounded-xl text-primary text-[10px] font-black uppercase tracking-widest border border-primary/10">
-                    {prop.city_tag}
-                   </div>
-                   <div className="px-3 py-1 bg-blue-600 text-white shadow-sm rounded-xl text-[10px] font-black uppercase tracking-widest">
-                    Live
-                   </div>
+              <div>
+                <div className="relative h-56 overflow-hidden">
+                  <img src={prop.img} alt={prop.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                  <div className="absolute top-4 left-4 flex gap-2">
+                     <div className="px-3 py-1 bg-white/90 backdrop-blur shadow-sm rounded-xl text-primary text-[10px] font-black uppercase tracking-widest border border-primary/10">
+                      {prop.city_tag}
+                     </div>
+                     <div className="px-3 py-1 bg-blue-600 text-white shadow-sm rounded-xl text-[10px] font-black uppercase tracking-widest">
+                      Live
+                     </div>
+                  </div>
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedInfoProperty(prop);
+                    }}
+                    title="查看建案詳細資訊"
+                    className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/90 hover:bg-white text-slate-700 hover:text-blue-600 shadow-md backdrop-blur flex items-center justify-center transition-all hover:scale-110 active:scale-95"
+                  >
+                    <Info className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="p-7 pb-4">
+                  <div className="flex items-start justify-between gap-2 mb-3 min-h-[3.5rem]">
+                    <h4 className="font-black text-2xl text-slate-800 group-hover:text-blue-600 transition-colors leading-tight flex-1">
+                      {prop.name}
+                    </h4>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedInfoProperty(prop);
+                      }}
+                      title="查看建案詳細資訊"
+                      className="mt-1 p-1.5 rounded-xl bg-slate-100 hover:bg-blue-50 text-slate-400 hover:text-blue-600 transition-colors shrink-0"
+                    >
+                      <Info className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="text-xs text-slate-400 font-bold truncate mb-3">{prop.addr}</div>
                 </div>
               </div>
-              <div className="p-7">
-                <h4 className="font-black text-2xl mb-5 text-slate-800 group-hover:text-blue-600 transition-colors leading-tight min-h-[4rem]">{prop.name}</h4>
-                <div className="flex items-center justify-between mt-2">
+              <div className="p-7 pt-0">
+                <div className="flex items-center justify-between border-t border-slate-50 pt-4">
                   <div className="flex flex-col">
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Current Price</span>
                     <span className="font-mono font-black text-blue-600 text-2xl">${prop.price}</span>
@@ -155,6 +198,13 @@ export function InvestorMarket({ onSelectProperty }: InvestorMarketProps) {
           );
         })}
       </div>
+
+      {/* 詳細資訊彈窗 */}
+      <PropertyInfoModal 
+        isOpen={!!selectedInfoProperty}
+        onClose={() => setSelectedInfoProperty(null)}
+        property={selectedInfoProperty}
+      />
     </div>
   );
 }

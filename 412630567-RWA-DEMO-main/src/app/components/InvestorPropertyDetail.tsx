@@ -1,10 +1,11 @@
-import { ArrowLeft, TrendingUp, TrendingDown, Loader2 } from "lucide-react";
+import { ArrowLeft, TrendingUp, TrendingDown, Loader2, Info } from "lucide-react";
 import { useState, useEffect } from "react";
 import { OrderBook } from "./OrderBook";
 import { useAuth } from "../context/AuthContext";
 import { API_BASE_URL } from "../config";
 import { OrderEntryForm } from "./OrderEntryForm";
 import { KLineChart } from "./KLineChart";
+import { PropertyInfoModal } from "./PropertyInfoModal";
 
 interface PropertyDetailProps {
   userId: number;
@@ -18,6 +19,7 @@ export function InvestorPropertyDetail({ userId, property, onBack }: PropertyDet
   const [isLoadingLogs, setIsLoadingLogs] = useState(true);
   const [selectedOrderPrice, setSelectedOrderPrice] = useState<number | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [isInfoOpen, setIsInfoOpen] = useState(false);
   
   // 修正 #6: 使用 local state 來同步即時價格與數量
   const [livePrice, setLivePrice] = useState(property.price);
@@ -74,7 +76,16 @@ export function InvestorPropertyDetail({ userId, property, onBack }: PropertyDet
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 px-4">
         <div className="lg:col-span-8 space-y-10">
           <div className="bg-white border border-border rounded-[3rem] p-10 shadow-sm">
-            <h2 className="text-5xl font-black tracking-tighter mb-4">{property.name}</h2>
+            <div className="flex items-center gap-4 mb-4">
+              <h2 className="text-4xl sm:text-5xl font-black tracking-tighter text-slate-800">{property.name}</h2>
+              <button
+                onClick={() => setIsInfoOpen(true)}
+                title="查看建案詳細資訊與 591 來源"
+                className="w-10 h-10 rounded-2xl bg-blue-50 hover:bg-blue-600 text-blue-600 hover:text-white flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-sm border border-blue-100"
+              >
+                <Info className="w-5 h-5" />
+              </button>
+            </div>
             <div className="flex items-center gap-8 mb-10">
                <div className="flex flex-col"><span className="text-[10px] text-slate-400 uppercase tracking-widest">Price</span><span className="font-mono text-blue-600 text-5xl tracking-tighter">${Number(livePrice).toFixed(4)}</span></div>
             </div>
@@ -99,6 +110,16 @@ export function InvestorPropertyDetail({ userId, property, onBack }: PropertyDet
           <OrderBook propertyId={property.id} currentPrice={livePrice} onPriceSelect={(p) => setSelectedOrderPrice(p)} />
         </div>
       </div>
+
+      {/* 詳細資訊彈窗 */}
+      <PropertyInfoModal 
+        isOpen={isInfoOpen}
+        onClose={() => setIsInfoOpen(false)}
+        property={{
+          ...property,
+          price: livePrice
+        }}
+      />
     </div>
   );
 }
