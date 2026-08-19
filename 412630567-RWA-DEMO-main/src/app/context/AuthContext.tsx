@@ -58,7 +58,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('rwa_user');
   }, []);
 
-  // 封裝一個自定義的 apiFetch，自動幫所有請求帶上 JWT Token
+  // 登入狀態下的心跳探針 (Heartbeat)：每 10 秒檢查一次伺服器是否在線
+  useEffect(() => {
+    if (!isLoggedIn || !token) return;
+
+    const intervalId = setInterval(async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/properties`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.status === 401 || res.status === 403) {
+          logout();
+        }
+      } catch (e) {
+        console.warn('[HEARTBEAT FAILED] 偵測到後端伺服器已關閉，執行強制踢出...');
+        logout();
+        alert('🚨 伺服器連線已中斷（後端已關閉），系統已將您安全登出！');
+      }
+    }, 10000);
+
+    return () => clearInterval(intervalId);
+  }, [isLoggedIn, token, logout]);
+
+  // 封裝一個自定義的 apiFetch，自動幫所有請求帶上 JWT Token 與斷線攔截
   const apiFetch = useCallback(async (endpoint: string, options: RequestInit = {}) => {
     const headers = new Headers(options.headers || {});
     if (token) {
@@ -68,18 +90,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       headers.set('Content-Type', 'application/json');
     }
     
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      ...options,
-      headers
-    });
-    
-    // 如果 Token 過期或權限不足，自動登出
-    if (response.status === 401 || response.status === 403) {
-       console.error(`[AUTH ERROR] API request to ${endpoint} failed with status ${response.status}. Automatically logging out.`);
-       logout();
+    try {
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        ...options,
+        headers
+      });
+      
+      // 如果 Token 過期或權限不足，自動登出
+      if (response.status === 401 || response.status === 403) {
+         console.error(`[AUTH ERROR] API request to ${endpoint} failed with status ${response.status}. Automatically logging out.`);
+         logout();
+      }
+      return response;
+    } catch (networkErr: any) {
+      console.error(`[NETWORK ERROR] 無法連線至伺服器 ${endpoint}:`, networkErr);
+      if (isLoggedIn) {
+        logout();
+        alert('🚨 伺服器連線已中斷（後端已關閉），系統已將您安全登出！');
+      }
+      throw networkErr;
     }
-    return response;
-  }, [token, logout]);
+  }, [token, logout, isLoggedIn]);
 
   return (
     <AuthContext.Provider value={{ isLoggedIn, userName, userId, appMode, token, login, logout, apiFetch }}>
