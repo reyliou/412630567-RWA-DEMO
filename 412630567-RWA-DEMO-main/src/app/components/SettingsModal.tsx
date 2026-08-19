@@ -1,5 +1,6 @@
-import { X, Lock, Key, CheckCircle2, ShieldCheck, Bell, ChevronRight, BellRing, Settings } from "lucide-react";
+import { X, Lock, Key, CheckCircle2, ShieldCheck, Bell, ChevronRight, BellRing, Settings, AlertCircle } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useAuth } from "../context/AuthContext";
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -8,13 +9,31 @@ interface SettingsModalProps {
 }
 
 export function SettingsModal({ isOpen, onClose, userName }: SettingsModalProps) {
+  const { apiFetch } = useAuth();
   const [step, setStep] = useState(1);
   const [isUpdating, setIsUpdating] = useState(false);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>("default");
 
+  const [oldPassword, setOldPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
+
   useEffect(() => {
     if ("Notification" in window) {
       setNotifPermission(Notification.permission);
+    }
+  }, [isOpen]);
+
+  // 重置表單狀態
+  useEffect(() => {
+    if (!isOpen) {
+      setStep(1);
+      setOldPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setErrorMsg("");
+      setIsUpdating(false);
     }
   }, [isOpen]);
 
@@ -28,18 +47,52 @@ export function SettingsModal({ isOpen, onClose, userName }: SettingsModalProps)
     if (permission === "granted") {
       new Notification("通知已開啟", {
         body: "您將會在此收到系統的即時通知！",
-        icon: "/favicon.ico" // 假設有 favicon
+        icon: "/favicon.ico"
       });
     }
   };
 
-  const handleUpdate = () => {
+  const handleUpdate = async () => {
+    setErrorMsg("");
+    if (!oldPassword || !newPassword || !confirmPassword) {
+      setErrorMsg("請完整填寫所有密碼欄位！");
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setErrorMsg("新密碼長度至少需 6 個字元！");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setErrorMsg("兩次輸入的新密碼不一致，請重新確認！");
+      return;
+    }
+
+    if (oldPassword === newPassword) {
+      setErrorMsg("新密碼不能與當前舊密碼相同！");
+      return;
+    }
+
     setIsUpdating(true);
-    // 模擬修改密碼（後端尚未實作）
-    setTimeout(() => {
-      setIsUpdating(false);
+    try {
+      const res = await apiFetch("/api/auth/change-password", {
+        method: "POST",
+        body: JSON.stringify({ oldPassword, newPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || "修改密碼失敗");
+      }
+      setOldPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
       setStep(3);
-    }, 1500);
+    } catch (e: any) {
+      setErrorMsg(e.message || "連線伺服器失敗，請稍後再試");
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -94,7 +147,7 @@ export function SettingsModal({ isOpen, onClose, userName }: SettingsModalProps)
 
             {/* 修改密碼入口 */}
             <button 
-              onClick={() => setStep(2)}
+              onClick={() => { setErrorMsg(""); setStep(2); }}
               className="w-full p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-100 flex items-center justify-between transition-all cursor-pointer active:scale-[0.98]"
             >
               <div className="flex items-center gap-4">
@@ -103,7 +156,7 @@ export function SettingsModal({ isOpen, onClose, userName }: SettingsModalProps)
                 </div>
                 <div className="text-left">
                   <h4 className="font-black text-sm text-slate-700">帳戶安全與密碼</h4>
-                  <p className="text-[11px] text-slate-500 font-medium">修改登入密碼 (待實作)</p>
+                  <p className="text-[11px] text-slate-500 font-medium">修改登入密碼</p>
                 </div>
               </div>
               <ChevronRight className="w-5 h-5 text-slate-400" />
@@ -113,19 +166,44 @@ export function SettingsModal({ isOpen, onClose, userName }: SettingsModalProps)
 
         {step === 2 && (
           <div className="p-8 space-y-6 animate-in slide-in-from-right-4 duration-300">
+            {errorMsg && (
+              <div className="p-4 bg-red-50 border border-red-200 text-red-600 rounded-2xl text-xs font-bold flex items-center gap-3 animate-in fade-in duration-200">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{errorMsg}</span>
+              </div>
+            )}
+
             <div className="space-y-4">
               <div>
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">當前密碼</label>
-                <input type="password" placeholder="請輸入舊密碼" className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-slate-200 mt-1 font-bold" />
+                <input 
+                  type="password" 
+                  value={oldPassword}
+                  onChange={(e) => setOldPassword(e.target.value)}
+                  placeholder="請輸入目前密碼" 
+                  className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-slate-200 mt-1 font-bold" 
+                />
               </div>
               <div className="h-px bg-slate-100 my-2" />
               <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">新密碼</label>
-                <input type="password" placeholder="請輸入新密碼" className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-slate-200 mt-1 font-bold" />
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">新密碼 (至少 6 個字元)</label>
+                <input 
+                  type="password" 
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="請輸入新密碼" 
+                  className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-slate-200 mt-1 font-bold" 
+                />
               </div>
               <div>
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">確認新密碼</label>
-                <input type="password" placeholder="再次輸入新密碼" className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-slate-200 mt-1 font-bold" />
+                <input 
+                  type="password" 
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="再次輸入新密碼" 
+                  className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-slate-200 mt-1 font-bold" 
+                />
               </div>
             </div>
 
@@ -155,10 +233,10 @@ export function SettingsModal({ isOpen, onClose, userName }: SettingsModalProps)
              </div>
              <div>
                 <h4 className="text-2xl font-black text-slate-800">密碼修改成功</h4>
-                <p className="text-sm text-slate-400 mt-2 font-medium">這是前端模擬畫面，<br/>後端 API 尚未實作此功能。</p>
+                <p className="text-sm text-slate-500 mt-2 font-medium">您的新密碼已安全加密儲存，<br/>下次登入請使用新密碼。</p>
              </div>
              <button onClick={() => { setStep(1); onClose(); }} className="w-full py-4 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-2xl font-black transition-colors">
-                關閉視窗
+                完成並關閉
              </button>
           </div>
         )}

@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -121,6 +121,39 @@ export class AuthService {
       walletAddress: wallet.address,
       kycStatus: 'PENDING',
       message: '註冊成功，請等待 KYC 審核通過後即可交易',
+    };
+  }
+
+  async changePassword(userId: number, oldPassword: string, newPassword: string) {
+    if (!oldPassword || !newPassword) {
+      throw new BadRequestException('請提供舊密碼與新密碼');
+    }
+
+    if (newPassword.length < 6) {
+      throw new BadRequestException('新密碼長度至少需 6 個字元');
+    }
+
+    const user = await this.userRepo
+      .createQueryBuilder('u')
+      .addSelect('u.password_hash')
+      .where('u.id = :id', { id: userId })
+      .getOne();
+
+    if (!user) {
+      throw new NotFoundException('找不到此用戶');
+    }
+
+    const isMatch = await bcrypt.compare(oldPassword, user.password_hash);
+    if (!isMatch) {
+      throw new BadRequestException('當前密碼輸入錯誤，請重新確認！');
+    }
+
+    const newPasswordHash = await bcrypt.hash(newPassword, 10);
+    await this.userRepo.update(userId, { password_hash: newPasswordHash });
+
+    return {
+      success: true,
+      message: '密碼已成功更新！',
     };
   }
 }

@@ -1,7 +1,8 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, UseInterceptors, UploadedFiles } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, UseInterceptors, UploadedFiles, UseGuards, Request } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
+import { JwtAuthGuard } from './jwt-auth.guard';
 
 @Controller('api')
 export class AuthController {
@@ -31,5 +32,11 @@ export class AuthController {
       files?.kyc_document?.[0], 
       files?.kyc_document_back?.[0]
     );
+  }
+
+  @Post('auth/change-password')
+  @UseGuards(JwtAuthGuard)
+  changePassword(@Request() req: any, @Body() body: { oldPassword: string; newPassword: string }) {
+    return this.authService.changePassword(req.user.id, body.oldPassword, body.newPassword);
   }
 }
