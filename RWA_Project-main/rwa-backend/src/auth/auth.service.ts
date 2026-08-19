@@ -133,14 +133,10 @@ export class AuthService {
       throw new BadRequestException('新密碼長度至少需 6 個字元');
     }
 
-    const user = await this.userRepo
-      .createQueryBuilder('u')
-      .addSelect('u.password_hash')
-      .where('u.id = :id', { id: userId })
-      .getOne();
+    const user = await this.userRepo.findOne({ where: { id: userId } });
 
-    if (!user) {
-      throw new NotFoundException('找不到此用戶');
+    if (!user || !user.password_hash) {
+      throw new NotFoundException('找不到此用戶或密碼資訊');
     }
 
     const isMatch = await bcrypt.compare(oldPassword, user.password_hash);

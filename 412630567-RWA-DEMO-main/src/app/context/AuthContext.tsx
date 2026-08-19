@@ -64,6 +64,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (token) {
       headers.set('Authorization', `Bearer ${token}`);
     }
+    if (options.body && typeof options.body === 'string' && !headers.has('Content-Type')) {
+      headers.set('Content-Type', 'application/json');
+    }
     
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
