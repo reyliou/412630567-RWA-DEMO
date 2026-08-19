@@ -10,6 +10,7 @@ import { User } from '../entities/user.entity';
 import { BankTrustAccount } from '../entities/bank-trust.entity';
 import { BankTrustTransaction } from '../entities/bank-trust-transaction.entity';
 import { AppTransaction } from '../entities/app-transaction.entity';
+import { UserNotification } from '../entities/notification.entity';
 import { BlockchainService } from '../blockchain/blockchain.service';
 
 @Injectable()
@@ -33,6 +34,8 @@ export class PropertiesService {
     private trustTxRepo: Repository<BankTrustTransaction>,
     @InjectRepository(AppTransaction)
     private appTxRepo: Repository<AppTransaction>,
+    @InjectRepository(UserNotification)
+    private notifRepo: Repository<UserNotification>,
     private blockchainService: BlockchainService,
   ) {}
 
@@ -160,6 +163,19 @@ export class PropertiesService {
 
       // Update user profit
       await this.userRepo.increment({ id: holding.user_id }, 'total_profit_loss', payoutAmount);
+
+      // 傳送個人分潤入帳通知給投資人
+      try {
+        await this.notifRepo.save({
+          user_id: holding.user_id,
+          title: '💰 租金分潤入帳',
+          message: `您持有的【${property.title}】已成功發放租金！您依持股比例 (${holdingPercentage.toFixed(2)}%) 獲得 $${Number(payoutAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TWD 收益。`,
+          is_read: false,
+        });
+      } catch (notifErr: any) {
+        console.error('Failed to create payout notification:', notifErr.message);
+      }
+
       processedDetails.push(detail);
     }
 
