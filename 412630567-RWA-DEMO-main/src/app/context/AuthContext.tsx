@@ -36,14 +36,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       if (res.ok) {
         const data = await res.json();
+        const verifiedKyc = data.kyc_status || (data.is_whitelisted ? 'VERIFIED' : 'UNSUBMITTED');
         setIsWhitelisted(!!data.is_whitelisted);
-        setKycStatus(data.kyc_status || 'UNSUBMITTED');
+        setKycStatus(verifiedKyc);
         
         const storedUser = localStorage.getItem('rwa_user');
         if (storedUser) {
           const userObj = JSON.parse(storedUser);
           userObj.is_whitelisted = data.is_whitelisted;
-          userObj.kyc_status = data.kyc_status;
+          userObj.kyc_status = verifiedKyc;
           localStorage.setItem('rwa_user', JSON.stringify(userObj));
         }
       }
@@ -62,14 +63,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUserId(user.id);
       setUserName(user.username);
       setAppMode(user.role as AppMode);
-      setIsWhitelisted(!!user.is_whitelisted);
-      setKycStatus(user.kyc_status || 'UNSUBMITTED');
+      const isWhite = user.is_whitelisted !== undefined ? !!user.is_whitelisted : false;
+      const kycStat = user.kyc_status || (isWhite ? 'VERIFIED' : 'UNSUBMITTED');
+      setIsWhitelisted(isWhite);
+      setKycStatus(kycStat);
       setIsLoggedIn(true);
     }
   }, []);
 
   useEffect(() => {
-    if (isLoggedIn && token) {
+    if (isLoggedIn && (token || localStorage.getItem('rwa_jwt'))) {
       refreshProfile();
     }
   }, [isLoggedIn, token, refreshProfile]);

@@ -3481,7 +3481,7 @@ interface OrderEntryFormProps {
 }
 
 export function OrderEntryForm({ userId, property, selectedPrice, onSuccess }: OrderEntryFormProps) {
-  const { apiFetch, isWhitelisted, kycStatus } = useAuth();
+  const { apiFetch, isWhitelisted, kycStatus, refreshProfile } = useAuth();
   const { isPaused } = useSystemControl(); // 取得系統暫停狀態
   const [orderType, setOrderType] = useState<"market" | "limit">("market");
   const [tokenAmount, setTokenAmount] = useState("");
@@ -3492,7 +3492,11 @@ export function OrderEntryForm({ userId, property, selectedPrice, onSuccess }: O
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [idempotencyKey, setIdempotencyKey] = useState("");
 
-  const canTrade = isWhitelisted && kycStatus === 'VERIFIED';
+  useEffect(() => {
+    refreshProfile?.();
+  }, [refreshProfile]);
+
+  const canTrade = isWhitelisted || kycStatus === 'VERIFIED';
 
   // 當使用者在 OrderBook 點擊價格時，自動切換至限價單並填入價格
   useEffect(() => {
@@ -11790,14 +11794,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       if (res.ok) {
         const data = await res.json();
+        const verifiedKyc = data.kyc_status || (data.is_whitelisted ? 'VERIFIED' : 'UNSUBMITTED');
         setIsWhitelisted(!!data.is_whitelisted);
-        setKycStatus(data.kyc_status || 'UNSUBMITTED');
+        setKycStatus(verifiedKyc);
         
         const storedUser = localStorage.getItem('rwa_user');
         if (storedUser) {
           const userObj = JSON.parse(storedUser);
           userObj.is_whitelisted = data.is_whitelisted;
-          userObj.kyc_status = data.kyc_status;
+          userObj.kyc_status = verifiedKyc;
           localStorage.setItem('rwa_user', JSON.stringify(userObj));
         }
       }
@@ -11816,14 +11821,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUserId(user.id);
       setUserName(user.username);
       setAppMode(user.role as AppMode);
-      setIsWhitelisted(!!user.is_whitelisted);
-      setKycStatus(user.kyc_status || 'UNSUBMITTED');
+      const isWhite = user.is_whitelisted !== undefined ? !!user.is_whitelisted : false;
+      const kycStat = user.kyc_status || (isWhite ? 'VERIFIED' : 'UNSUBMITTED');
+      setIsWhitelisted(isWhite);
+      setKycStatus(kycStat);
       setIsLoggedIn(true);
     }
   }, []);
 
   useEffect(() => {
-    if (isLoggedIn && token) {
+    if (isLoggedIn && (token || localStorage.getItem('rwa_jwt'))) {
       refreshProfile();
     }
   }, [isLoggedIn, token, refreshProfile]);

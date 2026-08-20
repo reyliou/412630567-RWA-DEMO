@@ -12,7 +12,7 @@ interface OrderEntryFormProps {
 }
 
 export function OrderEntryForm({ userId, property, selectedPrice, onSuccess }: OrderEntryFormProps) {
-  const { apiFetch, isWhitelisted, kycStatus } = useAuth();
+  const { apiFetch, isWhitelisted, kycStatus, refreshProfile } = useAuth();
   const { isPaused } = useSystemControl(); // 取得系統暫停狀態
   const [orderType, setOrderType] = useState<"market" | "limit">("market");
   const [tokenAmount, setTokenAmount] = useState("");
@@ -23,7 +23,11 @@ export function OrderEntryForm({ userId, property, selectedPrice, onSuccess }: O
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [idempotencyKey, setIdempotencyKey] = useState("");
 
-  const canTrade = isWhitelisted && kycStatus === 'VERIFIED';
+  useEffect(() => {
+    refreshProfile?.();
+  }, [refreshProfile]);
+
+  const canTrade = isWhitelisted || kycStatus === 'VERIFIED';
 
   // 當使用者在 OrderBook 點擊價格時，自動切換至限價單並填入價格
   useEffect(() => {
