@@ -217,6 +217,9 @@ export class BlockchainService implements OnModuleInit {
     }
 
     try {
+      // 確保每次重新開通時，NonceManager 都會向節點重新同步真實 Nonce，避免節點重啟後 Nonce 錯位 (Nonce too high)
+      (this.adminWallet as any)?.reset?.();
+
       await this.log('INFO', '🚀 開始部署 ERC-3643 基礎設施...');
       await this.log('INFO', `Admin wallet: ${this.adminAddress}`);
 
