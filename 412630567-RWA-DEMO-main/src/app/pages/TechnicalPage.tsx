@@ -43,6 +43,7 @@ export function TechnicalPage() {
         isOpen={isReconcileModalOpen}
         onClose={() => setIsReconcileModalOpen(false)}
         onLog={(type, message) => logRef.current?.addLog(type, message)}
+      />
     </div>
   );
 }

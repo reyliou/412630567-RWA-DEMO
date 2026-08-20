@@ -941,8 +941,10 @@ export function AuthView({ onLogin }: AuthViewProps) {
 
         onLogin(targetMode, data.user.username, data.user.id, data.token, data.user.is_whitelisted, data.user.kyc_status);
       } else {
+        setAuthNotice({ text: "登入失敗: " + (data.message || "請檢查帳號密碼"), type: "error" });
+      }
     } catch (e) {
-      alert("連線後端 API 失敗，請確認已執行 npm run start:all");
+      setAuthNotice({ text: "連線後端 API 失敗，請確認伺服器已啟動", type: "error" });
     } finally {
       setIsLoggingIn(false);
     }
@@ -12368,6 +12370,7 @@ export function TechnicalPage() {
         isOpen={isReconcileModalOpen}
         onClose={() => setIsReconcileModalOpen(false)}
         onLog={(type, message) => logRef.current?.addLog(type, message)}
+      />
     </div>
   );
 }
