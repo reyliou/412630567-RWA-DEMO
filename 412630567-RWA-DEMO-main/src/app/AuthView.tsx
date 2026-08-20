@@ -18,6 +18,7 @@ export function AuthView({ onLogin }: AuthViewProps) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [authNotice, setAuthNotice] = useState<{ text: string; type: 'error' | 'success' } | null>(null);
 
   const [regName, setRegName] = useState("");
   const [regEmail, setRegEmail] = useState("");
@@ -28,44 +29,39 @@ export function AuthView({ onLogin }: AuthViewProps) {
   const [kycFileBack, setKycFileBack] = useState<File | null>(null);
 
   const handleStep1Next = () => {
-    // 檢查必填欄位
+    setAuthNotice(null);
     if (!regName || !regEmail || !regPhone || !regPassword || !regConfirmPassword) {
-      alert("請先完成第一步的所有欄位填寫！");
+      setAuthNotice({ text: "請先完整填寫第一步的所有註冊欄位！", type: "error" });
       return;
     }
     
-    // 檢查密碼是否一致
     if (regPassword !== regConfirmPassword) {
-      alert("兩次輸入的密碼不一致，請重新確認！");
+      setAuthNotice({ text: "兩次輸入的密碼不一致，請重新確認！", type: "error" });
       return;
     }
     
-    // 手機號碼格式驗證 (09開頭，共10碼)
     if (!/^09\d{8}$/.test(regPhone)) {
-      alert("手機號碼格式錯誤，請輸入 09 開頭的 10 碼數字");
+      setAuthNotice({ text: "手機號碼格式錯誤，請輸入 09 開頭的 10 碼數字", type: "error" });
       return;
     }
 
-    // 都通過了才進入第二步
     setKycStep(2);
   };
 
   const handleQuickRegister = async () => {
-    // 檢查必填欄位
+    setAuthNotice(null);
     if (!regName || !regEmail || !regPhone || !regPassword || !regConfirmPassword) {
-      alert("請先完成第一步的所有欄位填寫！");
+      setAuthNotice({ text: "請先完整填寫第一步的所有註冊欄位！", type: "error" });
       return;
     }
     
-    // 檢查密碼是否一致
     if (regPassword !== regConfirmPassword) {
-      alert("兩次輸入的密碼不一致，請重新確認！");
+      setAuthNotice({ text: "兩次輸入的密碼不一致，請重新確認！", type: "error" });
       return;
     }
     
-    // 手機號碼格式驗證 (09開頭，共10碼)
     if (!/^09\d{8}$/.test(regPhone)) {
-      alert("手機號碼格式錯誤，請輸入 09 開頭的 10 碼數字");
+      setAuthNotice({ text: "手機號碼格式錯誤，請輸入 09 開頭的 10 碼數字", type: "error" });
       return;
     }
 
@@ -84,24 +80,25 @@ export function AuthView({ onLogin }: AuthViewProps) {
 
       const data = await response.json();
       if (response.ok && data.success) {
-        alert("🎉 註冊成功！您現在可以立即登入系統，並隨時於帳戶首頁補繳實名雙證件。");
         setUsername(regName);
         setPassword(regPassword);
         setView("LOGIN");
         setKycStep(1);
+        setAuthNotice({ text: "🎉 註冊成功！您現在可以立即登入，並隨時於首頁補繳實名雙證件。", type: "success" });
       } else {
-        alert("註冊失敗: " + (data.message || "發生未知錯誤"));
+        setAuthNotice({ text: "註冊失敗: " + (data.message || "發生未知錯誤"), type: "error" });
       }
     } catch (e) {
-      alert("連線後端 API 失敗，請確認後端伺服器已啟動");
+      setAuthNotice({ text: "連線後端 API 失敗，請確認後端伺服器已啟動", type: "error" });
     } finally {
       setIsUploading(false);
     }
   };
 
   const handleKycUpload = async () => {
+    setAuthNotice(null);
     if (!kycFileFront || !kycFileBack) {
-      alert("請完整上傳身分證正反面照片！");
+      setAuthNotice({ text: "請完整上傳身分證正反面照片！", type: "error" });
       return;
     }
     setIsUploading(true);
@@ -114,7 +111,6 @@ export function AuthView({ onLogin }: AuthViewProps) {
       formData.append("kyc_document", kycFileFront);
       formData.append("kyc_document_back", kycFileBack);
 
-      // 呼叫後端真正的註冊 API
       const response = await fetch(`${API_BASE_URL}/api/register`, {
         method: 'POST',
         body: formData
@@ -122,27 +118,27 @@ export function AuthView({ onLogin }: AuthViewProps) {
 
       const data = await response.json();
       if (response.ok && data.success) {
-        setKycStep(3); // 成功進入最後一環
+        setKycStep(3);
       } else {
-        alert("註冊失敗: " + (data.message || "發生未知錯誤"));
+        setAuthNotice({ text: "註冊失敗: " + (data.message || "發生未知錯誤"), type: "error" });
       }
     } catch (e) {
-      alert("連線後端 API 失敗，請確認後端伺服器已啟動");
+      setAuthNotice({ text: "連線後端 API 失敗，請確認後端伺服器已啟動", type: "error" });
     } finally {
       setIsUploading(false);
     }
   };
 
-
-
-  // 核心：修正後的登入權限處理
   const handleManualLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!username || !password) return;
+    setAuthNotice(null);
+    if (!username || !password) {
+      setAuthNotice({ text: "請輸入帳號與密碼", type: "error" });
+      return;
+    }
 
     setIsLoggingIn(true);
     try {
-      console.log(`[DEBUG] Attempting to login using API_BASE_URL: ${API_BASE_URL}`);
       const response = await fetch(`${API_BASE_URL}/api/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -151,9 +147,7 @@ export function AuthView({ onLogin }: AuthViewProps) {
       
       const data = await response.json();
       if (data.success) {
-        // 加入除錯提示 (Demo 完可移除)
         const rawRole = data.user.role;
-        
         let targetMode: AppMode = "INVESTOR";
         const normalizedRole = rawRole.toUpperCase().trim();
 
@@ -165,11 +159,8 @@ export function AuthView({ onLogin }: AuthViewProps) {
           targetMode = "INVESTOR";
         }
 
-        console.log(`[AUTH] DB_Role: ${rawRole} -> AppMode: ${targetMode}, ID: ${data.user.id}, KYC: ${data.user.kyc_status}`);
         onLogin(targetMode, data.user.username, data.user.id, data.token, data.user.is_whitelisted, data.user.kyc_status);
       } else {
-        alert("登入失敗: " + (data.message || "請檢查帳號密碼"));
-      }
     } catch (e) {
       alert("連線後端 API 失敗，請確認已執行 npm run start:all");
     } finally {
@@ -189,6 +180,15 @@ export function AuthView({ onLogin }: AuthViewProps) {
           <h1 className="text-5xl font-black tracking-tighter text-slate-800 uppercase">RWA BANK</h1>
           <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.4em] mt-4 italic text-center">Protocol Level Terminal</p>
         </div>
+
+        {authNotice && (
+          <div className={`mx-8 mt-6 p-4 rounded-2xl text-xs font-black flex items-center justify-between border animate-in slide-in-from-top-2 ${
+            authNotice.type === 'success' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'
+          }`}>
+            <span>{authNotice.text}</span>
+            <button type="button" onClick={() => setAuthNotice(null)} className="opacity-60 hover:opacity-100 font-bold ml-2">✕</button>
+          </div>
+        )}
 
         {view === "LOGIN" ? (
           <form onSubmit={handleManualLogin} className="px-12 py-12 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">

@@ -27,14 +27,16 @@ export function PropertyOversightCard() {
     fetchOversight();
   }, []);
 
+  const [feedbackModal, setFeedbackModal] = useState<{ title: string; desc: string; type: 'success' | 'error' | 'warning' } | null>(null);
+
   const handleSendRent = async () => {
     if (!mainProperty || !mainProperty.id) {
-      alert("請選擇有效的資產");
+      setFeedbackModal({ title: "操作提示", desc: "請選擇有效的房產資產", type: "warning" });
       return;
     }
     const rentAmount = parseFloat(mainProperty.pending_rent_amount || 0);
     if (rentAmount <= 0) {
-      alert("目前沒有待發放的租金！");
+      setFeedbackModal({ title: "無待發放租金", desc: "目前此房產沒有待發放的租金收益！", type: "warning" });
       return;
     }
 
@@ -49,16 +51,20 @@ export function PropertyOversightCard() {
       });
       if (res.ok) {
         const data = await res.json();
-        alert(`租金已成功發放！總共派發了 ${data.total_distributed} 元給 ${data.recipients_count} 位持倉投資人！`);
+        setFeedbackModal({
+          title: "🎉 租金收益派發成功！",
+          desc: `總共派發了 NT$ ${data.total_distributed?.toLocaleString() || rentAmount.toLocaleString()} 元給 ${data.recipients_count || 0} 位持倉投資人！鏈上與信託帳戶已同步清算。`,
+          type: "success"
+        });
         // Refresh oversight data
         const refresh = await apiFetch(`/api/oversight`);
         if (refresh.ok) setData(await refresh.json());
       } else {
-        alert("派發失敗，請確認伺服器狀態。");
+        setFeedbackModal({ title: "派發失敗", desc: "無法完成租金派發，請確認後端與區塊鏈連線狀態。", type: "error" });
       }
     } catch (e) {
       console.error(e);
-      alert("發生錯誤");
+      setFeedbackModal({ title: "連線異常", desc: "連線伺服器失敗，請稍後重試。", type: "error" });
     } finally {
       setIsSending(false);
     }
@@ -68,7 +74,11 @@ export function PropertyOversightCard() {
     setIsUpdatingPeriod(true);
     setTimeout(() => {
       setIsUpdatingPeriod(false);
-      alert(`收益發放週期已成功更新並寫入資料庫！`);
+      setFeedbackModal({
+        title: "週期更新成功",
+        desc: `收益發放週期已成功設定為 ${payoutPeriod} 天，並已同步寫入資料庫！`,
+        type: "success"
+      });
     }, 1000);
   };
 
@@ -205,6 +215,30 @@ export function PropertyOversightCard() {
          </div>
          <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em]">Backend Database Synchronized</span>
       </div>
+
+      {/* 專屬操作回饋彈窗 */}
+      {feedbackModal && (
+        <div className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white rounded-[2.5rem] p-8 max-w-sm w-full shadow-2xl animate-in zoom-in-95 text-center space-y-6">
+            <div className={`w-16 h-16 rounded-3xl mx-auto flex items-center justify-center text-white shadow-xl ${
+              feedbackModal.type === 'success' ? 'bg-purple-600 shadow-purple-200' :
+              feedbackModal.type === 'warning' ? 'bg-amber-500 shadow-amber-200' : 'bg-red-500 shadow-red-200'
+            }`}>
+              {feedbackModal.type === 'success' ? <CheckCircle2 className="w-8 h-8" /> : <Building2 className="w-8 h-8" />}
+            </div>
+            <div className="space-y-2">
+              <h4 className="text-xl font-black text-slate-800">{feedbackModal.title}</h4>
+              <p className="text-xs text-slate-500 font-medium leading-relaxed">{feedbackModal.desc}</p>
+            </div>
+            <button
+              onClick={() => setFeedbackModal(null)}
+              className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-black text-xs uppercase tracking-wider transition-all"
+            >
+              我知道了
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -126,9 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           logout();
         }
       } catch (e) {
-        console.warn('[HEARTBEAT FAILED] 偵測到後端伺服器已關閉，執行強制踢出...');
-        logout();
-        alert('🚨 伺服器連線已中斷（後端已關閉），系統已將您安全登出！');
+        console.warn('[HEARTBEAT FAILED] 偵測到後端伺服器離線中');
       }
     }, 10000);
 
@@ -159,13 +157,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return response;
     } catch (networkErr: any) {
       console.error(`[NETWORK ERROR] 無法連線至伺服器 ${endpoint}:`, networkErr);
-      if (isLoggedIn) {
-        logout();
-        alert('🚨 伺服器連線已中斷（後端已關閉），系統已將您安全登出！');
-      }
       throw networkErr;
     }
-  }, [token, logout, isLoggedIn]);
+  }, [token, logout]);
 
   return (
     <AuthContext.Provider value={{ isLoggedIn, userName, userId, appMode, token, login, logout, apiFetch }}>

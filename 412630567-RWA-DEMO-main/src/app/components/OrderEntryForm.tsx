@@ -33,29 +33,35 @@ export function OrderEntryForm({ userId, property, selectedPrice, onSuccess }: O
     }
   }, [selectedPrice]);
 
+  const [tradeError, setTradeError] = useState<string | null>(null);
+
   const totalTwdValue = parseFloat(tokenAmount || "0") * (orderType === "market" ? property.price : parseFloat(limitTokenPrice || "0"));
 
   const confirmOrder = async () => {
+    setTradeError(null);
     if (!canTrade) {
-      alert("您的帳號尚未通過 KYC 白名單審核，無法進行下單交易。");
-      setIsConfirmOpen(false);
+      setTradeError("您的帳號尚未通過 KYC 白名單審核，無法進行下單交易。");
       return;
     }
 
     if (isPaused) {
-       alert("系統目前處於暫停狀態，無法進行交易。");
-       setIsConfirmOpen(false);
+       setTradeError("系統目前處於暫停狀態，無法進行交易。");
        return;
     }
 
-    setIsConfirmOpen(false);
+    const amount = parseFloat(tokenAmount);
+    const price = orderType === 'market' ? property.price : parseFloat(limitTokenPrice);
+    if (isNaN(amount) || amount <= 0) { 
+      setTradeError("請輸入有效的代幣數量"); 
+      return; 
+    }
+    if (orderType === 'limit' && (isNaN(price) || price <= 0)) { 
+      setTradeError("請輸入有效的目標限價"); 
+      return; 
+    }
+
     setIsSubmitting(true);
     try {
-      const amount = parseFloat(tokenAmount);
-      const price = orderType === 'market' ? property.price : parseFloat(limitTokenPrice);
-      if (isNaN(amount) || amount <= 0) { setIsSubmitting(false); return alert("請輸入有效的數量"); }
-      if (orderType === 'limit' && (isNaN(price) || price <= 0)) { setIsSubmitting(false); return alert("請輸入有效的限價"); }
-
       const response = await apiFetch(`/api/transactions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -72,13 +78,14 @@ export function OrderEntryForm({ userId, property, selectedPrice, onSuccess }: O
       
       const data = await response.json();
       if (response.ok && data.success) {
+        setIsConfirmOpen(false);
         setIsSuccessOpen(true);
         onSuccess?.();
       } else {
-        alert(data.message || "交易失敗");
+        setTradeError(data.message || "交易下單失敗，請檢查錢包或庫存");
       }
     } catch (e) { 
-      alert("連線後端 API 失敗"); 
+      setTradeError("連線後端 API 失敗，請確認伺服器在線"); 
     } finally {
       setIsSubmitting(false);
     }
@@ -210,9 +217,18 @@ export function OrderEntryForm({ userId, property, selectedPrice, onSuccess }: O
                     <span className="font-mono text-xl text-blue-600">${totalTwdValue.toLocaleString()} TWD</span>
                  </div>
               </div>
+
+              {tradeError && (
+                 <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-2xl text-xs font-bold text-red-600 animate-in fade-in">
+                   {tradeError}
+                 </div>
+               )}
+
               <div className="flex gap-4">
-                 <button onClick={() => setIsConfirmOpen(false)} className="flex-1 py-5 bg-slate-100 text-slate-500 hover:text-slate-800 hover:bg-slate-200 rounded-2xl font-black uppercase transition-colors">取消</button>
-                 <button onClick={confirmOrder} className={`flex-[2] py-5 rounded-2xl text-white font-black uppercase shadow-xl transition-all active:scale-95 ${txType === 'BUY' ? 'bg-red-600 hover:bg-red-700 shadow-red-200' : 'bg-green-600 hover:bg-green-700 shadow-green-200'}`}>確認下單</button>
+                 <button onClick={() => { setIsConfirmOpen(false); setTradeError(null); }} className="flex-1 py-5 bg-slate-100 text-slate-500 hover:text-slate-800 hover:bg-slate-200 rounded-2xl font-black uppercase transition-colors">取消</button>
+                 <button onClick={confirmOrder} disabled={isSubmitting} className={`flex-[2] py-5 rounded-2xl text-white font-black uppercase shadow-xl transition-all active:scale-95 disabled:opacity-50 ${txType === 'BUY' ? 'bg-red-600 hover:bg-red-700 shadow-red-200' : 'bg-green-600 hover:bg-green-700 shadow-green-200'}`}>
+                    {isSubmitting ? "正在下單..." : "確認下單"}
+                 </button>
               </div>
            </div>
         </div>

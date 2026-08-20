@@ -50,24 +50,39 @@ export function InvestorTransactions({ userId }: InvestorTransactionsProps) {
     fetchTx();
   }, [userId, viewMode]);
 
+  const [toastMsg, setToastMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
   const handleCancelOrder = async (orderId: string) => {
     try {
       const res = await apiFetch(`/api/pending-orders/${orderId}/cancel`, { method: 'POST' });
       if (res.ok) {
-        alert("已成功取消掛單");
+        setToastMsg({ text: "🎉 已成功取消該筆委託掛單！款項與代幣已退回錢包。", type: 'success' });
         setPendingOrders(pendingOrders.filter(o => o.id !== orderId));
+        setTimeout(() => setToastMsg(null), 3500);
       } else {
         const error = await res.json();
-        alert(error.message || "取消失敗");
+        setToastMsg({ text: error.message || "取消掛單失敗", type: 'error' });
+        setTimeout(() => setToastMsg(null), 3500);
       }
     } catch (e) {
-      alert("系統錯誤");
+      setToastMsg({ text: "系統錯誤，請稍後重試", type: 'error' });
+      setTimeout(() => setToastMsg(null), 3500);
     }
   };
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 text-slate-800">
       
+      {/* Toast Notification Banner */}
+      {toastMsg && (
+        <div className={`p-4 rounded-2xl flex items-center justify-between text-xs font-black shadow-lg border animate-in slide-in-from-top-2 ${
+          toastMsg.type === 'success' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'
+        }`}>
+          <span>{toastMsg.text}</span>
+          <button onClick={() => setToastMsg(null)} className="opacity-60 hover:opacity-100">✕</button>
+        </div>
+      )}
+
       {/* Filter Bar */}
       <div className="bg-white border border-border p-8 rounded-[3rem] shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
         <div className="flex items-center gap-4">

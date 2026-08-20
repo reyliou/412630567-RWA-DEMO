@@ -23,12 +23,17 @@ export function UserManagementCard() {
   const [decryptionError, setDecryptionError] = useState("");
   const [frontImageUrl, setFrontImageUrl] = useState("https://images.unsplash.com/photo-1633265486064-086b219458ce?w=800&q=80");
   const [backImageUrl, setBackImageUrl] = useState("https://images.unsplash.com/photo-1614064641913-6b70fc8cb2c1?w=800&q=80");
+  const [isRejectFormOpen, setIsRejectFormOpen] = useState(false);
+  const [customRejectReason, setCustomRejectReason] = useState("身分證反面照片模糊，請重新拍攝補繳");
+  const [actionFeedback, setActionFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const closeKycModal = () => {
     setKycUser(null);
     setIsDecrypted(false);
     setDecryptionKey("");
     setDecryptionError("");
+    setIsRejectFormOpen(false);
+    setActionFeedback(null);
     setFrontImageUrl("https://images.unsplash.com/photo-1633265486064-086b219458ce?w=800&q=80");
     setBackImageUrl("https://images.unsplash.com/photo-1614064641913-6b70fc8cb2c1?w=800&q=80");
   };
@@ -351,75 +356,158 @@ export function UserManagementCard() {
                 </div>
               </div>
             </div>
-            <div className="px-8 py-6 bg-white border-t border-slate-100 flex items-center justify-between gap-4 relative z-20">
-              <button onClick={closeKycModal} className="px-6 py-3 rounded-2xl text-sm font-black text-slate-500 hover:bg-slate-100 transition-colors">取消</button>
-              
-              <div className="flex items-center gap-3">
-                {/* 駁回 / 退件需補件按鈕 */}
-                <button
-                  onClick={async () => {
-                    if (!isDecrypted) {
-                      setDecryptionError("請先解密影像再進行審核！");
-                      return;
-                    }
-                    const reason = prompt("請輸入退件／補件原因（將即時推播通知投資人）：", "身分證反面照片模糊，請重新拍攝補繳");
-                    if (reason === null) return;
-                    try {
-                      const res = await apiFetch(`/api/users/${kycUser.id}/kyc/reject`, {
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ reason })
-                      });
-                      if (res.ok) {
-                        alert(`已成功退件！已將用戶 ${kycUser.name} 標記為 REJECTED 並推播補件通知。`);
-                        closeKycModal();
-                        loadUsers();
-                      } else {
-                        alert("退件操作失敗");
-                      }
-                    } catch (e) {
-                      alert("連線伺服器失敗");
-                    }
-                  }}
-                  className={`px-6 py-3 rounded-2xl text-sm font-black text-white shadow-lg transition-all flex items-center gap-2 ${!isDecrypted ? 'bg-slate-300 cursor-not-allowed shadow-none' : 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/20'}`}
-                >
-                  <X className="w-4 h-4" /> 駁回 (要求補件)
-                </button>
+            {/* 退件原因輸入抽屜 */}
+            {isRejectFormOpen ? (
+              <div className="p-8 bg-amber-50/50 border-t border-amber-200 space-y-4 animate-in slide-in-from-bottom-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-black text-sm text-amber-900 flex items-center gap-2">
+                    <ShieldAlert className="w-4 h-4 text-amber-600" />
+                    請選擇或填寫退件／補件原因 (將即時推播給投資人)
+                  </h4>
+                  <button
+                    onClick={() => setIsRejectFormOpen(false)}
+                    className="text-xs font-bold text-slate-400 hover:text-slate-700"
+                  >
+                    取消
+                  </button>
+                </div>
 
-                {/* 核准認證按鈕 */}
-                <button 
-                  onClick={async () => {
-                    if (!isDecrypted) {
-                      setDecryptionError("請先解密影像再進行審核！");
-                      return;
-                    }
-                    try {
-                      const res = await apiFetch(`/api/users/${kycUser.id}/kyc`, { method: 'PATCH' });
-                      if (res.ok) {
-                        alert(`已成功核准用戶 ${kycUser.name}！已部署鏈上身分並開通白名單。`);
-                        closeKycModal();
-                        loadUsers();
-                      } else {
+                {/* 快速常用標籤 */}
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    "身分證反面照片模糊，請重新拍攝補繳",
+                    "證件有反光遮蔽關鍵文字",
+                    "身分證件已過期失效",
+                    "身分證正反面照片顛倒",
+                    "證件邊角缺失或不完整"
+                  ].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setCustomRejectReason(preset)}
+                      className={`text-xs px-3 py-1.5 rounded-xl font-bold transition-all ${
+                        customRejectReason === preset
+                          ? "bg-amber-600 text-white shadow-sm"
+                          : "bg-white border border-amber-200 text-amber-800 hover:bg-amber-100"
+                      }`}
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+
+                {/* 自訂原因輸入框 */}
+                <input
+                  type="text"
+                  value={customRejectReason}
+                  onChange={(e) => setCustomRejectReason(e.target.value)}
+                  placeholder="自訂退件原因..."
+                  className="w-full px-4 py-3 bg-white border border-amber-300 rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/20"
+                />
+
+                <div className="flex justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsRejectFormOpen(false)}
+                    className="px-5 py-2.5 rounded-xl text-xs font-black text-slate-500 hover:bg-slate-100"
+                  >
+                    返回
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const res = await apiFetch(`/api/users/${kycUser.id}/kyc/reject`, {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ reason: customRejectReason })
+                        });
+                        if (res.ok) {
+                          setActionFeedback({ type: 'success', message: `已成功退件！已將用戶 ${kycUser.name} 標記為 REJECTED 並推播通知。` });
+                          setIsRejectFormOpen(false);
+                          loadUsers();
+                          setTimeout(() => {
+                            closeKycModal();
+                            setActionFeedback(null);
+                          }, 1500);
+                        } else {
+                          setActionFeedback({ type: 'error', message: '退件操作失敗' });
+                        }
+                      } catch (e) {
+                        setActionFeedback({ type: 'error', message: '連線伺服器失敗' });
+                      }
+                    }}
+                    className="px-6 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-black shadow-lg shadow-amber-600/20 flex items-center gap-2"
+                  >
+                    <X className="w-4 h-4" /> 確認駁回退件
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="px-8 py-6 bg-white border-t border-slate-100 flex items-center justify-between gap-4 relative z-20">
+                <button onClick={closeKycModal} className="px-6 py-3 rounded-2xl text-sm font-black text-slate-500 hover:bg-slate-100 transition-colors">取消</button>
+                
+                <div className="flex items-center gap-3">
+                  {/* 駁回 / 退件需補件按鈕 */}
+                  <button
+                    onClick={() => {
+                      if (!isDecrypted) {
+                        setDecryptionError("請先解密影像再進行審核！");
+                        return;
+                      }
+                      setIsRejectFormOpen(true);
+                    }}
+                    className={`px-6 py-3 rounded-2xl text-sm font-black text-white shadow-lg transition-all flex items-center gap-2 ${!isDecrypted ? 'bg-slate-300 cursor-not-allowed shadow-none' : 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/20'}`}
+                  >
+                    <X className="w-4 h-4" /> 駁回 (要求補件)
+                  </button>
+
+                  {/* 核准認證按鈕 */}
+                  <button 
+                    onClick={async () => {
+                      if (!isDecrypted) {
+                        setDecryptionError("請先解密影像再進行審核！");
+                        return;
+                      }
+                      try {
+                        const res = await apiFetch(`/api/users/${kycUser.id}/kyc`, { method: 'PATCH' });
+                        if (res.ok) {
+                          setActionFeedback({ type: 'success', message: `已成功核准用戶 ${kycUser.name}！已部署鏈上身分並開通白名單。` });
+                          loadUsers();
+                          setTimeout(() => {
+                            closeKycModal();
+                            setActionFeedback(null);
+                          }, 1500);
+                        } else {
+                          toggleStatus(kycUser.id);
+                          closeKycModal();
+                        }
+                      } catch (e) {
                         toggleStatus(kycUser.id);
                         closeKycModal();
                       }
-                    } catch (e) {
-                      toggleStatus(kycUser.id);
-                      closeKycModal();
-                    }
-                  }}
-                  className={`px-8 py-3 rounded-2xl text-sm font-black text-white shadow-lg transition-all flex items-center gap-2 ${!isDecrypted ? 'bg-slate-300 cursor-not-allowed shadow-none' : kycUser.status === 'Whitelisted' ? 'bg-red-500 hover:bg-red-600 shadow-red-500/20' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-600/20'}`}
-                >
-                  {!isDecrypted ? (
-                    <><Lock className="w-4 h-4" /> 鎖定中</>
-                  ) : kycUser.status === 'Whitelisted' ? (
-                    <><ShieldAlert className="w-4 h-4" /> 撤銷認證 (設為黑名單)</>
-                  ) : (
-                    <><ShieldCheck className="w-4 h-4" /> 核准認證 (移入白名單)</>
-                  )}
-                </button>
+                    }}
+                    className={`px-8 py-3 rounded-2xl text-sm font-black text-white shadow-lg transition-all flex items-center gap-2 ${!isDecrypted ? 'bg-slate-300 cursor-not-allowed shadow-none' : kycUser.status === 'Whitelisted' ? 'bg-red-500 hover:bg-red-600 shadow-red-500/20' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-600/20'}`}
+                  >
+                    {!isDecrypted ? (
+                      <><Lock className="w-4 h-4" /> 鎖定中</>
+                    ) : kycUser.status === 'Whitelisted' ? (
+                      <><ShieldAlert className="w-4 h-4" /> 撤銷認證 (設為黑名單)</>
+                    ) : (
+                      <><ShieldCheck className="w-4 h-4" /> 核准認證 (移入白名單)</>
+                    )}
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
+
+            {actionFeedback && (
+              <div className={`p-4 text-center text-xs font-black border-t ${
+                actionFeedback.type === 'success' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'
+              }`}>
+                {actionFeedback.message}
+              </div>
+            )}
           </div>
         </div>
       )}
