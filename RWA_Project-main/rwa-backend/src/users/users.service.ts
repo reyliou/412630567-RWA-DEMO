@@ -58,7 +58,7 @@ export class UsersService {
 
   findAll() {
     return this.userRepo.find({
-      select: ['id', 'username', 'email', 'phone_number', 'is_whitelisted', 'kyc_status', 'kyc_rejection_reason', 'wallet_address', 'created_at'] as any,
+      select: ['id', 'username', 'email', 'phone_number', 'is_whitelisted', 'kyc_status', 'wallet_address', 'created_at'] as any,
       order: { created_at: 'DESC' },
     });
   }
@@ -66,6 +66,20 @@ export class UsersService {
   async getProfile(userId: number) {
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException('找不到此用戶');
+
+    // 方案 1：從既有的 user_notifications 表中獲取最新一筆退件原因，不需更動 users 資料表 Schema
+    let kyc_rejection_reason: string | null = null;
+    if (user.kyc_status === 'REJECTED') {
+      const latestNotif = await this.notifRepo.findOne({
+        where: { user_id: userId, title: '❌ KYC 實名審核未通過' },
+        order: { created_at: 'DESC' },
+      });
+      if (latestNotif) {
+        const match = latestNotif.message.match(/原因：(.*?)。/);
+        kyc_rejection_reason = match ? match[1] : latestNotif.message;
+      }
+    }
+
     return {
       id: user.id,
       username: user.username,
@@ -73,7 +87,7 @@ export class UsersService {
       phone_number: user.phone_number,
       kyc_status: user.kyc_status,
       is_whitelisted: user.is_whitelisted,
-      kyc_rejection_reason: user.kyc_rejection_reason,
+      kyc_rejection_reason,
       wallet_address: user.wallet_address,
       created_at: user.created_at,
     };
@@ -99,11 +113,10 @@ export class UsersService {
       return { success: true, message: '該用戶已是 VERIFIED 狀態', blockchainResult: null };
     }
 
-    // 更新 DB：KYC 通過 + 加入白名單 + 清除退件原因
+    // 更新 DB：KYC 通過 + 加入白名單
     await this.userRepo.update(targetId, {
       kyc_status: 'VERIFIED',
       is_whitelisted: true,
-      kyc_rejection_reason: null,
       kyc_reviewed_by: adminId,
       kyc_reviewed_at: new Date(),
     });
@@ -140,16 +153,15 @@ export class UsersService {
 
     const rejectReason = reason || '證件影像不清晰或不符合規範';
 
-    // 更新 DB：KYC 駁回 + 移除白名單 + 記錄原因
+    // 更新 DB：KYC 駁回 + 移除白名單
     await this.userRepo.update(targetId, {
       kyc_status: 'REJECTED',
       is_whitelisted: false,
-      kyc_rejection_reason: rejectReason,
       kyc_reviewed_by: adminId,
       kyc_reviewed_at: new Date(),
     });
 
-    // 傳送通知給用戶
+    // 傳送通知給用戶 (通知表同時保留退件原因)
     await this.notifRepo.save({
       user_id: targetId,
       title: '❌ KYC 實名審核未通過',
@@ -200,7 +212,6 @@ export class UsersService {
       kyc_status: 'PENDING',
       kyc_document_path,
       kyc_document_back_path,
-      kyc_rejection_reason: null,
     });
 
     await this.notifRepo.save({

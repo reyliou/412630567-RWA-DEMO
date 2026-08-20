@@ -59,7 +59,6 @@ export class AuthService {
         role: roleName.toUpperCase().trim(),
         kyc_status: user.kyc_status,
         is_whitelisted: user.is_whitelisted,
-        kyc_rejection_reason: user.kyc_rejection_reason,
       },
     };
   }
