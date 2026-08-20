@@ -8,7 +8,10 @@ interface AuthContextType {
   userId: number | null;
   appMode: AppMode;
   token: string | null;
-  login: (mode: AppMode, name: string, dbId: number, jwtToken: string) => void;
+  isWhitelisted: boolean;
+  kycStatus: string;
+  refreshProfile: () => Promise<void>;
+  login: (mode: AppMode, name: string, dbId: number, jwtToken: string, isWhitelisted?: boolean, kycStatus?: string) => void;
   logout: () => void;
   apiFetch: (endpoint: string, options?: RequestInit) => Promise<Response>;
 }
@@ -21,6 +24,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [userId, setUserId] = useState<number | null>(null);
   const [appMode, setAppMode] = useState<AppMode>("TECHNICAL");
   const [token, setToken] = useState<string | null>(null);
+  const [isWhitelisted, setIsWhitelisted] = useState(false);
+  const [kycStatus, setKycStatus] = useState<string>("UNSUBMITTED");
+
+  const refreshProfile = useCallback(async () => {
+    const currentToken = token || localStorage.getItem('rwa_jwt');
+    if (!currentToken) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/users/profile/me`, {
+        headers: { 'Authorization': `Bearer ${currentToken}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setIsWhitelisted(!!data.is_whitelisted);
+        setKycStatus(data.kyc_status || 'UNSUBMITTED');
+        
+        const storedUser = localStorage.getItem('rwa_user');
+        if (storedUser) {
+          const userObj = JSON.parse(storedUser);
+          userObj.is_whitelisted = data.is_whitelisted;
+          userObj.kyc_status = data.kyc_status;
+          localStorage.setItem('rwa_user', JSON.stringify(userObj));
+        }
+      }
+    } catch (e) {
+      console.warn("無法刷新個人權限狀態");
+    }
+  }, [token]);
 
   // 初始化時從 localStorage 讀取 token
   useEffect(() => {
@@ -32,20 +62,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUserId(user.id);
       setUserName(user.username);
       setAppMode(user.role as AppMode);
+      setIsWhitelisted(!!user.is_whitelisted);
+      setKycStatus(user.kyc_status || 'UNSUBMITTED');
       setIsLoggedIn(true);
     }
   }, []);
 
-  const login = (mode: AppMode, name: string, dbId: number, jwtToken: string) => {
+  useEffect(() => {
+    if (isLoggedIn && token) {
+      refreshProfile();
+    }
+  }, [isLoggedIn, token, refreshProfile]);
+
+  const login = (
+    mode: AppMode, 
+    name: string, 
+    dbId: number, 
+    jwtToken: string, 
+    userIsWhitelisted?: boolean, 
+    userKycStatus?: string
+  ) => {
     setUserName(name);
     setUserId(dbId);
     setAppMode(mode);
     setToken(jwtToken);
+    setIsWhitelisted(!!userIsWhitelisted);
+    setKycStatus(userKycStatus || 'UNSUBMITTED');
     setIsLoggedIn(true);
     
     // 儲存至 localStorage，實現持久登入
     localStorage.setItem('rwa_jwt', jwtToken);
-    localStorage.setItem('rwa_user', JSON.stringify({ id: dbId, username: name, role: mode }));
+    localStorage.setItem('rwa_user', JSON.stringify({ 
+      id: dbId, 
+      username: name, 
+      role: mode,
+      is_whitelisted: !!userIsWhitelisted,
+      kyc_status: userKycStatus || 'UNSUBMITTED'
+    }));
   };
 
   const logout = useCallback(() => {
@@ -54,6 +107,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUserId(null);
     setAppMode("TECHNICAL");
     setToken(null);
+    setIsWhitelisted(false);
+    setKycStatus("UNSUBMITTED");
     localStorage.removeItem('rwa_jwt');
     localStorage.removeItem('rwa_user');
   }, []);

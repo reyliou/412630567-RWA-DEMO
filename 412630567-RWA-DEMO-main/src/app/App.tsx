@@ -44,7 +44,7 @@ function AppContent() {
   };
 
   if (!isLoggedIn) {
-    return <AuthView onLogin={(mode, name, id, token) => login(mode, name, id, token)} />;
+    return <AuthView onLogin={(mode, name, id, token, isWhitelisted, kycStatus) => login(mode, name, id, token, isWhitelisted, kycStatus)} />;
   }
 
   return (

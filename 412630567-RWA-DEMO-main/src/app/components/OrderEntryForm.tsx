@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ShieldAlert } from "lucide-react";
+import { ShieldAlert, Lock, AlertTriangle } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useSystemControl } from "../context/SystemControlContext";
 import { TransactionSuccessModal } from "./TransactionSuccessModal";
@@ -12,7 +12,7 @@ interface OrderEntryFormProps {
 }
 
 export function OrderEntryForm({ userId, property, selectedPrice, onSuccess }: OrderEntryFormProps) {
-  const { apiFetch } = useAuth();
+  const { apiFetch, isWhitelisted, kycStatus } = useAuth();
   const { isPaused } = useSystemControl(); // 取得系統暫停狀態
   const [orderType, setOrderType] = useState<"market" | "limit">("market");
   const [tokenAmount, setTokenAmount] = useState("");
@@ -22,6 +22,8 @@ export function OrderEntryForm({ userId, property, selectedPrice, onSuccess }: O
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [idempotencyKey, setIdempotencyKey] = useState("");
+
+  const canTrade = isWhitelisted && kycStatus === 'VERIFIED';
 
   // 當使用者在 OrderBook 點擊價格時，自動切換至限價單並填入價格
   useEffect(() => {
@@ -34,6 +36,12 @@ export function OrderEntryForm({ userId, property, selectedPrice, onSuccess }: O
   const totalTwdValue = parseFloat(tokenAmount || "0") * (orderType === "market" ? property.price : parseFloat(limitTokenPrice || "0"));
 
   const confirmOrder = async () => {
+    if (!canTrade) {
+      alert("您的帳號尚未通過 KYC 白名單審核，無法進行下單交易。");
+      setIsConfirmOpen(false);
+      return;
+    }
+
     if (isPaused) {
        alert("系統目前處於暫停狀態，無法進行交易。");
        setIsConfirmOpen(false);
@@ -78,17 +86,42 @@ export function OrderEntryForm({ userId, property, selectedPrice, onSuccess }: O
 
   return (
     <>
-      <div className={`bg-white border rounded-[3rem] p-10 shadow-2xl flex flex-col ring-1 ${isPaused ? 'ring-red-500/50' : 'ring-slate-100'} relative overflow-hidden`}>
+      <div className={`bg-white border rounded-[3rem] p-10 shadow-2xl flex flex-col ring-1 ${isPaused ? 'ring-red-500/50' : !canTrade ? 'ring-amber-500/30 bg-slate-50/30' : 'ring-slate-100'} relative overflow-hidden`}>
         {isPaused && (
            <div className="absolute top-0 left-0 right-0 bg-red-600 text-white text-center text-[10px] font-black tracking-[0.2em] py-1 uppercase animate-pulse">
               SYSTEM LOCKED / 交易已暫停
            </div>
         )}
-        <h3 className="font-black text-2xl mb-8 border-b pb-4 uppercase mt-2">Trading HUB</h3>
+        
+        <div className="flex items-center justify-between border-b pb-4 mt-2 mb-6">
+          <h3 className="font-black text-2xl uppercase">Trading HUB</h3>
+          {!canTrade && (
+            <span className="text-[10px] font-black bg-amber-100 text-amber-800 px-3 py-1 rounded-full uppercase flex items-center gap-1.5 border border-amber-200">
+              <Lock className="w-3 h-3" /> KYC 未開通
+            </span>
+          )}
+        </div>
+
+        {/* 權限不足提示鎖定條 */}
+        {!canTrade && (
+          <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-start gap-3 mb-6 animate-in fade-in text-amber-900">
+            <Lock className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <div className="space-y-0.5">
+              <div className="font-black text-xs">帳號尚未開通交易權限</div>
+              <p className="text-[11px] text-amber-800 font-medium leading-relaxed">
+                {kycStatus === 'PENDING' 
+                  ? '您的實名證件正在由銀行審核中，審核通過前無法進行下單交易。' 
+                  : kycStatus === 'REJECTED' 
+                  ? '您的 KYC 審核未通過，請至帳戶首頁補繳證件。' 
+                  : '您尚未提交 KYC 雙證件，請先至首頁完成實名認證。'}
+              </p>
+            </div>
+          </div>
+        )}
         
         <div className="flex bg-slate-100 p-2 rounded-[1.5rem] mb-10">
-          <button disabled={isPaused || isSubmitting} onClick={() => setOrderType("market")} className={`flex-1 py-4 rounded-2xl text-xs font-black uppercase transition-all ${orderType === 'market' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'} disabled:opacity-50 disabled:cursor-not-allowed`}>市價委託</button>
-          <button disabled={isPaused || isSubmitting} onClick={() => setOrderType("limit")} className={`flex-1 py-4 rounded-2xl text-xs font-black uppercase transition-all ${orderType === 'limit' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'} disabled:opacity-50 disabled:cursor-not-allowed`}>限價排隊</button>
+          <button disabled={!canTrade || isPaused || isSubmitting} onClick={() => setOrderType("market")} className={`flex-1 py-4 rounded-2xl text-xs font-black uppercase transition-all ${orderType === 'market' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'} disabled:opacity-40 disabled:cursor-not-allowed`}>市價委託</button>
+          <button disabled={!canTrade || isPaused || isSubmitting} onClick={() => setOrderType("limit")} className={`flex-1 py-4 rounded-2xl text-xs font-black uppercase transition-all ${orderType === 'limit' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'} disabled:opacity-40 disabled:cursor-not-allowed`}>限價排隊</button>
         </div>
 
         <div className="space-y-6 mb-12">
@@ -102,8 +135,8 @@ export function OrderEntryForm({ userId, property, selectedPrice, onSuccess }: O
                   value={limitTokenPrice} 
                   onChange={(e) => setLimitTokenPrice(e.target.value)} 
                   placeholder={property.price.toString()}
-                  disabled={isPaused || isSubmitting}
-                  className="w-full pl-12 pr-8 py-6 bg-slate-50 border border-slate-100 focus:border-blue-200 focus:ring-4 focus:ring-blue-100 rounded-[2rem] text-3xl outline-none font-mono font-black text-blue-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed" 
+                  disabled={!canTrade || isPaused || isSubmitting}
+                  className="w-full pl-12 pr-8 py-6 bg-slate-50 border border-slate-100 focus:border-blue-200 focus:ring-4 focus:ring-blue-100 rounded-[2rem] text-3xl outline-none font-mono font-black text-blue-600 transition-all disabled:opacity-40 disabled:cursor-not-allowed" 
                 />
               </div>
             </div>
@@ -116,8 +149,8 @@ export function OrderEntryForm({ userId, property, selectedPrice, onSuccess }: O
               value={tokenAmount} 
               onChange={(e) => setTokenAmount(e.target.value)} 
               placeholder="0"
-              disabled={isPaused || isSubmitting}
-              className="w-full px-8 py-6 bg-slate-50 border border-slate-100 focus:border-blue-200 focus:ring-4 focus:ring-blue-100 rounded-[2rem] text-4xl outline-none font-mono font-black text-slate-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed" 
+              disabled={!canTrade || isPaused || isSubmitting}
+              className="w-full px-8 py-6 bg-slate-50 border border-slate-100 focus:border-blue-200 focus:ring-4 focus:ring-blue-100 rounded-[2rem] text-4xl outline-none font-mono font-black text-slate-800 transition-all disabled:opacity-40 disabled:cursor-not-allowed" 
             />
           </div>
           
@@ -128,8 +161,28 @@ export function OrderEntryForm({ userId, property, selectedPrice, onSuccess }: O
         </div>
 
         <div className="grid grid-cols-2 gap-6">
-          <button disabled={isPaused || isSubmitting} onClick={() => { setTxType("BUY"); setIdempotencyKey(crypto.randomUUID()); setIsConfirmOpen(true); }} className="py-6 bg-red-600 hover:bg-red-700 text-white rounded-[2rem] uppercase font-black shadow-xl shadow-red-200 transition-all active:scale-95 text-lg disabled:opacity-30 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:shadow-none">{isSubmitting && txType === "BUY" ? "處理中..." : "申購 BUY"}</button>
-          <button disabled={isPaused || isSubmitting} onClick={() => { setTxType("SELL"); setIdempotencyKey(crypto.randomUUID()); setIsConfirmOpen(true); }} className="py-6 bg-green-600 hover:bg-green-700 text-white rounded-[2rem] uppercase font-black shadow-xl shadow-green-200 transition-all active:scale-95 text-lg disabled:opacity-30 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:shadow-none">{isSubmitting && txType === "SELL" ? "處理中..." : "委賣 SELL"}</button>
+          <button 
+            disabled={!canTrade || isPaused || isSubmitting} 
+            onClick={() => { setTxType("BUY"); setIdempotencyKey(crypto.randomUUID()); setIsConfirmOpen(true); }} 
+            className={`py-6 text-white rounded-[2rem] uppercase font-black shadow-xl transition-all active:scale-95 text-lg flex items-center justify-center gap-2 ${
+              !canTrade 
+                ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none opacity-50' 
+                : 'bg-red-600 hover:bg-red-700 shadow-red-200'
+            } disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none`}
+          >
+            {isSubmitting && txType === "BUY" ? "處理中..." : !canTrade ? <><Lock className="w-5 h-5"/> 申購 (鎖定)</> : "申購 BUY"}
+          </button>
+          <button 
+            disabled={!canTrade || isPaused || isSubmitting} 
+            onClick={() => { setTxType("SELL"); setIdempotencyKey(crypto.randomUUID()); setIsConfirmOpen(true); }} 
+            className={`py-6 text-white rounded-[2rem] uppercase font-black shadow-xl transition-all active:scale-95 text-lg flex items-center justify-center gap-2 ${
+              !canTrade 
+                ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none opacity-50' 
+                : 'bg-green-600 hover:bg-green-700 shadow-green-200'
+            } disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none`}
+          >
+            {isSubmitting && txType === "SELL" ? "處理中..." : !canTrade ? <><Lock className="w-5 h-5"/> 委賣 (鎖定)</> : "委賣 SELL"}
+          </button>
         </div>
       </div>
 
