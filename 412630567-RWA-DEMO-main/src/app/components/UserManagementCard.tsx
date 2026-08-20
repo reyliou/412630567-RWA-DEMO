@@ -8,6 +8,8 @@ interface UserData {
   email: string;
   status: "Whitelisted" | "Blacklisted";
   txStatus: "正常" | "交易異常" | "無法交易";
+  kycStatus: "VERIFIED" | "PENDING" | "REJECTED" | "UNSUBMITTED";
+  kycRejectionReason?: string;
   joined: string;
 }
 
@@ -31,27 +33,30 @@ export function UserManagementCard() {
     setBackImageUrl("https://images.unsplash.com/photo-1614064641913-6b70fc8cb2c1?w=800&q=80");
   };
 
-  useEffect(() => {
-    const loadUsers = async () => {
-      try {
-        const response = await apiFetch(`/api/users`);
-        if (response.ok) {
-          const data = await response.json();
-          // 資料庫欄位對齊：將 is_whitelisted 映射到 status
-          const mappedData = data.map((u: any) => ({
-            id: u.id.toString(),
-            name: u.username,
-            email: u.email || 'N/A',
-            status: u.is_whitelisted ? "Whitelisted" : "Blacklisted",
-            txStatus: u.is_whitelisted ? "正常" : "無法交易",
-            joined: "2026-04-20" // 這裡可以根據實務需求從資料庫抓取
-          }));
-          setUsers(mappedData);
-        }
-      } catch (e) {
-        console.error("無法加載真實用戶資料，請確保後端伺服器已啟動");
+  const loadUsers = async () => {
+    try {
+      const response = await apiFetch(`/api/users`);
+      if (response.ok) {
+        const data = await response.json();
+        // 資料庫欄位對齊
+        const mappedData = data.map((u: any) => ({
+          id: u.id.toString(),
+          name: u.username,
+          email: u.email || 'N/A',
+          status: u.is_whitelisted ? "Whitelisted" : "Blacklisted",
+          txStatus: u.is_whitelisted ? "正常" : "無法交易",
+          kycStatus: u.kyc_status || (u.is_whitelisted ? "VERIFIED" : "PENDING"),
+          kycRejectionReason: u.kyc_rejection_reason,
+          joined: u.created_at ? new Date(u.created_at).toISOString().split('T')[0] : "2026-04-20"
+        }));
+        setUsers(mappedData);
       }
-    };
+    } catch (e) {
+      console.error("無法加載真實用戶資料，請確保後端伺服器已啟動");
+    }
+  };
+
+  useEffect(() => {
     loadUsers();
   }, []);
 
@@ -147,9 +152,29 @@ export function UserManagementCard() {
                    </div>
                 </td>
                 <td className="px-8 py-8 text-center">
-                  <div className={`inline-flex items-center gap-2 text-xs font-black px-4 py-2 rounded-full border ${user.status === 'Whitelisted' ? 'bg-green-50 text-green-600 border-green-100' : 'bg-red-50 text-red-600 border-red-100'}`}>
-                    {user.status === 'Whitelisted' ? <ShieldCheck className="w-4 h-4" /> : <ShieldAlert className="w-4 h-4" />}
-                    {user.status}
+                  <div className="flex flex-col items-center gap-1.5">
+                    {/* KYC 審核狀態 Badge */}
+                    <span className={`inline-flex items-center gap-1 text-[11px] font-black px-3 py-1 rounded-full border ${
+                      user.kycStatus === 'VERIFIED'
+                        ? 'bg-green-50 text-green-700 border-green-200'
+                        : user.kycStatus === 'PENDING'
+                        ? 'bg-amber-50 text-amber-700 border-amber-200 animate-pulse'
+                        : user.kycStatus === 'REJECTED'
+                        ? 'bg-red-50 text-red-700 border-red-200'
+                        : 'bg-slate-100 text-slate-600 border-slate-200'
+                    }`}>
+                      {user.kycStatus === 'VERIFIED' && '✅ 已通過 KYC'}
+                      {user.kycStatus === 'PENDING' && '⏳ 待審核 KYC'}
+                      {user.kycStatus === 'REJECTED' && '❌ 已退件 (待補件)'}
+                      {user.kycStatus === 'UNSUBMITTED' && '⚪ 未提交 KYC'}
+                    </span>
+
+                    {/* 白名單狀態 Badge */}
+                    <span className={`text-[9px] font-black uppercase tracking-wider ${
+                      user.status === 'Whitelisted' ? 'text-green-600' : 'text-slate-400'
+                    }`}>
+                      {user.status === 'Whitelisted' ? '● 白名單正常' : '○ 黑名單/未授權'}
+                    </span>
                   </div>
                 </td>
                 <td className="px-8 py-8 text-center">
@@ -326,27 +351,74 @@ export function UserManagementCard() {
                 </div>
               </div>
             </div>
-            <div className="px-8 py-6 bg-white border-t border-slate-100 flex justify-end gap-4 relative z-20">
+            <div className="px-8 py-6 bg-white border-t border-slate-100 flex items-center justify-between gap-4 relative z-20">
               <button onClick={closeKycModal} className="px-6 py-3 rounded-2xl text-sm font-black text-slate-500 hover:bg-slate-100 transition-colors">取消</button>
-              <button 
-                onClick={() => {
-                   if(isDecrypted){
-                     toggleStatus(kycUser.id);
-                     closeKycModal();
-                   } else {
-                     setDecryptionError("請先解密影像再進行審核！");
-                   }
-                }}
-                className={`px-8 py-3 rounded-2xl text-sm font-black text-white shadow-lg transition-all flex items-center gap-2 ${!isDecrypted ? 'bg-slate-300 cursor-not-allowed shadow-none' : kycUser.status === 'Whitelisted' ? 'bg-red-500 hover:bg-red-600 shadow-red-500/20' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-600/20'}`}
-              >
-                {!isDecrypted ? (
-                  <><Lock className="w-4 h-4" /> 鎖定中</>
-                ) : kycUser.status === 'Whitelisted' ? (
-                  <><ShieldAlert className="w-4 h-4" /> 撤銷認證 (設為黑名單)</>
-                ) : (
-                  <><ShieldCheck className="w-4 h-4" /> 核准認證 (移入白名單)</>
-                )}
-              </button>
+              
+              <div className="flex items-center gap-3">
+                {/* 駁回 / 退件需補件按鈕 */}
+                <button
+                  onClick={async () => {
+                    if (!isDecrypted) {
+                      setDecryptionError("請先解密影像再進行審核！");
+                      return;
+                    }
+                    const reason = prompt("請輸入退件／補件原因（將即時推播通知投資人）：", "身分證反面照片模糊，請重新拍攝補繳");
+                    if (reason === null) return;
+                    try {
+                      const res = await apiFetch(`/api/users/${kycUser.id}/kyc/reject`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ reason })
+                      });
+                      if (res.ok) {
+                        alert(`已成功退件！已將用戶 ${kycUser.name} 標記為 REJECTED 並推播補件通知。`);
+                        closeKycModal();
+                        loadUsers();
+                      } else {
+                        alert("退件操作失敗");
+                      }
+                    } catch (e) {
+                      alert("連線伺服器失敗");
+                    }
+                  }}
+                  className={`px-6 py-3 rounded-2xl text-sm font-black text-white shadow-lg transition-all flex items-center gap-2 ${!isDecrypted ? 'bg-slate-300 cursor-not-allowed shadow-none' : 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/20'}`}
+                >
+                  <X className="w-4 h-4" /> 駁回 (要求補件)
+                </button>
+
+                {/* 核准認證按鈕 */}
+                <button 
+                  onClick={async () => {
+                    if (!isDecrypted) {
+                      setDecryptionError("請先解密影像再進行審核！");
+                      return;
+                    }
+                    try {
+                      const res = await apiFetch(`/api/users/${kycUser.id}/kyc`, { method: 'PATCH' });
+                      if (res.ok) {
+                        alert(`已成功核准用戶 ${kycUser.name}！已部署鏈上身分並開通白名單。`);
+                        closeKycModal();
+                        loadUsers();
+                      } else {
+                        toggleStatus(kycUser.id);
+                        closeKycModal();
+                      }
+                    } catch (e) {
+                      toggleStatus(kycUser.id);
+                      closeKycModal();
+                    }
+                  }}
+                  className={`px-8 py-3 rounded-2xl text-sm font-black text-white shadow-lg transition-all flex items-center gap-2 ${!isDecrypted ? 'bg-slate-300 cursor-not-allowed shadow-none' : kycUser.status === 'Whitelisted' ? 'bg-red-500 hover:bg-red-600 shadow-red-500/20' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-600/20'}`}
+                >
+                  {!isDecrypted ? (
+                    <><Lock className="w-4 h-4" /> 鎖定中</>
+                  ) : kycUser.status === 'Whitelisted' ? (
+                    <><ShieldAlert className="w-4 h-4" /> 撤銷認證 (設為黑名單)</>
+                  ) : (
+                    <><ShieldCheck className="w-4 h-4" /> 核准認證 (移入白名單)</>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>

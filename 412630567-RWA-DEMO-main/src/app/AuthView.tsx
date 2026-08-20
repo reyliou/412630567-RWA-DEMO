@@ -50,6 +50,55 @@ export function AuthView({ onLogin }: AuthViewProps) {
     setKycStep(2);
   };
 
+  const handleQuickRegister = async () => {
+    // 檢查必填欄位
+    if (!regName || !regEmail || !regPhone || !regPassword || !regConfirmPassword) {
+      alert("請先完成第一步的所有欄位填寫！");
+      return;
+    }
+    
+    // 檢查密碼是否一致
+    if (regPassword !== regConfirmPassword) {
+      alert("兩次輸入的密碼不一致，請重新確認！");
+      return;
+    }
+    
+    // 手機號碼格式驗證 (09開頭，共10碼)
+    if (!/^09\d{8}$/.test(regPhone)) {
+      alert("手機號碼格式錯誤，請輸入 09 開頭的 10 碼數字");
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("username", regName);
+      formData.append("email", regEmail);
+      formData.append("phone_number", regPhone);
+      formData.append("password", regPassword);
+
+      const response = await fetch(`${API_BASE_URL}/api/register`, {
+        method: 'POST',
+        body: formData
+      });
+
+      const data = await response.json();
+      if (response.ok && data.success) {
+        alert("🎉 註冊成功！您現在可以立即登入系統，並隨時於帳戶首頁補繳實名雙證件。");
+        setUsername(regName);
+        setPassword(regPassword);
+        setView("LOGIN");
+        setKycStep(1);
+      } else {
+        alert("註冊失敗: " + (data.message || "發生未知錯誤"));
+      }
+    } catch (e) {
+      alert("連線後端 API 失敗，請確認後端伺服器已啟動");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const handleKycUpload = async () => {
     if (!kycFileFront || !kycFileBack) {
       alert("請完整上傳身分證正反面照片！");
@@ -78,7 +127,7 @@ export function AuthView({ onLogin }: AuthViewProps) {
         alert("註冊失敗: " + (data.message || "發生未知錯誤"));
       }
     } catch (e) {
-      alert("連線後端 API 失敗，請確認已執行 npm run start:all");
+      alert("連線後端 API 失敗，請確認後端伺服器已啟動");
     } finally {
       setIsUploading(false);
     }
@@ -238,7 +287,22 @@ export function AuthView({ onLogin }: AuthViewProps) {
                     </div>
                   </div>
                 </div>
-                <button onClick={handleStep1Next} className="w-full py-6 bg-blue-600 text-white rounded-3xl font-black text-xl shadow-xl shadow-blue-200 mt-4 uppercase">下一步: 證件上傳</button>
+                <div className="space-y-3 mt-4">
+                  <button 
+                    onClick={handleStep1Next} 
+                    className="w-full py-5 bg-blue-600 hover:bg-blue-700 text-white rounded-3xl font-black text-lg shadow-xl shadow-blue-200 uppercase transition-all"
+                  >
+                    下一步: 立即上傳證件 (推薦)
+                  </button>
+                  <button 
+                    onClick={handleQuickRegister} 
+                    disabled={isUploading}
+                    className="w-full py-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-3xl font-black text-sm uppercase transition-all flex items-center justify-center gap-2"
+                  >
+                    {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                    直接完成註冊 (稍後於後台補件)
+                  </button>
+                </div>
               </div>
             )}
 
@@ -269,10 +333,27 @@ export function AuthView({ onLogin }: AuthViewProps) {
                     )}
                   </label>
                 </div>
-                <button onClick={handleKycUpload} disabled={isUploading} className="w-full py-6 bg-blue-600 text-white rounded-3xl font-black text-xl flex items-center justify-center gap-3 shadow-xl shadow-blue-200 disabled:opacity-50">
-                  {isUploading ? <Loader2 className="w-7 h-7 animate-spin" /> : <Upload className="w-6 h-6" />}
-                  {isUploading ? "正在上傳..." : "確認並提交審核"}
-                </button>
+                <div className="space-y-3">
+                  <button onClick={handleKycUpload} disabled={isUploading} className="w-full py-5 bg-blue-600 hover:bg-blue-700 text-white rounded-3xl font-black text-lg flex items-center justify-center gap-3 shadow-xl shadow-blue-200 disabled:opacity-50 transition-all">
+                    {isUploading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Upload className="w-5 h-5" />}
+                    {isUploading ? "正在加密上傳..." : "確認並提交審核"}
+                  </button>
+                  <div className="flex gap-3">
+                    <button 
+                      onClick={() => setKycStep(1)} 
+                      className="w-1/2 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-2xl font-black text-xs transition-all"
+                    >
+                      返回上一步
+                    </button>
+                    <button 
+                      onClick={handleQuickRegister} 
+                      disabled={isUploading}
+                      className="w-1/2 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-2xl font-black text-xs transition-all"
+                    >
+                      跳過並稍後補件
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -282,8 +363,8 @@ export function AuthView({ onLogin }: AuthViewProps) {
                   <CheckCircle className="w-16 h-16" />
                 </div>
                 <h3 className="text-4xl font-black text-slate-800 tracking-tighter">註冊申請已受理</h3>
-                <p className="text-sm text-slate-500 leading-relaxed font-medium">您的 KYC 資料已成功寫入區塊鏈等待序列。<br/>我們將在核實身分後開通您的交易權限。</p>
-                <button onClick={() => { setView("LOGIN"); setKycStep(1); }} className="w-full py-6 bg-slate-800 text-white rounded-3xl font-black text-xl mt-6">返回登入</button>
+                <p className="text-sm text-slate-500 leading-relaxed font-medium">您的 KYC 資料已成功加密寫入審核佇列。<br/>銀行人員核實身分後將開通您的鏈上交易權限。</p>
+                <button onClick={() => { setView("LOGIN"); setKycStep(1); }} className="w-full py-6 bg-slate-800 text-white rounded-3xl font-black text-xl mt-6">前往登入</button>
               </div>
             )}
 

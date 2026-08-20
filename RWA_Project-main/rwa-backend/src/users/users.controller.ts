@@ -1,4 +1,5 @@
-import { Controller, Get, Patch, Post, Param, Body, UseGuards, Request, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Patch, Post, Param, Body, UseGuards, Request, ForbiddenException, UseInterceptors, UploadedFiles } from '@nestjs/common';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { UsersService } from './users.service';
 
@@ -6,6 +7,11 @@ import { UsersService } from './users.service';
 @UseGuards(JwtAuthGuard)
 export class UsersController {
   constructor(private usersService: UsersService) {}
+
+  @Get('users/profile/me')
+  getProfile(@Request() req: any) {
+    return this.usersService.getProfile(req.user.id);
+  }
 
   @Get('users')
   getAll(@Request() req: any) {
@@ -27,6 +33,32 @@ export class UsersController {
   approveKyc(@Request() req: any, @Param('id') id: string) {
     if (req.user.role !== 'BUSINESS') throw new ForbiddenException('需要管理員權限');
     return this.usersService.approveKyc(parseInt(id), req.user.id);
+  }
+
+  @Patch('users/:id/kyc/reject')
+  rejectKyc(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Body() body: { reason?: string },
+  ) {
+    if (req.user.role !== 'BUSINESS') throw new ForbiddenException('需要管理員權限');
+    return this.usersService.rejectKyc(parseInt(id), req.user.id, body.reason || '');
+  }
+
+  @Post('kyc/resubmit')
+  @UseInterceptors(FileFieldsInterceptor([
+    { name: 'kyc_document', maxCount: 1 },
+    { name: 'kyc_document_back', maxCount: 1 }
+  ]))
+  resubmitKyc(
+    @Request() req: any,
+    @UploadedFiles() files: { kyc_document?: Express.Multer.File[], kyc_document_back?: Express.Multer.File[] },
+  ) {
+    return this.usersService.resubmitKyc(
+      req.user.id,
+      files?.kyc_document?.[0],
+      files?.kyc_document_back?.[0],
+    );
   }
 
   @Post('kyc/:id/decrypt')

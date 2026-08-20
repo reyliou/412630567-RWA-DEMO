@@ -42,6 +42,9 @@ export class User {
   @Column({ nullable: true })
   kyc_reviewed_at: Date;
 
+  @Column({ type: 'text', nullable: true })
+  kyc_rejection_reason: string | null;
+
   @Column({ nullable: true })
   onchain_id_address: string;
 

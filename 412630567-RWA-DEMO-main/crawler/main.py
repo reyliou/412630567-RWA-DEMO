@@ -33,6 +33,7 @@ TARGET_URLS = [
     "https://newhouse.591.com.tw/140249", # 東騰元町
     "https://newhouse.591.com.tw/139920", # 中工雋詠
     "https://newhouse.591.com.tw/138981", # 潤泰之森
+    "https://newhouse.591.com.tw/136360", #信義誠家
 ]
 
 async def crawl_property(page, url):

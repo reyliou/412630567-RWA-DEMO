@@ -6,7 +6,9 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import WebSocket from 'ws';
 import { User } from '../entities/user.entity';
 import { SystemAlert } from '../entities/system-alert.entity';
+import { UserNotification } from '../entities/notification.entity';
 import { BlockchainService } from '../blockchain/blockchain.service';
+import { encryptBuffer } from '../utils/crypto.util';
 
 const ENCRYPTION_KEY = process.env.IMAGE_ENCRYPTION_KEY 
   ? Buffer.from(process.env.IMAGE_ENCRYPTION_KEY, 'utf-8')
@@ -41,6 +43,7 @@ export class UsersService {
   constructor(
     @InjectRepository(User) private userRepo: Repository<User>,
     @InjectRepository(SystemAlert) private alertRepo: Repository<SystemAlert>,
+    @InjectRepository(UserNotification) private notifRepo: Repository<UserNotification>,
     private blockchainService: BlockchainService,
   ) {
     if (!process.env.SUPABASE_SERVICE_KEY) {
@@ -55,9 +58,25 @@ export class UsersService {
 
   findAll() {
     return this.userRepo.find({
-      select: ['id', 'username', 'email', 'is_whitelisted', 'kyc_status', 'wallet_address', 'created_at'] as any,
+      select: ['id', 'username', 'email', 'phone_number', 'is_whitelisted', 'kyc_status', 'kyc_rejection_reason', 'wallet_address', 'created_at'] as any,
       order: { created_at: 'DESC' },
     });
+  }
+
+  async getProfile(userId: number) {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException('找不到此用戶');
+    return {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      phone_number: user.phone_number,
+      kyc_status: user.kyc_status,
+      is_whitelisted: user.is_whitelisted,
+      kyc_rejection_reason: user.kyc_rejection_reason,
+      wallet_address: user.wallet_address,
+      created_at: user.created_at,
+    };
   }
 
   async updateWhitelist(targetId: number, isWhitelisted: boolean, adminId: number, reason: string) {
@@ -80,8 +99,21 @@ export class UsersService {
       return { success: true, message: '該用戶已是 VERIFIED 狀態', blockchainResult: null };
     }
 
-    // 更新 DB：KYC 通過 + 加入白名單
-    await this.userRepo.update(targetId, { kyc_status: 'VERIFIED', is_whitelisted: true });
+    // 更新 DB：KYC 通過 + 加入白名單 + 清除退件原因
+    await this.userRepo.update(targetId, {
+      kyc_status: 'VERIFIED',
+      is_whitelisted: true,
+      kyc_rejection_reason: null,
+      kyc_reviewed_by: adminId,
+      kyc_reviewed_at: new Date(),
+    });
+
+    await this.notifRepo.save({
+      user_id: targetId,
+      title: '🎉 KYC 實名認證已通過',
+      message: '恭喜！您的 KYC 實名身分已通過銀行審核，白名單交易權限已正式開通！',
+      is_read: false,
+    });
 
     await this.alertRepo.save({
       alert_type: 'SECURITY_AUDIT',
@@ -100,6 +132,97 @@ export class UsersService {
     }
 
     return { success: true, blockchainResult };
+  }
+
+  async rejectKyc(targetId: number, adminId: number, reason: string) {
+    const user = await this.userRepo.findOne({ where: { id: targetId } });
+    if (!user) throw new NotFoundException('找不到此用戶');
+
+    const rejectReason = reason || '證件影像不清晰或不符合規範';
+
+    // 更新 DB：KYC 駁回 + 移除白名單 + 記錄原因
+    await this.userRepo.update(targetId, {
+      kyc_status: 'REJECTED',
+      is_whitelisted: false,
+      kyc_rejection_reason: rejectReason,
+      kyc_reviewed_by: adminId,
+      kyc_reviewed_at: new Date(),
+    });
+
+    // 傳送通知給用戶
+    await this.notifRepo.save({
+      user_id: targetId,
+      title: '❌ KYC 實名審核未通過',
+      message: `您的 KYC 證件審核未通過。原因：${rejectReason}。請至帳戶首頁重新補繳證件。`,
+      is_read: false,
+    });
+
+    await this.alertRepo.save(
+      this.alertRepo.create({
+        alert_type: 'SECURITY_AUDIT',
+        severity: 'WARNING',
+        message: `Admin UID ${adminId} REJECTED KYC for UID ${targetId} (${user.username}). Reason: ${rejectReason}`,
+      }),
+    );
+
+    return { success: true, message: '已完成退件並通知用戶' };
+  }
+
+  async resubmitKyc(userId: number, fileFront?: Express.Multer.File, fileBack?: Express.Multer.File) {
+    if (!fileFront || !fileBack) {
+      throw new BadRequestException('請完整上傳身分證正反面照片！');
+    }
+
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException('找不到此用戶');
+
+    const uploadEncrypted = async (fileToUpload: Express.Multer.File, suffix: string) => {
+      const fileName = `kyc_${user.username}_${suffix}_${Date.now()}.jpg`;
+      const encryptedBuffer = encryptBuffer(fileToUpload.buffer);
+      
+      const { data, error } = await this.supabase.storage
+        .from('kyc-documents')
+        .upload(fileName, encryptedBuffer, {
+          contentType: fileToUpload.mimetype,
+        });
+      
+      if (error) {
+        console.error(`KYC Resubmit Upload Error (${suffix}):`, error);
+        throw new Error(`KYC 圖片上傳失敗 (${suffix}): ` + error.message);
+      }
+      return data.path;
+    };
+
+    const kyc_document_path = await uploadEncrypted(fileFront, 'front');
+    const kyc_document_back_path = await uploadEncrypted(fileBack, 'back');
+
+    await this.userRepo.update(userId, {
+      kyc_status: 'PENDING',
+      kyc_document_path,
+      kyc_document_back_path,
+      kyc_rejection_reason: null,
+    });
+
+    await this.notifRepo.save({
+      user_id: userId,
+      title: '📄 KYC 補件已送出',
+      message: '您已成功重新提交 KYC 證件，系統已送交銀行行員重新審核。',
+      is_read: false,
+    });
+
+    await this.alertRepo.save(
+      this.alertRepo.create({
+        alert_type: 'SECURITY_AUDIT',
+        severity: 'INFO',
+        message: `User UID ${userId} (${user.username}) resubmitted KYC documents for re-evaluation.`,
+      }),
+    );
+
+    return {
+      success: true,
+      kyc_status: 'PENDING',
+      message: 'KYC 證件已成功補繳，請等待審核！',
+    };
   }
 
   async decryptKycImages(targetId: number, adminKey: string, adminId: number) {

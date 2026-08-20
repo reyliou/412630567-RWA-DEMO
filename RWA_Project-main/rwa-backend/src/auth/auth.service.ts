@@ -53,7 +53,14 @@ export class AuthService {
     return {
       success: true,
       token,
-      user: { id: user.id, username: user.username, role: roleName.toUpperCase().trim() },
+      user: {
+        id: user.id,
+        username: user.username,
+        role: roleName.toUpperCase().trim(),
+        kyc_status: user.kyc_status,
+        is_whitelisted: user.is_whitelisted,
+        kyc_rejection_reason: user.kyc_rejection_reason,
+      },
     };
   }
 
@@ -97,6 +104,9 @@ export class AuthService {
       kyc_document_back_path = await uploadEncrypted(fileBack, 'back');
     }
 
+    const hasFiles = !!(fileFront && fileBack);
+    const initialKycStatus = hasFiles ? 'PENDING' : 'UNSUBMITTED';
+
     const user = await this.userRepo.save({
       username,
       email,
@@ -105,7 +115,7 @@ export class AuthService {
       role_id: investorRole.id,
       is_whitelisted: false,
       is_email_verified: false,
-      kyc_status: 'PENDING',
+      kyc_status: initialKycStatus,
       kyc_document_path,
       kyc_document_back_path,
       total_asset_value: 0,
@@ -119,8 +129,8 @@ export class AuthService {
       userId: user.id,
       username: user.username,
       walletAddress: wallet.address,
-      kycStatus: 'PENDING',
-      message: '註冊成功，請等待 KYC 審核通過後即可交易',
+      kycStatus: initialKycStatus,
+      message: hasFiles ? '註冊成功，請等待 KYC 審核通過後即可交易' : '註冊成功！請登入並於系統內完成實名認證 (KYC)',
     };
   }
 
