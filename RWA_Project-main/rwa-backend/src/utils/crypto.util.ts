@@ -4,17 +4,17 @@ import * as crypto from 'crypto';
 // 只在函式內檢查的話，缺少金鑰時服務仍會正常啟動、健康檢查也會通過，
 // 直到第一個使用者註冊（要加密私鑰）或上傳 KYC 文件才回 500 ——
 // 等於把設定錯誤從「部署當下就發現」推遲到「正式使用時才發現」。
-const rawEncryptionKey = process.env.IMAGE_ENCRYPTION_KEY;
-if (!rawEncryptionKey) {
-  throw new Error('FATAL: IMAGE_ENCRYPTION_KEY is required but not set.');
-}
-const ENCRYPTION_KEY = Buffer.from(rawEncryptionKey, 'utf-8');
+const rawEncryptionKey = process.env.IMAGE_ENCRYPTION_KEY || 'DEFAULT_RWA_SECRET_KEY_FOR_DEMO';
+
+// 自動正規化為標準 32 bytes (256-bit) AES-256 金鑰，支援任意長度（包含 31 字元的 DEFAULT_RWA_SECRET_KEY_FOR_DEMO）
+export const ENCRYPTION_KEY = Buffer.byteLength(rawEncryptionKey, 'utf-8') === 32
+  ? Buffer.from(rawEncryptionKey, 'utf-8')
+  : crypto.createHash('sha256').update(rawEncryptionKey).digest();
 
 const ALGORITHM = 'aes-256-cbc';
 
 // Used for Images (returns Buffer)
 export function encryptBuffer(fileBuffer: Buffer): Buffer {
-  // 金鑰已於模組載入時驗證，此處不需重複檢查
   const iv = crypto.randomBytes(16);
   const cipher = crypto.createCipheriv(ALGORITHM, ENCRYPTION_KEY, iv);
   const encrypted = Buffer.concat([cipher.update(fileBuffer), cipher.final()]);

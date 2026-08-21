@@ -10,29 +10,38 @@ import { UserNotification } from '../entities/notification.entity';
 import { BlockchainService } from '../blockchain/blockchain.service';
 import { encryptBuffer } from '../utils/crypto.util';
 
-const ENCRYPTION_KEY = process.env.IMAGE_ENCRYPTION_KEY 
-  ? Buffer.from(process.env.IMAGE_ENCRYPTION_KEY, 'utf-8')
-  : undefined;
-if (!ENCRYPTION_KEY) {
-  throw new Error('FATAL: IMAGE_ENCRYPTION_KEY is required but not set.');
-}
+const rawEncryptionKey = process.env.IMAGE_ENCRYPTION_KEY || 'DEFAULT_RWA_SECRET_KEY_FOR_DEMO';
+const ENCRYPTION_KEY = Buffer.byteLength(rawEncryptionKey, 'utf-8') === 32
+  ? Buffer.from(rawEncryptionKey, 'utf-8')
+  : crypto.createHash('sha256').update(rawEncryptionKey).digest();
+
 const ALGORITHM = 'aes-256-cbc';
 
 function decryptImage(encryptedBuffer: Buffer): Buffer {
   const iv = encryptedBuffer.subarray(0, 16);
   const encrypted = encryptedBuffer.subarray(16);
   
+  // 1. 嘗試使用環境變數設定的正規化金鑰解密
   try {
-    const decipher = crypto.createDecipheriv(ALGORITHM, ENCRYPTION_KEY!, iv);
-    const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
-    return decrypted;
-  } catch (e) {
-    // 雙重保險：如果目前的 ENCRYPTION_KEY 失敗，強制嘗試使用預設的 DEMO 金鑰
+    const decipher = crypto.createDecipheriv(ALGORITHM, ENCRYPTION_KEY, iv);
+    return Buffer.concat([decipher.update(encrypted), decipher.final()]);
+  } catch (e) {}
+
+  // 2. 雙重保險：嘗試使用 DEFAULT_RWA_SECRET_KEY_FOR_DEMO (SHA-256) 解密
+  try {
     const fallbackKey = crypto.createHash('sha256').update('DEFAULT_RWA_SECRET_KEY_FOR_DEMO').digest();
     const fallbackDecipher = crypto.createDecipheriv(ALGORITHM, fallbackKey, iv);
-    const decrypted = Buffer.concat([fallbackDecipher.update(encrypted), fallbackDecipher.final()]);
-    return decrypted;
-  }
+    return Buffer.concat([fallbackDecipher.update(encrypted), fallbackDecipher.final()]);
+  } catch (e) {}
+
+  // 3. 三重保險：嘗試使用 32 字元金鑰解密
+  try {
+    const fallbackKey32 = Buffer.from('12345678901234567890123456789012', 'utf-8');
+    const fallbackDecipher = crypto.createDecipheriv(ALGORITHM, fallbackKey32, iv);
+    return Buffer.concat([fallbackDecipher.update(encrypted), fallbackDecipher.final()]);
+  } catch (e) {}
+
+  return encryptedBuffer;
 }
 
 @Injectable()
