@@ -234,10 +234,11 @@ export function AuthView({ onLogin }: AuthViewProps) {
             </div>
             
             <div className="text-center pt-4 border-t border-slate-50">
-               <div className="grid grid-cols-3 gap-2 opacity-60">
-                  <div className="bg-slate-50 p-2 rounded-xl text-[9px] font-black text-slate-500">test1 (技術)</div>
-                  <div className="bg-slate-50 p-2 rounded-xl text-[9px] font-black text-slate-500">test2 (業務)</div>
-                  <div className="bg-slate-50 p-2 rounded-xl text-[9px] font-black text-slate-500">test3 (投資)</div>
+               <div className="text-[10px] text-slate-400 font-bold mb-2 uppercase tracking-wider">快速填入示範帳號</div>
+               <div className="grid grid-cols-3 gap-2">
+                  <button type="button" onClick={() => setUsername("test1")} className="bg-slate-50 hover:bg-blue-50 hover:text-blue-600 p-2 rounded-xl text-[10px] font-black text-slate-600 transition-colors border border-slate-100">test1 (技術)</button>
+                  <button type="button" onClick={() => setUsername("test2")} className="bg-slate-50 hover:bg-blue-50 hover:text-blue-600 p-2 rounded-xl text-[10px] font-black text-slate-600 transition-colors border border-slate-100">test2 (業務)</button>
+                  <button type="button" onClick={() => setUsername("test3")} className="bg-slate-50 hover:bg-blue-50 hover:text-blue-600 p-2 rounded-xl text-[10px] font-black text-slate-600 transition-colors border border-slate-100">test3 (投資)</button>
                </div>
             </div>
             

@@ -58,7 +58,12 @@ export function InvestorPage() {
       )}
 
       {selectedProperty ? (
-        <InvestorPropertyDetail userId={userId || 1} property={selectedProperty} onBack={() => setSelectedProperty(null)} />
+        <InvestorPropertyDetail 
+          userId={userId || 1} 
+          property={selectedProperty} 
+          userProfile={profile}
+          onBack={() => setSelectedProperty(null)} 
+        />
       ) : (
         <div className="pt-2">
           {investorSubMode === "PORTFOLIO" && <InvestorPortfolio userId={userId || 1} userName={userName} />}

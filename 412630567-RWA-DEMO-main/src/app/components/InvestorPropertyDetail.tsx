@@ -10,10 +10,11 @@ import { PropertyInfoModal } from "./PropertyInfoModal";
 interface PropertyDetailProps {
   userId: number;
   property: any;
+  userProfile?: any;
   onBack: () => void;
 }
 
-export function InvestorPropertyDetail({ userId, property, onBack }: PropertyDetailProps) {
+export function InvestorPropertyDetail({ userId, property, userProfile, onBack }: PropertyDetailProps) {
   const { apiFetch } = useAuth();
   const [vLogs, setVLogs] = useState<any[]>([]);
   const [isLoadingLogs, setIsLoadingLogs] = useState(true);
@@ -104,6 +105,7 @@ export function InvestorPropertyDetail({ userId, property, onBack }: PropertyDet
           <OrderEntryForm 
             userId={userId} 
             property={property} 
+            userProfile={userProfile}
             selectedPrice={selectedOrderPrice} 
             onSuccess={() => setRefreshTrigger(prev => prev + 1)}
           />

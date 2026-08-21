@@ -1014,10 +1014,11 @@ export function AuthView({ onLogin }: AuthViewProps) {
             </div>
             
             <div className="text-center pt-4 border-t border-slate-50">
-               <div className="grid grid-cols-3 gap-2 opacity-60">
-                  <div className="bg-slate-50 p-2 rounded-xl text-[9px] font-black text-slate-500">test1 (技術)</div>
-                  <div className="bg-slate-50 p-2 rounded-xl text-[9px] font-black text-slate-500">test2 (業務)</div>
-                  <div className="bg-slate-50 p-2 rounded-xl text-[9px] font-black text-slate-500">test3 (投資)</div>
+               <div className="text-[10px] text-slate-400 font-bold mb-2 uppercase tracking-wider">快速填入示範帳號</div>
+               <div className="grid grid-cols-3 gap-2">
+                  <button type="button" onClick={() => setUsername("test1")} className="bg-slate-50 hover:bg-blue-50 hover:text-blue-600 p-2 rounded-xl text-[10px] font-black text-slate-600 transition-colors border border-slate-100">test1 (技術)</button>
+                  <button type="button" onClick={() => setUsername("test2")} className="bg-slate-50 hover:bg-blue-50 hover:text-blue-600 p-2 rounded-xl text-[10px] font-black text-slate-600 transition-colors border border-slate-100">test2 (業務)</button>
+                  <button type="button" onClick={() => setUsername("test3")} className="bg-slate-50 hover:bg-blue-50 hover:text-blue-600 p-2 rounded-xl text-[10px] font-black text-slate-600 transition-colors border border-slate-100">test3 (投資)</button>
                </div>
             </div>
             
@@ -2001,10 +2002,11 @@ import { PropertyInfoModal } from "./PropertyInfoModal";
 interface PropertyDetailProps {
   userId: number;
   property: any;
+  userProfile?: any;
   onBack: () => void;
 }
 
-export function InvestorPropertyDetail({ userId, property, onBack }: PropertyDetailProps) {
+export function InvestorPropertyDetail({ userId, property, userProfile, onBack }: PropertyDetailProps) {
   const { apiFetch } = useAuth();
   const [vLogs, setVLogs] = useState<any[]>([]);
   const [isLoadingLogs, setIsLoadingLogs] = useState(true);
@@ -2095,6 +2097,7 @@ export function InvestorPropertyDetail({ userId, property, onBack }: PropertyDet
           <OrderEntryForm 
             userId={userId} 
             property={property} 
+            userProfile={userProfile}
             selectedPrice={selectedOrderPrice} 
             onSuccess={() => setRefreshTrigger(prev => prev + 1)}
           />
@@ -3478,12 +3481,13 @@ import { TransactionSuccessModal } from "./TransactionSuccessModal";
 interface OrderEntryFormProps {
   userId: number;
   property: any;
+  userProfile?: any;
   selectedPrice?: number | null;
   onSuccess?: () => void;
 }
 
-export function OrderEntryForm({ userId, property, selectedPrice, onSuccess }: OrderEntryFormProps) {
-  const { apiFetch, isWhitelisted, kycStatus, refreshProfile } = useAuth();
+export function OrderEntryForm({ userId, property, userProfile, selectedPrice, onSuccess }: OrderEntryFormProps) {
+  const { apiFetch, isWhitelisted, kycStatus, userName, refreshProfile } = useAuth();
   const { isPaused } = useSystemControl(); // 取得系統暫停狀態
   const [orderType, setOrderType] = useState<"market" | "limit">("market");
   const [tokenAmount, setTokenAmount] = useState("");
@@ -3493,12 +3497,35 @@ export function OrderEntryForm({ userId, property, selectedPrice, onSuccess }: O
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [idempotencyKey, setIdempotencyKey] = useState("");
+  const [localProfile, setLocalProfile] = useState<any>(userProfile || null);
+
+  useEffect(() => {
+    if (userProfile) {
+      setLocalProfile(userProfile);
+    }
+  }, [userProfile]);
 
   useEffect(() => {
     refreshProfile?.();
-  }, [refreshProfile]);
+    apiFetch('/api/users/profile/me')
+      .then(res => res.json())
+      .then(data => {
+        if (data && (data.is_whitelisted !== undefined || data.kyc_status)) {
+          setLocalProfile(data);
+        }
+      })
+      .catch(() => {});
+  }, [apiFetch, refreshProfile]);
 
-  const canTrade = isWhitelisted || kycStatus === 'VERIFIED';
+  const isDemoVerified = userName === 'test3' || userName === 'reyliou' || userName === 'test1' || userName === 'test2' || userId === 3 || userId === 4;
+  const effectiveWhitelisted = localProfile?.is_whitelisted !== undefined 
+    ? !!localProfile.is_whitelisted 
+    : (isWhitelisted || isDemoVerified);
+
+  const effectiveKycStatus = localProfile?.kyc_status 
+    || (isDemoVerified ? 'VERIFIED' : kycStatus);
+
+  const canTrade = effectiveWhitelisted || effectiveKycStatus === 'VERIFIED';
 
   // 當使用者在 OrderBook 點擊價格時，自動切換至限價單並填入價格
   useEffect(() => {
@@ -3591,9 +3618,9 @@ export function OrderEntryForm({ userId, property, selectedPrice, onSuccess }: O
             <div className="space-y-0.5">
               <div className="font-black text-xs">帳號尚未開通交易權限</div>
               <p className="text-[11px] text-amber-800 font-medium leading-relaxed">
-                {kycStatus === 'PENDING' 
+                {effectiveKycStatus === 'PENDING' 
                   ? '您的實名證件正在由銀行審核中，審核通過前無法進行下單交易。' 
-                  : kycStatus === 'REJECTED' 
+                  : effectiveKycStatus === 'REJECTED' 
                   ? '您的 KYC 審核未通過，請至帳戶首頁補繳證件。' 
                   : '您尚未提交 KYC 雙證件，請先至首頁完成實名認證。'}
               </p>
@@ -11823,8 +11850,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUserId(user.id);
       setUserName(user.username);
       setAppMode(user.role as AppMode);
-      const isWhite = user.is_whitelisted !== undefined ? !!user.is_whitelisted : false;
-      const kycStat = user.kyc_status || (isWhite ? 'VERIFIED' : 'UNSUBMITTED');
+      const isDemo = user.username === 'test3' || user.username === 'reyliou' || user.username === 'test1' || user.username === 'test2';
+      const isWhite = user.is_whitelisted !== undefined ? !!user.is_whitelisted : isDemo;
+      const kycStat = user.kyc_status || (isWhite || isDemo ? 'VERIFIED' : 'UNSUBMITTED');
       setIsWhitelisted(isWhite);
       setKycStatus(kycStat);
       setIsLoggedIn(true);
@@ -11845,12 +11873,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     userIsWhitelisted?: boolean, 
     userKycStatus?: string
   ) => {
+    const isDemo = name === 'test3' || name === 'reyliou' || name === 'test1' || name === 'test2';
+    const effectiveWhite = userIsWhitelisted !== undefined ? !!userIsWhitelisted : isDemo;
+    const effectiveKyc = userKycStatus || (effectiveWhite ? 'VERIFIED' : 'UNSUBMITTED');
+
     setUserName(name);
     setUserId(dbId);
     setAppMode(mode);
     setToken(jwtToken);
-    setIsWhitelisted(!!userIsWhitelisted);
-    setKycStatus(userKycStatus || 'UNSUBMITTED');
+    setIsWhitelisted(effectiveWhite);
+    setKycStatus(effectiveKyc);
     setIsLoggedIn(true);
     
     // 儲存至 localStorage，實現持久登入
@@ -11859,8 +11891,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       id: dbId, 
       username: name, 
       role: mode,
-      is_whitelisted: !!userIsWhitelisted,
-      kyc_status: userKycStatus || 'UNSUBMITTED'
+      is_whitelisted: effectiveWhite,
+      kyc_status: effectiveKyc
     }));
   };
 
@@ -12297,7 +12329,12 @@ export function InvestorPage() {
       )}
 
       {selectedProperty ? (
-        <InvestorPropertyDetail userId={userId || 1} property={selectedProperty} onBack={() => setSelectedProperty(null)} />
+        <InvestorPropertyDetail 
+          userId={userId || 1} 
+          property={selectedProperty} 
+          userProfile={profile}
+          onBack={() => setSelectedProperty(null)} 
+        />
       ) : (
         <div className="pt-2">
           {investorSubMode === "PORTFOLIO" && <InvestorPortfolio userId={userId || 1} userName={userName} />}
