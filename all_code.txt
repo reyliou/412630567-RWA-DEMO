@@ -2542,6 +2542,7 @@ export function KycResubmitModal({
   const [previewFront, setPreviewFront] = useState<string>("");
   const [previewBack, setPreviewBack] = useState<string>("");
   const [isUploading, setIsUploading] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
   if (!isOpen) return null;
