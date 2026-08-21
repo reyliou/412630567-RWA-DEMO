@@ -1,4 +1,4 @@
-import { Users, Search, MoreVertical, ShieldAlert, ShieldCheck, UserMinus, UserCheck, Mail, Activity, IdCard, X, Key, Lock, Unlock } from "lucide-react";
+import { Users, Search, MoreVertical, ShieldAlert, ShieldCheck, UserMinus, UserCheck, Mail, Activity, IdCard, X, Key, Lock, Unlock, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 
@@ -26,6 +26,10 @@ export function UserManagementCard() {
   const [isRejectFormOpen, setIsRejectFormOpen] = useState(false);
   const [customRejectReason, setCustomRejectReason] = useState("身分證反面照片模糊，請重新拍攝補繳");
   const [actionFeedback, setActionFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [isDecrypting, setIsDecrypting] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
+  const [isRejecting, setIsRejecting] = useState(false);
+  const [isUpdatingStatusId, setIsUpdatingStatusId] = useState<string | null>(null);
 
   const closeKycModal = () => {
     setKycUser(null);
@@ -67,9 +71,10 @@ export function UserManagementCard() {
 
   const toggleStatus = async (id: string) => {
     const user = users.find(u => u.id === id);
-    if (!user) return;
+    if (!user || isUpdatingStatusId) return;
 
     const newWhitelisted = user.status === "Blacklisted";
+    setIsUpdatingStatusId(id);
     
     try {
       // 呼叫後端 API 進行真實更新，這會觸發 ISO 合規日誌
@@ -97,9 +102,11 @@ export function UserManagementCard() {
         );
       }
     } catch (e) {
-      alert("資料庫更新失敗");
+      console.error("資料庫更新失敗");
+    } finally {
+      setIsUpdatingStatusId(null);
+      setOpenMenuMenuId(null);
     }
-    setOpenMenuMenuId(null);
   };
 
   const getTxStatusBadge = (status: UserData["txStatus"]) => {
@@ -279,38 +286,56 @@ export function UserManagementCard() {
                      className="w-full pl-12 pr-4 py-3 rounded-2xl border border-slate-200 text-sm font-black focus:ring-4 focus:ring-blue-500/20 outline-none transition-all"
                    />
                  </div>
-                 <button 
-                   onClick={async () => {
-                     try {
-                       // 【安全考量】絕對不能在前端寫死資料庫密碼！
-                       // 專題 Demo 邏輯：呼叫後端 API 進行真實的密鑰驗證與解密
-                       // 這是 100% 真實的全端系統驗證，密鑰不會寫死在前端，並會在資料庫留下 Security Audit Log
-                       const response = await apiFetch(`/api/kyc/${kycUser?.id}/decrypt`, {
-                         method: 'POST',
-                         headers: { 'Content-Type': 'application/json' },
-                         body: JSON.stringify({ adminKey: decryptionKey })
-                       });
-                       
-                       if (response.ok) {
-                         const data = await response.json();
-                         if (data.frontIdUrl) setFrontImageUrl(data.frontIdUrl);
-                         if (data.backIdUrl) setBackImageUrl(data.backIdUrl);
-                         setIsDecrypted(true);
-                         setDecryptionError("");
-                       } else {
-                         setIsDecrypted(false);
-                         setDecryptionError("資料庫密鑰錯誤，解密失敗！");
-                       }
-                     } catch (e) {
-                       setIsDecrypted(false);
-                       setDecryptionError("無法連線至加密伺服器");
-                     }
-                   }}
-                   className={`px-6 py-3 text-white rounded-2xl text-sm font-black shadow-lg transition-all whitespace-nowrap flex items-center gap-2 ${isDecrypted ? 'bg-green-500 shadow-green-500/20' : 'bg-slate-800 hover:bg-slate-700 shadow-slate-800/20'}`}
-                 >
-                   {isDecrypted ? <><Unlock className="w-4 h-4"/> 已解密</> : <><Lock className="w-4 h-4"/> 解密影像</>}
-                 </button>
-               </div>
+                  <button 
+                    type="button"
+                    disabled={isDecrypting || isDecrypted || !decryptionKey.trim()}
+                    onClick={async () => {
+                      if (isDecrypting || isDecrypted || !decryptionKey.trim()) return;
+                      setIsDecrypting(true);
+                      setDecryptionError("");
+                      try {
+                        const response = await apiFetch(`/api/kyc/${kycUser?.id}/decrypt`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ adminKey: decryptionKey })
+                        });
+                        
+                        if (response.ok) {
+                          const data = await response.json();
+                          if (data.frontIdUrl) setFrontImageUrl(data.frontIdUrl);
+                          if (data.backIdUrl) setBackImageUrl(data.backIdUrl);
+                          setIsDecrypted(true);
+                          setDecryptionError("");
+                        } else {
+                          setIsDecrypted(false);
+                          setDecryptionError("資料庫密鑰錯誤，解密失敗！");
+                        }
+                      } catch (e) {
+                        setIsDecrypted(false);
+                        setDecryptionError("無法連線至加密伺服器");
+                      } finally {
+                        setIsDecrypting(false);
+                      }
+                    }}
+                    className={`px-6 py-3 text-white rounded-2xl text-sm font-black shadow-lg transition-all whitespace-nowrap flex items-center gap-2 ${
+                      isDecrypting 
+                        ? 'bg-slate-700 opacity-80 cursor-wait' 
+                        : isDecrypted 
+                        ? 'bg-green-500 shadow-green-500/20' 
+                        : !decryptionKey.trim()
+                        ? 'bg-slate-300 cursor-not-allowed shadow-none'
+                        : 'bg-slate-800 hover:bg-slate-700 shadow-slate-800/20 active:scale-95'
+                    }`}
+                  >
+                    {isDecrypting ? (
+                      <><Loader2 className="w-4 h-4 animate-spin" /> 解密中...</>
+                    ) : isDecrypted ? (
+                      <><Unlock className="w-4 h-4"/> 已解密</>
+                    ) : (
+                      <><Lock className="w-4 h-4"/> 解密影像</>
+                    )}
+                  </button>
+                </div>
                {decryptionError && <div className="text-red-500 text-sm font-bold flex items-center gap-2 animate-in slide-in-from-right-2"><ShieldAlert className="w-5 h-5"/>{decryptionError}</div>}
             </div>
 
@@ -415,7 +440,10 @@ export function UserManagementCard() {
                   </button>
                   <button
                     type="button"
+                    disabled={isRejecting || isApproving}
                     onClick={async () => {
+                      if (isRejecting || isApproving) return;
+                      setIsRejecting(true);
                       try {
                         const res = await apiFetch(`/api/users/${kycUser.id}/kyc/reject`, {
                           method: 'PATCH',
@@ -435,21 +463,31 @@ export function UserManagementCard() {
                         }
                       } catch (e) {
                         setActionFeedback({ type: 'error', message: '連線伺服器失敗' });
+                      } finally {
+                        setIsRejecting(false);
                       }
                     }}
-                    className="px-6 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-black shadow-lg shadow-amber-600/20 flex items-center gap-2"
+                    className="px-6 py-2.5 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-xs font-black shadow-lg shadow-amber-600/20 flex items-center gap-2 transition-all active:scale-95"
                   >
-                    <X className="w-4 h-4" /> 確認駁回退件
+                    {isRejecting ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
+                    {isRejecting ? "正在提交退件..." : "確認駁回退件"}
                   </button>
                 </div>
               </div>
             ) : (
               <div className="px-8 py-6 bg-white border-t border-slate-100 flex items-center justify-between gap-4 relative z-20">
-                <button onClick={closeKycModal} className="px-6 py-3 rounded-2xl text-sm font-black text-slate-500 hover:bg-slate-100 transition-colors">取消</button>
+                <button 
+                  disabled={isApproving || isRejecting}
+                  onClick={closeKycModal} 
+                  className="px-6 py-3 rounded-2xl text-sm font-black text-slate-500 hover:bg-slate-100 disabled:opacity-40 transition-colors"
+                >
+                  取消
+                </button>
                 
                 <div className="flex items-center gap-3">
                   {/* 駁回 / 退件需補件按鈕 */}
                   <button
+                    disabled={!isDecrypted || isApproving || isRejecting}
                     onClick={() => {
                       if (!isDecrypted) {
                         setDecryptionError("請先解密影像再進行審核！");
@@ -457,18 +495,25 @@ export function UserManagementCard() {
                       }
                       setIsRejectFormOpen(true);
                     }}
-                    className={`px-6 py-3 rounded-2xl text-sm font-black text-white shadow-lg transition-all flex items-center gap-2 ${!isDecrypted ? 'bg-slate-300 cursor-not-allowed shadow-none' : 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/20'}`}
+                    className={`px-6 py-3 rounded-2xl text-sm font-black text-white shadow-lg transition-all flex items-center gap-2 ${
+                      !isDecrypted || isApproving || isRejecting 
+                        ? 'bg-slate-300 cursor-not-allowed shadow-none' 
+                        : 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/20 active:scale-95'
+                    }`}
                   >
                     <X className="w-4 h-4" /> 駁回 (要求補件)
                   </button>
 
                   {/* 核准認證按鈕 */}
                   <button 
+                    disabled={!isDecrypted || isApproving || isRejecting}
                     onClick={async () => {
                       if (!isDecrypted) {
                         setDecryptionError("請先解密影像再進行審核！");
                         return;
                       }
+                      if (isApproving || isRejecting) return;
+                      setIsApproving(true);
                       try {
                         const res = await apiFetch(`/api/users/${kycUser.id}/kyc`, { method: 'PATCH' });
                         if (res.ok) {
@@ -485,11 +530,21 @@ export function UserManagementCard() {
                       } catch (e) {
                         toggleStatus(kycUser.id);
                         closeKycModal();
+                      } finally {
+                        setIsApproving(false);
                       }
                     }}
-                    className={`px-8 py-3 rounded-2xl text-sm font-black text-white shadow-lg transition-all flex items-center gap-2 ${!isDecrypted ? 'bg-slate-300 cursor-not-allowed shadow-none' : kycUser.status === 'Whitelisted' ? 'bg-red-500 hover:bg-red-600 shadow-red-500/20' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-600/20'}`}
+                    className={`px-8 py-3 rounded-2xl text-sm font-black text-white shadow-lg transition-all flex items-center gap-2 ${
+                      !isDecrypted || isApproving || isRejecting 
+                        ? 'bg-slate-300 cursor-not-allowed shadow-none' 
+                        : kycUser.status === 'Whitelisted' 
+                        ? 'bg-red-500 hover:bg-red-600 shadow-red-500/20 active:scale-95' 
+                        : 'bg-blue-600 hover:bg-blue-700 shadow-blue-600/20 active:scale-95'
+                    }`}
                   >
-                    {!isDecrypted ? (
+                    {isApproving ? (
+                      <><Loader2 className="w-4 h-4 animate-spin" /> 正在處理鏈上 KYC...</>
+                    ) : !isDecrypted ? (
                       <><Lock className="w-4 h-4" /> 鎖定中</>
                     ) : kycUser.status === 'Whitelisted' ? (
                       <><ShieldAlert className="w-4 h-4" /> 撤銷認證 (設為黑名單)</>
