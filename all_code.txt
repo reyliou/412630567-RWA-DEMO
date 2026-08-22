@@ -11351,7 +11351,7 @@ export function cn(...inputs: ClassValue[]) {
 File: 412630567-RWA-DEMO-main\src\app\components\UserManagementCard.tsx
 ================================================================
 
-import { Users, Search, MoreVertical, ShieldAlert, ShieldCheck, UserMinus, UserCheck, Mail, Activity, IdCard, X, Key, Lock, Unlock, Loader2 } from "lucide-react";
+import { Users, Search, MoreVertical, ShieldAlert, ShieldCheck, UserMinus, UserCheck, Mail, Activity, IdCard, X, Key, Lock, Unlock, Loader2, Filter, RotateCcw } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 
@@ -11383,6 +11383,11 @@ export function UserManagementCard() {
   const [isApproving, setIsApproving] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
   const [isUpdatingStatusId, setIsUpdatingStatusId] = useState<string | null>(null);
+
+  // 業務員篩選器 State
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "PENDING" | "VERIFIED" | "REJECTED" | "UNSUBMITTED">("ALL");
+  const [whitelistFilter, setWhitelistFilter] = useState<"ALL" | "WHITELISTED" | "BLACKLISTED">("ALL");
 
   const closeKycModal = () => {
     setKycUser(null);
@@ -11473,21 +11478,193 @@ export function UserManagementCard() {
     }
   };
 
+  // 各狀態統計計數
+  const counts = {
+    all: users.length,
+    pending: users.filter((u) => u.kycStatus === "PENDING").length,
+    verified: users.filter((u) => u.kycStatus === "VERIFIED").length,
+    rejected: users.filter((u) => u.kycStatus === "REJECTED").length,
+    unsubmitted: users.filter((u) => u.kycStatus === "UNSUBMITTED").length,
+  };
+
+  // 複合條件篩選邏輯
+  const filteredUsers = users.filter((u) => {
+    const matchSearch =
+      !searchTerm.trim() ||
+      u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      u.id.includes(searchTerm);
+
+    const matchKyc =
+      statusFilter === "ALL" || u.kycStatus === statusFilter;
+
+    const matchWhitelist =
+      whitelistFilter === "ALL" ||
+      (whitelistFilter === "WHITELISTED" && u.status === "Whitelisted") ||
+      (whitelistFilter === "BLACKLISTED" && u.status === "Blacklisted");
+
+    return matchSearch && matchKyc && matchWhitelist;
+  });
+
   return (
     <div className="bg-white border border-border rounded-[2.5rem] shadow-sm flex flex-col transition-all duration-500 ring-1 ring-slate-100 relative">
-      <div className="p-8 border-b border-border bg-slate-50 flex items-center justify-between rounded-t-[2.5rem]">
-        <h3 className="font-black flex items-center gap-3 text-slate-800 text-xl uppercase tracking-tight">
-          <Users className="w-8 h-8 text-blue-600" />
-          KYC 已認證用戶註冊表
-        </h3>
-        <div className="relative group">
-          <Search className="absolute left-4 top-3.5 w-5 h-5 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
-          <input 
-            type="text" 
-            placeholder="搜尋用戶姓名或 Email..." 
-            className="pl-12 pr-6 py-3 bg-white border border-slate-200 rounded-2xl text-sm outline-none focus:ring-4 focus:ring-blue-600/10 transition-all font-black text-slate-700 w-80 shadow-sm"
-          />
+      {/* 頂部 Header & 搜尋列 */}
+      <div className="p-8 border-b border-border bg-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-t-[2.5rem]">
+        <div>
+          <h3 className="font-black flex items-center gap-3 text-slate-800 text-xl uppercase tracking-tight">
+            <Users className="w-8 h-8 text-blue-600" />
+            KYC 已認證用戶註冊表
+          </h3>
+          <p className="text-xs font-bold text-slate-400 mt-1">
+            共 {counts.all} 位用戶
+            {counts.pending > 0 && (
+              <span className="text-amber-600 font-black ml-2 animate-pulse">
+                • ⚠️ 尚有 {counts.pending} 位待審核 KYC
+              </span>
+            )}
+          </p>
         </div>
+
+        <div className="flex items-center gap-3">
+          {/* 即時搜尋框 */}
+          <div className="relative group">
+            <Search className="absolute left-4 top-3.5 w-5 h-5 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
+            <input 
+              type="text" 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="搜尋用戶姓名、Email 或 ID..." 
+              className="pl-12 pr-10 py-3 bg-white border border-slate-200 rounded-2xl text-sm outline-none focus:ring-4 focus:ring-blue-600/10 transition-all font-black text-slate-700 w-72 shadow-sm"
+            />
+            {searchTerm && (
+              <button 
+                onClick={() => setSearchTerm("")}
+                className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          {/* 白名單篩選 Dropdown */}
+          <div className="relative">
+            <select
+              value={whitelistFilter}
+              onChange={(e) => setWhitelistFilter(e.target.value as any)}
+              className="px-4 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-black text-slate-700 outline-none focus:ring-4 focus:ring-blue-600/10 shadow-sm cursor-pointer"
+            >
+              <option value="ALL">全部權限</option>
+              <option value="WHITELISTED">● 白名單正常</option>
+              <option value="BLACKLISTED">○ 黑名單/未授權</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* 快捷狀態篩選 Tabs */}
+      <div className="px-8 py-3.5 bg-white border-b border-slate-100 flex items-center justify-between gap-4 overflow-x-auto">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-black text-slate-400 uppercase tracking-widest mr-2 flex items-center gap-1.5 shrink-0">
+            <Filter className="w-3.5 h-3.5" /> 篩選狀態：
+          </span>
+
+          {/* 全部 */}
+          <button
+            onClick={() => setStatusFilter("ALL")}
+            className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 shrink-0 ${
+              statusFilter === "ALL"
+                ? "bg-slate-800 text-white shadow-md"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+            }`}
+          >
+            全部
+            <span className={`px-2 py-0.5 rounded-full text-[10px] ${statusFilter === "ALL" ? "bg-slate-700 text-white" : "bg-slate-200 text-slate-600"}`}>
+              {counts.all}
+            </span>
+          </button>
+
+          {/* 待審核 (PENDING) */}
+          <button
+            onClick={() => setStatusFilter("PENDING")}
+            className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 shrink-0 ${
+              statusFilter === "PENDING"
+                ? "bg-amber-600 text-white shadow-md shadow-amber-600/20"
+                : counts.pending > 0
+                ? "bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+            }`}
+          >
+            ⏳ 待審核
+            <span className={`px-2 py-0.5 rounded-full text-[10px] ${
+              statusFilter === "PENDING" 
+                ? "bg-amber-700 text-white" 
+                : counts.pending > 0 
+                ? "bg-amber-200 text-amber-900 animate-pulse font-black" 
+                : "bg-slate-200 text-slate-600"
+            }`}>
+              {counts.pending}
+            </span>
+          </button>
+
+          {/* 已通過 (VERIFIED) */}
+          <button
+            onClick={() => setStatusFilter("VERIFIED")}
+            className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 shrink-0 ${
+              statusFilter === "VERIFIED"
+                ? "bg-green-600 text-white shadow-md shadow-green-600/20"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+            }`}
+          >
+            ✅ 已通過
+            <span className={`px-2 py-0.5 rounded-full text-[10px] ${statusFilter === "VERIFIED" ? "bg-green-700 text-white" : "bg-slate-200 text-slate-600"}`}>
+              {counts.verified}
+            </span>
+          </button>
+
+          {/* 已退件 (REJECTED) */}
+          <button
+            onClick={() => setStatusFilter("REJECTED")}
+            className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 shrink-0 ${
+              statusFilter === "REJECTED"
+                ? "bg-red-600 text-white shadow-md shadow-red-600/20"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+            }`}
+          >
+            ❌ 已退件
+            <span className={`px-2 py-0.5 rounded-full text-[10px] ${statusFilter === "REJECTED" ? "bg-red-700 text-white" : "bg-slate-200 text-slate-600"}`}>
+              {counts.rejected}
+            </span>
+          </button>
+
+          {/* 未提交 (UNSUBMITTED) */}
+          <button
+            onClick={() => setStatusFilter("UNSUBMITTED")}
+            className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 shrink-0 ${
+              statusFilter === "UNSUBMITTED"
+                ? "bg-slate-600 text-white shadow-md"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+            }`}
+          >
+            ⚪ 未提交
+            <span className={`px-2 py-0.5 rounded-full text-[10px] ${statusFilter === "UNSUBMITTED" ? "bg-slate-700 text-white" : "bg-slate-200 text-slate-600"}`}>
+              {counts.unsubmitted}
+            </span>
+          </button>
+        </div>
+
+        {/* 重設條件按鈕 */}
+        {(statusFilter !== "ALL" || whitelistFilter !== "ALL" || searchTerm.trim()) && (
+          <button
+            onClick={() => {
+              setStatusFilter("ALL");
+              setWhitelistFilter("ALL");
+              setSearchTerm("");
+            }}
+            className="text-xs font-black text-slate-400 hover:text-blue-600 flex items-center gap-1.5 shrink-0 transition-colors"
+          >
+            <RotateCcw className="w-3.5 h-3.5" /> 重設篩選
+          </button>
+        )}
       </div>
 
       <div className="overflow-visible"> {/* 關鍵修正：改為 overflow-visible 避免遮擋選單 */}
@@ -11503,7 +11680,29 @@ export function UserManagementCard() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {users.map((user) => (
+            {filteredUsers.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-8 py-16 text-center text-slate-400">
+                  <div className="flex flex-col items-center justify-center space-y-3">
+                    <Filter className="w-10 h-10 opacity-30 text-slate-400" />
+                    <p className="font-black text-base text-slate-600">沒有符合篩選條件的用戶</p>
+                    <p className="text-xs font-bold text-slate-400">請嘗試更換搜尋關鍵字或點擊重設篩選條件</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStatusFilter("ALL");
+                        setWhitelistFilter("ALL");
+                        setSearchTerm("");
+                      }}
+                      className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-black transition-all mt-2"
+                    >
+                      清除所有篩選條件
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ) : (
+              filteredUsers.map((user) => (
               <tr key={user.id} className="hover:bg-slate-50/80 transition-all group">
                 <td className="px-8 py-8 font-mono text-xs font-black text-slate-400 uppercase">{user.id}</td>
                 <td className="px-8 py-8">
@@ -11595,14 +11794,20 @@ export function UserManagementCard() {
                   )}
                 </td>
               </tr>
-            ))}
+            )))}
           </tbody>
         </table>
       </div>
       
-      <div className="p-6 bg-slate-50/50 border-t border-border rounded-b-[2.5rem] text-center">
-         <button className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] hover:text-blue-600 transition-colors">
-            End of User Registry
+      <div className="p-6 bg-slate-50/50 border-t border-border rounded-b-[2.5rem] flex items-center justify-between px-8 text-xs font-black text-slate-400">
+         <span>
+           顯示 {filteredUsers.length} / 共 {counts.all} 位用戶
+         </span>
+         <button 
+           onClick={() => loadUsers()} 
+           className="uppercase tracking-[0.2em] hover:text-blue-600 transition-colors flex items-center gap-1.5"
+         >
+           <RotateCcw className="w-3.5 h-3.5" /> 重新整理數據
          </button>
       </div>
 
