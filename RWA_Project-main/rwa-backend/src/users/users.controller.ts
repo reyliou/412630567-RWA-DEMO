@@ -1,5 +1,6 @@
 import { Controller, Get, Patch, Post, Param, Body, UseGuards, Request, ForbiddenException, UseInterceptors, UploadedFiles } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { UsersService } from './users.service';
 
@@ -63,6 +64,7 @@ export class UsersController {
     );
   }
 
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 1分鐘最多嘗試解密5次，防止密鑰暴力爆破
   @Post('kyc/:id/decrypt')
   decryptKyc(
     @Request() req: any,

@@ -15,6 +15,7 @@ export class AuthController {
     return this.authService.login(body.username, body.password);
   }
 
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post('register')
   @UseInterceptors(FileFieldsInterceptor([
     { name: 'kyc_document', maxCount: 1 },
