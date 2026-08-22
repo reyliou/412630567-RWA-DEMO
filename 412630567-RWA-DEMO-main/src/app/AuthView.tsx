@@ -95,12 +95,30 @@ export function AuthView({ onLogin }: AuthViewProps) {
     }
   };
 
+  const validateAuthFile = (file: File, label: string) => {
+    const allowed = ['.jpg', '.jpeg', '.png'];
+    const ext = '.' + (file.name.split('.').pop()?.toLowerCase() || '');
+    if (!allowed.includes(ext)) {
+      return `${label}副檔名不合法 (${ext || '未知'})，僅接受 JPG 或 PNG 圖檔！`;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      return `${label}檔案大小 (${(file.size / 1024 / 1024).toFixed(1)}MB) 超過 5MB 上限！`;
+    }
+    return null;
+  };
+
   const handleKycUpload = async () => {
     setAuthNotice(null);
     if (!kycFileFront || !kycFileBack) {
       setAuthNotice({ text: "請完整上傳身分證正反面照片！", type: "error" });
       return;
     }
+
+    const frontErr = validateAuthFile(kycFileFront, "身分證正面");
+    if (frontErr) { setAuthNotice({ text: frontErr, type: "error" }); return; }
+    const backErr = validateAuthFile(kycFileBack, "身分證反面");
+    if (backErr) { setAuthNotice({ text: backErr, type: "error" }); return; }
+
     setIsUploading(true);
     try {
       const formData = new FormData();
@@ -314,24 +332,50 @@ export function AuthView({ onLogin }: AuthViewProps) {
                 <div className="text-center"><h3 className="text-3xl font-black text-slate-800">證件影像上傳</h3><p className="text-xs text-slate-400 mt-2 font-bold uppercase tracking-widest">Step 2: ID Verification</p></div>
                 <div className="grid grid-cols-2 gap-6">
                   <label className="relative aspect-square bg-slate-50 border-2 border-dashed border-slate-200 rounded-[2.5rem] flex flex-col items-center justify-center p-6 group hover:bg-blue-50 cursor-pointer transition-all overflow-hidden">
-                    <input type="file" accept=".jpg,.jpeg" onChange={(e) => { if(e.target.files && e.target.files[0]) setKycFileFront(e.target.files[0]) }} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
+                    <input 
+                      type="file" 
+                      accept=".jpg,.jpeg,.png,image/jpeg,image/png" 
+                      onChange={(e) => { 
+                        if (e.target.files && e.target.files[0]) {
+                          const file = e.target.files[0];
+                          const err = validateAuthFile(file, "身分證正面");
+                          if (err) { setAuthNotice({ text: err, type: "error" }); return; }
+                          setKycFileFront(file);
+                          setAuthNotice(null);
+                        } 
+                      }} 
+                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" 
+                    />
                     {kycFileFront ? (
                       <div className="text-center"><CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-2" /><span className="text-xs font-bold text-slate-700">{kycFileFront.name}</span></div>
                     ) : (
                       <>
                         <div className="w-16 h-14 bg-white rounded-2xl flex items-center justify-center shadow-sm mb-4 group-hover:scale-110 transition-transform"><FileText className="w-8 h-8 text-blue-500" /></div>
-                        <span className="text-[10px] font-black text-slate-800">身分證正面</span><span className="text-[8px] font-bold text-blue-400 uppercase mt-1">.JPG ONLY</span>
+                        <span className="text-[10px] font-black text-slate-800">身分證正面</span><span className="text-[8px] font-bold text-blue-400 uppercase mt-1">.JPG / .PNG (MAX 5MB)</span>
                       </>
                     )}
                   </label>
                   <label className="relative aspect-square bg-slate-50 border-2 border-dashed border-slate-200 rounded-[2.5rem] flex flex-col items-center justify-center p-6 group hover:bg-blue-50 cursor-pointer transition-all overflow-hidden">
-                    <input type="file" accept=".jpg,.jpeg" onChange={(e) => { if(e.target.files && e.target.files[0]) setKycFileBack(e.target.files[0]) }} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
+                    <input 
+                      type="file" 
+                      accept=".jpg,.jpeg,.png,image/jpeg,image/png" 
+                      onChange={(e) => { 
+                        if (e.target.files && e.target.files[0]) {
+                          const file = e.target.files[0];
+                          const err = validateAuthFile(file, "身分證反面");
+                          if (err) { setAuthNotice({ text: err, type: "error" }); return; }
+                          setKycFileBack(file);
+                          setAuthNotice(null);
+                        } 
+                      }} 
+                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" 
+                    />
                     {kycFileBack ? (
                       <div className="text-center"><CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-2" /><span className="text-xs font-bold text-slate-700">{kycFileBack.name}</span></div>
                     ) : (
                       <>
                         <div className="w-16 h-14 bg-white rounded-2xl flex items-center justify-center shadow-sm mb-4 group-hover:scale-110 transition-transform"><FileText className="w-8 h-8 text-blue-500" /></div>
-                        <span className="text-[10px] font-black text-slate-800">身分證背面</span><span className="text-[8px] font-bold text-blue-400 uppercase mt-1">.JPG ONLY</span>
+                        <span className="text-[10px] font-black text-slate-800">身分證背面</span><span className="text-[8px] font-bold text-blue-400 uppercase mt-1">.JPG / .PNG (MAX 5MB)</span>
                       </>
                     )}
                   </label>

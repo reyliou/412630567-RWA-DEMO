@@ -11,6 +11,7 @@ import { User } from '../entities/user.entity';
 import { Role } from '../entities/role.entity';
 
 import { encryptBuffer, encryptString } from '../utils/crypto.util';
+import { validateAndSanitizeKycFile } from '../utils/file-validation.util';
 
 @Injectable()
 export class AuthService {
@@ -70,7 +71,7 @@ export class AuthService {
     if (exists) throw new ConflictException('帳號或 Email 已被使用');
 
     const investorRole = await this.roleRepo.findOne({ where: { role_name: 'INVESTOR' } });
-    if (!investorRole) throw new Error('系統尚未初始化角色，請稍後再試');
+    if (!investorRole) throw new NotFoundException('找不到 INVESTOR 角色');
 
     const wallet = ethers.Wallet.createRandom();
     const passwordHash = await bcrypt.hash(password, 10);
@@ -78,26 +79,27 @@ export class AuthService {
     let kyc_document_path: string | undefined = undefined;
     let kyc_document_back_path: string | undefined = undefined;
 
-    const uploadEncrypted = async (fileToUpload: Express.Multer.File, suffix: string) => {
-      const fileName = `kyc_${username}_${suffix}_${Date.now()}.jpg`;
+    const uploadEncrypted = async (fileToUpload: Express.Multer.File, suffix: 'front' | 'back') => {
+      // 1. 副檔名白名單 2. Magic Bytes 真實圖檔檢驗 3. 單檔大小限制 (5MB) 4. 伺服器重新產生安全檔名
+      const { sanitizedFileName, format } = validateAndSanitizeKycFile(fileToUpload, username, suffix);
       const encryptedBuffer = encryptBuffer(fileToUpload.buffer);
       
       try {
         const { data, error } = await this.supabase.storage
           .from('kyc-documents')
-          .upload(fileName, encryptedBuffer, {
-            contentType: fileToUpload.mimetype,
+          .upload(sanitizedFileName, encryptedBuffer, {
+            contentType: format === 'png' ? 'image/png' : 'image/jpeg',
             upsert: true,
           });
         
         if (error) {
           console.warn(`KYC Supabase Storage upload warning (${suffix}): ${error.message}. Using fallback storage.`);
-          return `local_storage/${fileName}`;
+          return `local_storage/${sanitizedFileName}`;
         }
         return data.path;
       } catch (err: any) {
         console.warn(`KYC Upload fallback (${suffix}): ${err.message}`);
-        return `local_storage/${fileName}`;
+        return `local_storage/${sanitizedFileName}`;
       }
     };
 

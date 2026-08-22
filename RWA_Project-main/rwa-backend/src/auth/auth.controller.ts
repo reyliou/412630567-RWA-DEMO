@@ -19,7 +19,9 @@ export class AuthController {
   @UseInterceptors(FileFieldsInterceptor([
     { name: 'kyc_document', maxCount: 1 },
     { name: 'kyc_document_back', maxCount: 1 }
-  ]))
+  ], {
+    limits: { fileSize: 5 * 1024 * 1024 } // 5MB 單檔上限
+  }))
   register(
     @Body() body: any,
     @UploadedFiles() files: { kyc_document?: Express.Multer.File[], kyc_document_back?: Express.Multer.File[] }

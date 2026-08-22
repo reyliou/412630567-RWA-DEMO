@@ -27,11 +27,28 @@ export function KycResubmitModal({
   const [isSuccess, setIsSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
-  if (!isOpen) return null;
+  const ALLOWED_EXT = ['.jpg', '.jpeg', '.png'];
+  const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+
+  const validateFile = (file: File, label: string) => {
+    const ext = '.' + (file.name.split('.').pop()?.toLowerCase() || '');
+    if (!ALLOWED_EXT.includes(ext)) {
+      return `${label}副檔名不合法 (${ext || '未知'})，僅接受 JPG 或 PNG 圖檔！`;
+    }
+    if (file.size > MAX_SIZE) {
+      return `${label}檔案大小 (${(file.size / 1024 / 1024).toFixed(1)}MB) 超過 5MB 上限！`;
+    }
+    return null;
+  };
 
   const handleFrontChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+      const err = validateFile(file, "身分證正面");
+      if (err) {
+        setErrorMsg(err);
+        return;
+      }
       setFileFront(file);
       setPreviewFront(URL.createObjectURL(file));
       setErrorMsg("");
@@ -41,6 +58,11 @@ export function KycResubmitModal({
   const handleBackChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+      const err = validateFile(file, "身分證反面");
+      if (err) {
+        setErrorMsg(err);
+        return;
+      }
       setFileBack(file);
       setPreviewBack(URL.createObjectURL(file));
       setErrorMsg("");
@@ -53,6 +75,11 @@ export function KycResubmitModal({
       setErrorMsg("請完整上傳身分證正面與反面兩張照片！");
       return;
     }
+
+    const frontErr = validateFile(fileFront, "身分證正面");
+    if (frontErr) { setErrorMsg(frontErr); return; }
+    const backErr = validateFile(fileBack, "身分證反面");
+    if (backErr) { setErrorMsg(backErr); return; }
 
     setIsUploading(true);
     setErrorMsg("");

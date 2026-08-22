@@ -9,6 +9,7 @@ import { SystemAlert } from '../entities/system-alert.entity';
 import { UserNotification } from '../entities/notification.entity';
 import { BlockchainService } from '../blockchain/blockchain.service';
 import { encryptBuffer } from '../utils/crypto.util';
+import { validateAndSanitizeKycFile } from '../utils/file-validation.util';
 
 const rawEncryptionKey = process.env.IMAGE_ENCRYPTION_KEY || 'DEFAULT_RWA_SECRET_KEY_FOR_DEMO';
 const ENCRYPTION_KEY = Buffer.byteLength(rawEncryptionKey, 'utf-8') === 32
@@ -197,26 +198,27 @@ export class UsersService {
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException('找不到此用戶');
 
-    const uploadEncrypted = async (fileToUpload: Express.Multer.File, suffix: string) => {
-      const fileName = `kyc_${user.username}_${suffix}_${Date.now()}.jpg`;
+    const uploadEncrypted = async (fileToUpload: Express.Multer.File, suffix: 'front' | 'back') => {
+      // 1. 副檔名白名單 2. Magic Bytes 真實圖檔檢驗 3. 單檔大小限制 (5MB) 4. 伺服器重新產生安全檔名
+      const { sanitizedFileName, format } = validateAndSanitizeKycFile(fileToUpload, user.username, suffix);
       const encryptedBuffer = encryptBuffer(fileToUpload.buffer);
       
       try {
         const { data, error } = await this.supabase.storage
           .from('kyc-documents')
-          .upload(fileName, encryptedBuffer, {
-            contentType: fileToUpload.mimetype,
+          .upload(sanitizedFileName, encryptedBuffer, {
+            contentType: format === 'png' ? 'image/png' : 'image/jpeg',
             upsert: true,
           });
         
         if (error) {
           this.logger.warn(`KYC Resubmit Supabase Storage upload warning (${suffix}): ${error.message}. Using fallback storage.`);
-          return `local_storage/${fileName}`;
+          return `local_storage/${sanitizedFileName}`;
         }
         return data.path;
       } catch (err: any) {
         this.logger.warn(`KYC Resubmit Upload fallback (${suffix}): ${err.message}`);
-        return `local_storage/${fileName}`;
+        return `local_storage/${sanitizedFileName}`;
       }
     };
 

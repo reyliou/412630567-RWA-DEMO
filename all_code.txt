@@ -875,12 +875,30 @@ export function AuthView({ onLogin }: AuthViewProps) {
     }
   };
 
+  const validateAuthFile = (file: File, label: string) => {
+    const allowed = ['.jpg', '.jpeg', '.png'];
+    const ext = '.' + (file.name.split('.').pop()?.toLowerCase() || '');
+    if (!allowed.includes(ext)) {
+      return `${label}副檔名不合法 (${ext || '未知'})，僅接受 JPG 或 PNG 圖檔！`;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      return `${label}檔案大小 (${(file.size / 1024 / 1024).toFixed(1)}MB) 超過 5MB 上限！`;
+    }
+    return null;
+  };
+
   const handleKycUpload = async () => {
     setAuthNotice(null);
     if (!kycFileFront || !kycFileBack) {
       setAuthNotice({ text: "請完整上傳身分證正反面照片！", type: "error" });
       return;
     }
+
+    const frontErr = validateAuthFile(kycFileFront, "身分證正面");
+    if (frontErr) { setAuthNotice({ text: frontErr, type: "error" }); return; }
+    const backErr = validateAuthFile(kycFileBack, "身分證反面");
+    if (backErr) { setAuthNotice({ text: backErr, type: "error" }); return; }
+
     setIsUploading(true);
     try {
       const formData = new FormData();
@@ -1094,24 +1112,50 @@ export function AuthView({ onLogin }: AuthViewProps) {
                 <div className="text-center"><h3 className="text-3xl font-black text-slate-800">證件影像上傳</h3><p className="text-xs text-slate-400 mt-2 font-bold uppercase tracking-widest">Step 2: ID Verification</p></div>
                 <div className="grid grid-cols-2 gap-6">
                   <label className="relative aspect-square bg-slate-50 border-2 border-dashed border-slate-200 rounded-[2.5rem] flex flex-col items-center justify-center p-6 group hover:bg-blue-50 cursor-pointer transition-all overflow-hidden">
-                    <input type="file" accept=".jpg,.jpeg" onChange={(e) => { if(e.target.files && e.target.files[0]) setKycFileFront(e.target.files[0]) }} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
+                    <input 
+                      type="file" 
+                      accept=".jpg,.jpeg,.png,image/jpeg,image/png" 
+                      onChange={(e) => { 
+                        if (e.target.files && e.target.files[0]) {
+                          const file = e.target.files[0];
+                          const err = validateAuthFile(file, "身分證正面");
+                          if (err) { setAuthNotice({ text: err, type: "error" }); return; }
+                          setKycFileFront(file);
+                          setAuthNotice(null);
+                        } 
+                      }} 
+                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" 
+                    />
                     {kycFileFront ? (
                       <div className="text-center"><CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-2" /><span className="text-xs font-bold text-slate-700">{kycFileFront.name}</span></div>
                     ) : (
                       <>
                         <div className="w-16 h-14 bg-white rounded-2xl flex items-center justify-center shadow-sm mb-4 group-hover:scale-110 transition-transform"><FileText className="w-8 h-8 text-blue-500" /></div>
-                        <span className="text-[10px] font-black text-slate-800">身分證正面</span><span className="text-[8px] font-bold text-blue-400 uppercase mt-1">.JPG ONLY</span>
+                        <span className="text-[10px] font-black text-slate-800">身分證正面</span><span className="text-[8px] font-bold text-blue-400 uppercase mt-1">.JPG / .PNG (MAX 5MB)</span>
                       </>
                     )}
                   </label>
                   <label className="relative aspect-square bg-slate-50 border-2 border-dashed border-slate-200 rounded-[2.5rem] flex flex-col items-center justify-center p-6 group hover:bg-blue-50 cursor-pointer transition-all overflow-hidden">
-                    <input type="file" accept=".jpg,.jpeg" onChange={(e) => { if(e.target.files && e.target.files[0]) setKycFileBack(e.target.files[0]) }} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
+                    <input 
+                      type="file" 
+                      accept=".jpg,.jpeg,.png,image/jpeg,image/png" 
+                      onChange={(e) => { 
+                        if (e.target.files && e.target.files[0]) {
+                          const file = e.target.files[0];
+                          const err = validateAuthFile(file, "身分證反面");
+                          if (err) { setAuthNotice({ text: err, type: "error" }); return; }
+                          setKycFileBack(file);
+                          setAuthNotice(null);
+                        } 
+                      }} 
+                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" 
+                    />
                     {kycFileBack ? (
                       <div className="text-center"><CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-2" /><span className="text-xs font-bold text-slate-700">{kycFileBack.name}</span></div>
                     ) : (
                       <>
                         <div className="w-16 h-14 bg-white rounded-2xl flex items-center justify-center shadow-sm mb-4 group-hover:scale-110 transition-transform"><FileText className="w-8 h-8 text-blue-500" /></div>
-                        <span className="text-[10px] font-black text-slate-800">身分證背面</span><span className="text-[8px] font-bold text-blue-400 uppercase mt-1">.JPG ONLY</span>
+                        <span className="text-[10px] font-black text-slate-800">身分證背面</span><span className="text-[8px] font-bold text-blue-400 uppercase mt-1">.JPG / .PNG (MAX 5MB)</span>
                       </>
                     )}
                   </label>
@@ -2545,11 +2589,28 @@ export function KycResubmitModal({
   const [isSuccess, setIsSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
-  if (!isOpen) return null;
+  const ALLOWED_EXT = ['.jpg', '.jpeg', '.png'];
+  const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+
+  const validateFile = (file: File, label: string) => {
+    const ext = '.' + (file.name.split('.').pop()?.toLowerCase() || '');
+    if (!ALLOWED_EXT.includes(ext)) {
+      return `${label}副檔名不合法 (${ext || '未知'})，僅接受 JPG 或 PNG 圖檔！`;
+    }
+    if (file.size > MAX_SIZE) {
+      return `${label}檔案大小 (${(file.size / 1024 / 1024).toFixed(1)}MB) 超過 5MB 上限！`;
+    }
+    return null;
+  };
 
   const handleFrontChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+      const err = validateFile(file, "身分證正面");
+      if (err) {
+        setErrorMsg(err);
+        return;
+      }
       setFileFront(file);
       setPreviewFront(URL.createObjectURL(file));
       setErrorMsg("");
@@ -2559,6 +2620,11 @@ export function KycResubmitModal({
   const handleBackChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+      const err = validateFile(file, "身分證反面");
+      if (err) {
+        setErrorMsg(err);
+        return;
+      }
       setFileBack(file);
       setPreviewBack(URL.createObjectURL(file));
       setErrorMsg("");
@@ -2571,6 +2637,11 @@ export function KycResubmitModal({
       setErrorMsg("請完整上傳身分證正面與反面兩張照片！");
       return;
     }
+
+    const frontErr = validateFile(fileFront, "身分證正面");
+    if (frontErr) { setErrorMsg(frontErr); return; }
+    const backErr = validateFile(fileBack, "身分證反面");
+    if (backErr) { setErrorMsg(backErr); return; }
 
     setIsUploading(true);
     setErrorMsg("");
@@ -14424,7 +14495,9 @@ export class AuthController {
   @UseInterceptors(FileFieldsInterceptor([
     { name: 'kyc_document', maxCount: 1 },
     { name: 'kyc_document_back', maxCount: 1 }
-  ]))
+  ], {
+    limits: { fileSize: 5 * 1024 * 1024 } // 5MB 單檔上限
+  }))
   register(
     @Body() body: any,
     @UploadedFiles() files: { kyc_document?: Express.Multer.File[], kyc_document_back?: Express.Multer.File[] }
@@ -14494,6 +14567,7 @@ import { User } from '../entities/user.entity';
 import { Role } from '../entities/role.entity';
 
 import { encryptBuffer, encryptString } from '../utils/crypto.util';
+import { validateAndSanitizeKycFile } from '../utils/file-validation.util';
 
 @Injectable()
 export class AuthService {
@@ -14553,7 +14627,7 @@ export class AuthService {
     if (exists) throw new ConflictException('帳號或 Email 已被使用');
 
     const investorRole = await this.roleRepo.findOne({ where: { role_name: 'INVESTOR' } });
-    if (!investorRole) throw new Error('系統尚未初始化角色，請稍後再試');
+    if (!investorRole) throw new NotFoundException('找不到 INVESTOR 角色');
 
     const wallet = ethers.Wallet.createRandom();
     const passwordHash = await bcrypt.hash(password, 10);
@@ -14561,26 +14635,27 @@ export class AuthService {
     let kyc_document_path: string | undefined = undefined;
     let kyc_document_back_path: string | undefined = undefined;
 
-    const uploadEncrypted = async (fileToUpload: Express.Multer.File, suffix: string) => {
-      const fileName = `kyc_${username}_${suffix}_${Date.now()}.jpg`;
+    const uploadEncrypted = async (fileToUpload: Express.Multer.File, suffix: 'front' | 'back') => {
+      // 1. 副檔名白名單 2. Magic Bytes 真實圖檔檢驗 3. 單檔大小限制 (5MB) 4. 伺服器重新產生安全檔名
+      const { sanitizedFileName, format } = validateAndSanitizeKycFile(fileToUpload, username, suffix);
       const encryptedBuffer = encryptBuffer(fileToUpload.buffer);
       
       try {
         const { data, error } = await this.supabase.storage
           .from('kyc-documents')
-          .upload(fileName, encryptedBuffer, {
-            contentType: fileToUpload.mimetype,
+          .upload(sanitizedFileName, encryptedBuffer, {
+            contentType: format === 'png' ? 'image/png' : 'image/jpeg',
             upsert: true,
           });
         
         if (error) {
           console.warn(`KYC Supabase Storage upload warning (${suffix}): ${error.message}. Using fallback storage.`);
-          return `local_storage/${fileName}`;
+          return `local_storage/${sanitizedFileName}`;
         }
         return data.path;
       } catch (err: any) {
         console.warn(`KYC Upload fallback (${suffix}): ${err.message}`);
-        return `local_storage/${fileName}`;
+        return `local_storage/${sanitizedFileName}`;
       }
     };
 
@@ -18783,7 +18858,9 @@ export class UsersController {
   @UseInterceptors(FileFieldsInterceptor([
     { name: 'kyc_document', maxCount: 1 },
     { name: 'kyc_document_back', maxCount: 1 }
-  ]))
+  ], {
+    limits: { fileSize: 5 * 1024 * 1024 } // 5MB 單檔上限
+  }))
   resubmitKyc(
     @Request() req: any,
     @UploadedFiles() files: { kyc_document?: Express.Multer.File[], kyc_document_back?: Express.Multer.File[] },
@@ -18846,6 +18923,7 @@ import { SystemAlert } from '../entities/system-alert.entity';
 import { UserNotification } from '../entities/notification.entity';
 import { BlockchainService } from '../blockchain/blockchain.service';
 import { encryptBuffer } from '../utils/crypto.util';
+import { validateAndSanitizeKycFile } from '../utils/file-validation.util';
 
 const rawEncryptionKey = process.env.IMAGE_ENCRYPTION_KEY || 'DEFAULT_RWA_SECRET_KEY_FOR_DEMO';
 const ENCRYPTION_KEY = Buffer.byteLength(rawEncryptionKey, 'utf-8') === 32
@@ -19034,26 +19112,27 @@ export class UsersService {
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException('找不到此用戶');
 
-    const uploadEncrypted = async (fileToUpload: Express.Multer.File, suffix: string) => {
-      const fileName = `kyc_${user.username}_${suffix}_${Date.now()}.jpg`;
+    const uploadEncrypted = async (fileToUpload: Express.Multer.File, suffix: 'front' | 'back') => {
+      // 1. 副檔名白名單 2. Magic Bytes 真實圖檔檢驗 3. 單檔大小限制 (5MB) 4. 伺服器重新產生安全檔名
+      const { sanitizedFileName, format } = validateAndSanitizeKycFile(fileToUpload, user.username, suffix);
       const encryptedBuffer = encryptBuffer(fileToUpload.buffer);
       
       try {
         const { data, error } = await this.supabase.storage
           .from('kyc-documents')
-          .upload(fileName, encryptedBuffer, {
-            contentType: fileToUpload.mimetype,
+          .upload(sanitizedFileName, encryptedBuffer, {
+            contentType: format === 'png' ? 'image/png' : 'image/jpeg',
             upsert: true,
           });
         
         if (error) {
           this.logger.warn(`KYC Resubmit Supabase Storage upload warning (${suffix}): ${error.message}. Using fallback storage.`);
-          return `local_storage/${fileName}`;
+          return `local_storage/${sanitizedFileName}`;
         }
         return data.path;
       } catch (err: any) {
         this.logger.warn(`KYC Resubmit Upload fallback (${suffix}): ${err.message}`);
-        return `local_storage/${fileName}`;
+        return `local_storage/${sanitizedFileName}`;
       }
     };
 
@@ -19234,6 +19313,84 @@ export function decryptString(encryptedText: string): string {
   const decipher = crypto.createDecipheriv(ALGORITHM, ENCRYPTION_KEY, iv);
   const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
   return decrypted.toString('utf8');
+}
+
+
+================================================================
+File: RWA_Project-main\rwa-backend\src\utils\file-validation.util.ts
+================================================================
+
+import { BadRequestException } from '@nestjs/common';
+import * as crypto from 'crypto';
+import * as path from 'path';
+
+export const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png'];
+export const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+
+/**
+ * 檢查檔案的真實二進位特徵碼 (Magic Bytes / File Signatures)
+ * 防止惡意使用者偽造副檔名或 Content-Type 上傳可執行檔或惡意腳本。
+ */
+export function validateImageMagicBytes(buffer: Buffer): { valid: boolean; format: 'jpg' | 'png' | null } {
+  if (!buffer || buffer.length < 8) {
+    return { valid: false, format: null };
+  }
+
+  // 1. JPEG / JPG: 檔頭特徵為 FF D8 FF
+  if (buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF) {
+    return { valid: true, format: 'jpg' };
+  }
+
+  // 2. PNG: 檔頭特徵為 89 50 4E 47 0D 0A 1A 0A (前 8 Bytes)
+  if (
+    buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47 &&
+    buffer[4] === 0x0D && buffer[5] === 0x0A && buffer[6] === 0x1A && buffer[7] === 0x0A
+  ) {
+    return { valid: true, format: 'png' };
+  }
+
+  return { valid: false, format: null };
+}
+
+/**
+ * 嚴格驗證上傳的 KYC 檔案 (同時驗證副檔名白名單、檔案大小、真實圖檔特徵碼，並重新生成安全檔名)
+ */
+export function validateAndSanitizeKycFile(
+  file: Express.Multer.File,
+  username: string,
+  suffix: 'front' | 'back'
+): { sanitizedFileName: string; format: string } {
+  if (!file || !file.buffer) {
+    throw new BadRequestException(`請上傳完整的身分證${suffix === 'front' ? '正面' : '反面'}檔案`);
+  }
+
+  // 1. 單檔大小上限檢查 (5MB)
+  if (file.size > MAX_FILE_SIZE || file.buffer.length > MAX_FILE_SIZE) {
+    throw new BadRequestException(`身分證${suffix === 'front' ? '正面' : '反面'}檔案大小超過上限 (最大 5MB)`);
+  }
+
+  // 2. 白名單副檔名檢查
+  const originalExt = path.extname(file.originalname || '').toLowerCase();
+  if (!ALLOWED_EXTENSIONS.includes(originalExt)) {
+    throw new BadRequestException(
+      `身分證${suffix === 'front' ? '正面' : '反面'}副檔名不合法 (${originalExt || '未知'})，僅接受 .jpg, .jpeg, .png 格式`
+    );
+  }
+
+  // 3. 檢查內容是否為真實圖檔 (檢查二進位 Magic Bytes，防偽造)
+  const magicCheck = validateImageMagicBytes(file.buffer);
+  if (!magicCheck.valid) {
+    throw new BadRequestException(
+      `身分證${suffix === 'front' ? '正面' : '反面'}內容非有效之圖片格式 (Magic Bytes 檢驗失敗)，請重新上傳真實拍照圖檔`
+    );
+  }
+
+  // 4. 檔名由伺服器重新產生 (安全隨機亂數 + 時間戳 + 使用者名稱，完全拋棄客戶端原始檔名防止路徑穿越)
+  const randomSalt = crypto.randomBytes(4).toString('hex');
+  const safeUsername = username.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const sanitizedFileName = `kyc_${safeUsername}_${suffix}_${Date.now()}_${randomSalt}.${magicCheck.format}`;
+
+  return { sanitizedFileName, format: magicCheck.format! };
 }
 
 
