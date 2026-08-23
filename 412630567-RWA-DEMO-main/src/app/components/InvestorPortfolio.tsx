@@ -40,10 +40,12 @@ export function InvestorPortfolio({ userId, userName }: { userId: number, userNa
     );
   }
 
-  const todayTotal = parseFloat(data?.summary?.total_asset_value || "0");
+  const cashBalance = parseFloat(data?.summary?.cash_balance ?? data?.summary?.total_asset_value ?? "0");
+  const holdingsMarketValue = parseFloat(data?.summary?.holdings_market_value || "0");
+  const totalNetWorth = parseFloat(data?.summary?.total_net_worth || String(cashBalance + holdingsMarketValue));
   const unrealizedPnL = parseFloat(data?.summary?.total_profit_loss || "0");
   const todayProfit = unrealizedPnL * 0.01;
-  const profitPercent = todayTotal > 0 ? ((todayProfit / todayTotal) * 100).toFixed(2) : "0.00";
+  const profitPercent = totalNetWorth > 0 ? ((todayProfit / totalNetWorth) * 100).toFixed(2) : "0.00";
   const holdings = data?.holdings || [];
 
   return (
@@ -53,31 +55,57 @@ export function InvestorPortfolio({ userId, userName }: { userId: number, userNa
         <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mt-1 opacity-60">Welcome back, {userName}</p>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 px-2">
-        <div className="md:col-span-2 bg-blue-600 text-white p-8 rounded-[2rem] shadow-xl relative overflow-hidden flex flex-col justify-between min-h-[220px]">
+        {/* 總資產淨值 */}
+        <div className="bg-gradient-to-br from-blue-600 to-indigo-700 text-white p-8 rounded-[2rem] shadow-xl relative overflow-hidden flex flex-col justify-between min-h-[220px]">
           <div className="relative z-10">
-            <div className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-2">個人總資產 (EST. BALANCE)</div>
-            <div className="text-5xl font-black tracking-tighter flex items-baseline gap-2">
-              ${todayTotal.toLocaleString()} 
+            <div className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-2">帳戶總資產 (NET ASSET VALUE)</div>
+            <div className="text-4xl font-black tracking-tighter flex items-baseline gap-2">
+              ${totalNetWorth.toLocaleString()} 
               <span className="text-sm font-bold opacity-60 font-mono">TWD</span>
             </div>
           </div>
           <div className="relative z-10 mt-6">
-             <div className="inline-flex items-center gap-2 bg-black/10 px-4 py-2 rounded-xl border border-white/5 backdrop-blur-sm">
-                <TrendingUp className="w-4 h-4 text-red-400" />
-                <span className="text-xs font-black">今日變動: <span className="text-red-400">+{profitPercent}%</span></span>
+             <div className="inline-flex items-center gap-2 bg-black/20 px-4 py-2 rounded-xl border border-white/10 backdrop-blur-sm">
+                <PieChart className="w-4 h-4 text-blue-200" />
+                <span className="text-xs font-black">現金 $${cashBalance.toLocaleString()} + 代幣 $${holdingsMarketValue.toLocaleString()}</span>
              </div>
           </div>
           <PieChart className="absolute -right-6 -bottom-6 w-40 h-48 opacity-10 text-white rotate-12" />
         </div>
+
+        {/* 可用現金餘額 */}
         <div className="bg-white border border-slate-200 p-8 rounded-[2rem] shadow-sm flex flex-col justify-between min-h-[220px]">
            <div>
-              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 text-slate-800">累計損益 (PROFIT/LOSS)</div>
-              <div className={`text-4xl font-black tracking-tighter ${unrealizedPnL >= 0 ? 'text-red-500' : 'text-green-500'}`}>
-                {unrealizedPnL >= 0 ? '+' : ''}${unrealizedPnL.toLocaleString()}
+              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center justify-between">
+                <span>可用現金餘額 (CASH BALANCE)</span>
+                <span className="w-2 h-2 rounded-full bg-green-500"></span>
+              </div>
+              <div className="text-4xl font-black tracking-tighter text-slate-800">
+                ${cashBalance.toLocaleString()}
+                <span className="text-sm font-bold text-slate-400 font-mono ml-1">TWD</span>
               </div>
            </div>
-           <div className="text-[9px] text-slate-400 font-black leading-relaxed italic uppercase opacity-60">
-              Database UID: {userId} // Cloud Synced
+           <div className="text-xs font-bold text-slate-400 mt-4 flex items-center gap-1.5">
+              <Wallet className="w-4 h-4 text-green-600" />
+              <span>可用於買入房產代幣或提領</span>
+           </div>
+        </div>
+
+        {/* 房產持倉市值 */}
+        <div className="bg-white border border-slate-200 p-8 rounded-[2rem] shadow-sm flex flex-col justify-between min-h-[220px]">
+           <div>
+              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center justify-between">
+                <span>房產持倉市值 (HOLDINGS VALUE)</span>
+                <Building2 className="w-4 h-4 text-blue-600" />
+              </div>
+              <div className="text-4xl font-black tracking-tighter text-blue-600">
+                ${holdingsMarketValue.toLocaleString()}
+                <span className="text-sm font-bold text-slate-400 font-mono ml-1">TWD</span>
+              </div>
+           </div>
+           <div className="text-xs font-bold text-slate-400 mt-4 flex items-center gap-1.5">
+              <Building2 className="w-4 h-4 text-blue-500" />
+              <span>共持有 {holdings.length} 個房產建案代幣</span>
            </div>
         </div>
       </div>

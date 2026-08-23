@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ShieldAlert, Lock, AlertTriangle } from "lucide-react";
+import { ShieldAlert, Lock, AlertTriangle, Wallet } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useSystemControl } from "../context/SystemControlContext";
 import { TransactionSuccessModal } from "./TransactionSuccessModal";
@@ -63,6 +63,7 @@ export function OrderEntryForm({ userId, property, userProfile, selectedPrice, o
 
   const [tradeError, setTradeError] = useState<string | null>(null);
 
+  const cashBalance = parseFloat(String(localProfile?.cash_balance ?? localProfile?.total_asset_value ?? "0"));
   const totalTwdValue = parseFloat(tokenAmount || "0") * (orderType === "market" ? property.price : parseFloat(limitTokenPrice || "0"));
 
   const confirmOrder = async () => {
@@ -88,6 +89,11 @@ export function OrderEntryForm({ userId, property, userProfile, selectedPrice, o
       return; 
     }
 
+    if (txType === 'BUY' && totalTwdValue > cashBalance) {
+      setTradeError(`現金餘額不足！目前可用餘額為 $${cashBalance.toLocaleString()} TWD，本次買入需支付 $${totalTwdValue.toLocaleString()} TWD。`);
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const response = await apiFetch(`/api/transactions`, {
@@ -108,6 +114,7 @@ export function OrderEntryForm({ userId, property, userProfile, selectedPrice, o
       if (response.ok && data.success) {
         setIsConfirmOpen(false);
         setIsSuccessOpen(true);
+        refreshProfile?.();
         onSuccess?.();
       } else {
         setTradeError(data.message || "交易下單失敗，請檢查錢包或庫存");
@@ -178,7 +185,14 @@ export function OrderEntryForm({ userId, property, userProfile, selectedPrice, o
           )}
 
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-400 uppercase ml-2 tracking-widest">Amount (Tokens)</label>
+            <div className="flex items-center justify-between ml-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Amount (Tokens)</label>
+              <div className="text-[11px] font-black text-slate-500 flex items-center gap-1.5 bg-slate-50 px-3 py-1 rounded-lg border border-slate-100">
+                <Wallet className="w-3.5 h-3.5 text-blue-600" />
+                <span>可用現金：</span>
+                <span className="font-mono text-blue-600 font-bold">${cashBalance.toLocaleString()} TWD</span>
+              </div>
+            </div>
             <input 
               type="number" 
               value={tokenAmount} 
@@ -193,6 +207,13 @@ export function OrderEntryForm({ userId, property, userProfile, selectedPrice, o
              <span className="text-xs font-bold text-slate-400 uppercase">預估總額 (Est. Value)</span>
              <span className="font-mono font-black text-slate-800">${totalTwdValue.toLocaleString()} TWD</span>
           </div>
+
+          {totalTwdValue > 0 && totalTwdValue > cashBalance && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2 text-red-600 text-xs font-bold animate-in fade-in">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              <span>現金餘額不足！尚缺 ${(totalTwdValue - cashBalance).toLocaleString()} TWD</span>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-6">

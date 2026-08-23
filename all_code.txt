@@ -1950,10 +1950,12 @@ export function InvestorPortfolio({ userId, userName }: { userId: number, userNa
     );
   }
 
-  const todayTotal = parseFloat(data?.summary?.total_asset_value || "0");
+  const cashBalance = parseFloat(data?.summary?.cash_balance ?? data?.summary?.total_asset_value ?? "0");
+  const holdingsMarketValue = parseFloat(data?.summary?.holdings_market_value || "0");
+  const totalNetWorth = parseFloat(data?.summary?.total_net_worth || String(cashBalance + holdingsMarketValue));
   const unrealizedPnL = parseFloat(data?.summary?.total_profit_loss || "0");
   const todayProfit = unrealizedPnL * 0.01;
-  const profitPercent = todayTotal > 0 ? ((todayProfit / todayTotal) * 100).toFixed(2) : "0.00";
+  const profitPercent = totalNetWorth > 0 ? ((todayProfit / totalNetWorth) * 100).toFixed(2) : "0.00";
   const holdings = data?.holdings || [];
 
   return (
@@ -1963,31 +1965,57 @@ export function InvestorPortfolio({ userId, userName }: { userId: number, userNa
         <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mt-1 opacity-60">Welcome back, {userName}</p>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 px-2">
-        <div className="md:col-span-2 bg-blue-600 text-white p-8 rounded-[2rem] shadow-xl relative overflow-hidden flex flex-col justify-between min-h-[220px]">
+        {/* 總資產淨值 */}
+        <div className="bg-gradient-to-br from-blue-600 to-indigo-700 text-white p-8 rounded-[2rem] shadow-xl relative overflow-hidden flex flex-col justify-between min-h-[220px]">
           <div className="relative z-10">
-            <div className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-2">個人總資產 (EST. BALANCE)</div>
-            <div className="text-5xl font-black tracking-tighter flex items-baseline gap-2">
-              ${todayTotal.toLocaleString()} 
+            <div className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-2">帳戶總資產 (NET ASSET VALUE)</div>
+            <div className="text-4xl font-black tracking-tighter flex items-baseline gap-2">
+              ${totalNetWorth.toLocaleString()} 
               <span className="text-sm font-bold opacity-60 font-mono">TWD</span>
             </div>
           </div>
           <div className="relative z-10 mt-6">
-             <div className="inline-flex items-center gap-2 bg-black/10 px-4 py-2 rounded-xl border border-white/5 backdrop-blur-sm">
-                <TrendingUp className="w-4 h-4 text-red-400" />
-                <span className="text-xs font-black">今日變動: <span className="text-red-400">+{profitPercent}%</span></span>
+             <div className="inline-flex items-center gap-2 bg-black/20 px-4 py-2 rounded-xl border border-white/10 backdrop-blur-sm">
+                <PieChart className="w-4 h-4 text-blue-200" />
+                <span className="text-xs font-black">現金 $${cashBalance.toLocaleString()} + 代幣 $${holdingsMarketValue.toLocaleString()}</span>
              </div>
           </div>
           <PieChart className="absolute -right-6 -bottom-6 w-40 h-48 opacity-10 text-white rotate-12" />
         </div>
+
+        {/* 可用現金餘額 */}
         <div className="bg-white border border-slate-200 p-8 rounded-[2rem] shadow-sm flex flex-col justify-between min-h-[220px]">
            <div>
-              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 text-slate-800">累計損益 (PROFIT/LOSS)</div>
-              <div className={`text-4xl font-black tracking-tighter ${unrealizedPnL >= 0 ? 'text-red-500' : 'text-green-500'}`}>
-                {unrealizedPnL >= 0 ? '+' : ''}${unrealizedPnL.toLocaleString()}
+              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center justify-between">
+                <span>可用現金餘額 (CASH BALANCE)</span>
+                <span className="w-2 h-2 rounded-full bg-green-500"></span>
+              </div>
+              <div className="text-4xl font-black tracking-tighter text-slate-800">
+                ${cashBalance.toLocaleString()}
+                <span className="text-sm font-bold text-slate-400 font-mono ml-1">TWD</span>
               </div>
            </div>
-           <div className="text-[9px] text-slate-400 font-black leading-relaxed italic uppercase opacity-60">
-              Database UID: {userId} // Cloud Synced
+           <div className="text-xs font-bold text-slate-400 mt-4 flex items-center gap-1.5">
+              <Wallet className="w-4 h-4 text-green-600" />
+              <span>可用於買入房產代幣或提領</span>
+           </div>
+        </div>
+
+        {/* 房產持倉市值 */}
+        <div className="bg-white border border-slate-200 p-8 rounded-[2rem] shadow-sm flex flex-col justify-between min-h-[220px]">
+           <div>
+              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center justify-between">
+                <span>房產持倉市值 (HOLDINGS VALUE)</span>
+                <Building2 className="w-4 h-4 text-blue-600" />
+              </div>
+              <div className="text-4xl font-black tracking-tighter text-blue-600">
+                ${holdingsMarketValue.toLocaleString()}
+                <span className="text-sm font-bold text-slate-400 font-mono ml-1">TWD</span>
+              </div>
+           </div>
+           <div className="text-xs font-bold text-slate-400 mt-4 flex items-center gap-1.5">
+              <Building2 className="w-4 h-4 text-blue-500" />
+              <span>共持有 {holdings.length} 個房產建案代幣</span>
            </div>
         </div>
       </div>
@@ -3570,7 +3598,7 @@ File: 412630567-RWA-DEMO-main\src\app\components\OrderEntryForm.tsx
 ================================================================
 
 import { useState, useEffect } from "react";
-import { ShieldAlert, Lock, AlertTriangle } from "lucide-react";
+import { ShieldAlert, Lock, AlertTriangle, Wallet } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useSystemControl } from "../context/SystemControlContext";
 import { TransactionSuccessModal } from "./TransactionSuccessModal";
@@ -3634,6 +3662,7 @@ export function OrderEntryForm({ userId, property, userProfile, selectedPrice, o
 
   const [tradeError, setTradeError] = useState<string | null>(null);
 
+  const cashBalance = parseFloat(String(localProfile?.cash_balance ?? localProfile?.total_asset_value ?? "0"));
   const totalTwdValue = parseFloat(tokenAmount || "0") * (orderType === "market" ? property.price : parseFloat(limitTokenPrice || "0"));
 
   const confirmOrder = async () => {
@@ -3659,6 +3688,11 @@ export function OrderEntryForm({ userId, property, userProfile, selectedPrice, o
       return; 
     }
 
+    if (txType === 'BUY' && totalTwdValue > cashBalance) {
+      setTradeError(`現金餘額不足！目前可用餘額為 $${cashBalance.toLocaleString()} TWD，本次買入需支付 $${totalTwdValue.toLocaleString()} TWD。`);
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const response = await apiFetch(`/api/transactions`, {
@@ -3679,6 +3713,7 @@ export function OrderEntryForm({ userId, property, userProfile, selectedPrice, o
       if (response.ok && data.success) {
         setIsConfirmOpen(false);
         setIsSuccessOpen(true);
+        refreshProfile?.();
         onSuccess?.();
       } else {
         setTradeError(data.message || "交易下單失敗，請檢查錢包或庫存");
@@ -3749,7 +3784,14 @@ export function OrderEntryForm({ userId, property, userProfile, selectedPrice, o
           )}
 
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-400 uppercase ml-2 tracking-widest">Amount (Tokens)</label>
+            <div className="flex items-center justify-between ml-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Amount (Tokens)</label>
+              <div className="text-[11px] font-black text-slate-500 flex items-center gap-1.5 bg-slate-50 px-3 py-1 rounded-lg border border-slate-100">
+                <Wallet className="w-3.5 h-3.5 text-blue-600" />
+                <span>可用現金：</span>
+                <span className="font-mono text-blue-600 font-bold">${cashBalance.toLocaleString()} TWD</span>
+              </div>
+            </div>
             <input 
               type="number" 
               value={tokenAmount} 
@@ -3764,6 +3806,13 @@ export function OrderEntryForm({ userId, property, userProfile, selectedPrice, o
              <span className="text-xs font-bold text-slate-400 uppercase">預估總額 (Est. Value)</span>
              <span className="font-mono font-black text-slate-800">${totalTwdValue.toLocaleString()} TWD</span>
           </div>
+
+          {totalTwdValue > 0 && totalTwdValue > cashBalance && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2 text-red-600 text-xs font-bold animate-in fade-in">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              <span>現金餘額不足！尚缺 ${(totalTwdValue - cashBalance).toLocaleString()} TWD</span>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-6">
@@ -14912,7 +14961,7 @@ export class AuthService {
       kyc_status: initialKycStatus,
       kyc_document_path,
       kyc_document_back_path,
-      total_asset_value: 0,
+      total_asset_value: 100000, // 初始給予 100,000 TWD 可用現金體驗金
       total_profit_loss: 0,
       wallet_address: wallet.address,
       wallet_private_key: encryptString(wallet.privateKey),
@@ -16543,8 +16592,8 @@ export class User {
   @Column({ nullable: true })
   onchain_id_address: string;
 
-  @Column({ type: 'numeric', nullable: true, default: 0 })
-  total_asset_value: number;
+  @Column({ type: 'numeric', nullable: true, default: 100000 })
+  total_asset_value: number; // 方案 A：承載個人可用現金餘額 (Cash Balance)
 
   @Column({ type: 'numeric', nullable: true, default: 0 })
   total_profit_loss: number;
@@ -16818,7 +16867,25 @@ export class PortfolioService {
       [userId],
     );
 
-    return { summary: user, holdings };
+    const cashBalance = parseFloat(String(user?.total_asset_value || '0'));
+    const holdingsMarketValue = holdings.reduce((sum: number, h: any) => {
+      const balance = parseFloat(String(h.balance || '0'));
+      const price = parseFloat(String(h.current_price || '0'));
+      return sum + (balance * price);
+    }, 0);
+
+    const totalNetWorth = cashBalance + holdingsMarketValue;
+
+    return {
+      summary: {
+        cash_balance: cashBalance,
+        holdings_market_value: holdingsMarketValue,
+        total_net_worth: totalNetWorth,
+        total_asset_value: totalNetWorth, // 向下相容
+        total_profit_loss: parseFloat(String(user?.total_profit_loss || '0')),
+      },
+      holdings,
+    };
   }
 
   async getTransactions(userId: number) {
@@ -18628,6 +18695,15 @@ export class TransactionsService {
       const newSpotPrice = newY / newX;
       // ==============================================
 
+      // 現金餘額防呆檢查 (買入時)
+      const userRecord = await qr.manager.findOne(User, { where: { id: userId } });
+      const currentCash = parseFloat(String(userRecord?.total_asset_value || '0'));
+      if (txType === 'BUY' && currentCash < totalValue) {
+        throw new Error(
+          `現金餘額不足！目前可用餘額為 $${currentCash.toLocaleString()} TWD，本次買入需支付 $${totalValue.toFixed(2)} TWD。`,
+        );
+      }
+
       // Holding limit check
       const holding = await qr.manager.findOne(UserHolding, {
         where: { user_id: userId, property_id: propertyId, holder_type: 'INVESTOR' },
@@ -18724,7 +18800,7 @@ export class TransactionsService {
       await qr.manager
         .createQueryBuilder()
         .update(User)
-        .set({ total_asset_value: () => `COALESCE(total_asset_value, 0) + ${txType === 'BUY' ? totalValue : -totalValue}` })
+        .set({ total_asset_value: () => `COALESCE(total_asset_value, 0) + ${txType === 'BUY' ? -totalValue : totalValue}` })
         .where('id = :userId', { userId })
         .execute();
 
@@ -18888,6 +18964,22 @@ export class TransactionsService {
         const matchPrice = parseFloat(String(makerOrder.price_per_token));
         const matchTotalValue = thisMatchAmount * matchPrice;
 
+        // 檢查買方現金餘額
+        const buyerRecord = await qr.manager.findOne(User, { where: { id: buyerId } });
+        const buyerCash = parseFloat(String(buyerRecord?.total_asset_value || '0'));
+        if (buyerCash < matchTotalValue) {
+          if (txType === 'BUY') {
+            throw new Error(
+              `現金餘額不足！目前可用餘額為 $${buyerCash.toLocaleString()} TWD，本次買入需支付 $${matchTotalValue.toFixed(2)} TWD。`,
+            );
+          } else {
+            // Maker 是買方但現金不足，將該 Maker 訂單標記為 CANCELLED
+            makerOrder.status = 'CANCELLED';
+            await qr.manager.save(makerOrder);
+            continue;
+          }
+        }
+
         // 更新賣方持倉與資產
         await qr.manager.update(
           UserHolding,
@@ -19012,6 +19104,17 @@ export class TransactionsService {
 
     if (!tokenAmount || tokenAmount <= 0 || !pricePerToken || pricePerToken <= 0) {
       throw new BadRequestException('無效的交易數量或價格');
+    }
+
+    // 買入前先檢查買方現金餘額
+    if (txType === 'BUY') {
+      const currentCash = parseFloat(String(user.total_asset_value || '0'));
+      const estimatedCost = tokenAmount * pricePerToken;
+      if (currentCash < estimatedCost) {
+        throw new BadRequestException(
+          `現金餘額不足！目前可用餘額為 $${currentCash.toLocaleString()} TWD，本次買入需準備約 $${estimatedCost.toLocaleString()} TWD。`,
+        );
+      }
     }
 
     // 賣出前先檢查賣方持倉
@@ -19488,6 +19591,8 @@ export class UsersService {
       kyc_status: user.kyc_status,
       is_whitelisted: user.is_whitelisted,
       kyc_rejection_reason,
+      cash_balance: parseFloat(String(user.total_asset_value || '0')),
+      total_asset_value: parseFloat(String(user.total_asset_value || '0')),
       wallet_address: user.wallet_address,
       created_at: user.created_at,
     };

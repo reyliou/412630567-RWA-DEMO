@@ -119,6 +119,15 @@ export class TransactionsService {
       const newSpotPrice = newY / newX;
       // ==============================================
 
+      // 現金餘額防呆檢查 (買入時)
+      const userRecord = await qr.manager.findOne(User, { where: { id: userId } });
+      const currentCash = parseFloat(String(userRecord?.total_asset_value || '0'));
+      if (txType === 'BUY' && currentCash < totalValue) {
+        throw new Error(
+          `現金餘額不足！目前可用餘額為 $${currentCash.toLocaleString()} TWD，本次買入需支付 $${totalValue.toFixed(2)} TWD。`,
+        );
+      }
+
       // Holding limit check
       const holding = await qr.manager.findOne(UserHolding, {
         where: { user_id: userId, property_id: propertyId, holder_type: 'INVESTOR' },
@@ -215,7 +224,7 @@ export class TransactionsService {
       await qr.manager
         .createQueryBuilder()
         .update(User)
-        .set({ total_asset_value: () => `COALESCE(total_asset_value, 0) + ${txType === 'BUY' ? totalValue : -totalValue}` })
+        .set({ total_asset_value: () => `COALESCE(total_asset_value, 0) + ${txType === 'BUY' ? -totalValue : totalValue}` })
         .where('id = :userId', { userId })
         .execute();
 
@@ -379,6 +388,22 @@ export class TransactionsService {
         const matchPrice = parseFloat(String(makerOrder.price_per_token));
         const matchTotalValue = thisMatchAmount * matchPrice;
 
+        // 檢查買方現金餘額
+        const buyerRecord = await qr.manager.findOne(User, { where: { id: buyerId } });
+        const buyerCash = parseFloat(String(buyerRecord?.total_asset_value || '0'));
+        if (buyerCash < matchTotalValue) {
+          if (txType === 'BUY') {
+            throw new Error(
+              `現金餘額不足！目前可用餘額為 $${buyerCash.toLocaleString()} TWD，本次買入需支付 $${matchTotalValue.toFixed(2)} TWD。`,
+            );
+          } else {
+            // Maker 是買方但現金不足，將該 Maker 訂單標記為 CANCELLED
+            makerOrder.status = 'CANCELLED';
+            await qr.manager.save(makerOrder);
+            continue;
+          }
+        }
+
         // 更新賣方持倉與資產
         await qr.manager.update(
           UserHolding,
@@ -503,6 +528,17 @@ export class TransactionsService {
 
     if (!tokenAmount || tokenAmount <= 0 || !pricePerToken || pricePerToken <= 0) {
       throw new BadRequestException('無效的交易數量或價格');
+    }
+
+    // 買入前先檢查買方現金餘額
+    if (txType === 'BUY') {
+      const currentCash = parseFloat(String(user.total_asset_value || '0'));
+      const estimatedCost = tokenAmount * pricePerToken;
+      if (currentCash < estimatedCost) {
+        throw new BadRequestException(
+          `現金餘額不足！目前可用餘額為 $${currentCash.toLocaleString()} TWD，本次買入需準備約 $${estimatedCost.toLocaleString()} TWD。`,
+        );
+      }
     }
 
     // 賣出前先檢查賣方持倉

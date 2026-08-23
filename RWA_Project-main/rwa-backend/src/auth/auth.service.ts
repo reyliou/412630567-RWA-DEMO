@@ -125,7 +125,7 @@ export class AuthService {
       kyc_status: initialKycStatus,
       kyc_document_path,
       kyc_document_back_path,
-      total_asset_value: 0,
+      total_asset_value: 100000, // 初始給予 100,000 TWD 可用現金體驗金
       total_profit_loss: 0,
       wallet_address: wallet.address,
       wallet_private_key: encryptString(wallet.privateKey),

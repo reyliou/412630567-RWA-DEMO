@@ -31,7 +31,25 @@ export class PortfolioService {
       [userId],
     );
 
-    return { summary: user, holdings };
+    const cashBalance = parseFloat(String(user?.total_asset_value || '0'));
+    const holdingsMarketValue = holdings.reduce((sum: number, h: any) => {
+      const balance = parseFloat(String(h.balance || '0'));
+      const price = parseFloat(String(h.current_price || '0'));
+      return sum + (balance * price);
+    }, 0);
+
+    const totalNetWorth = cashBalance + holdingsMarketValue;
+
+    return {
+      summary: {
+        cash_balance: cashBalance,
+        holdings_market_value: holdingsMarketValue,
+        total_net_worth: totalNetWorth,
+        total_asset_value: totalNetWorth, // 向下相容
+        total_profit_loss: parseFloat(String(user?.total_profit_loss || '0')),
+      },
+      holdings,
+    };
   }
 
   async getTransactions(userId: number) {

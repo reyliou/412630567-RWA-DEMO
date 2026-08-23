@@ -98,6 +98,8 @@ export class UsersService {
       kyc_status: user.kyc_status,
       is_whitelisted: user.is_whitelisted,
       kyc_rejection_reason,
+      cash_balance: parseFloat(String(user.total_asset_value || '0')),
+      total_asset_value: parseFloat(String(user.total_asset_value || '0')),
       wallet_address: user.wallet_address,
       created_at: user.created_at,
     };

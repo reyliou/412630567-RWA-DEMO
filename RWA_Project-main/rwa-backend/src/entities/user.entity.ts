@@ -45,8 +45,8 @@ export class User {
   @Column({ nullable: true })
   onchain_id_address: string;
 
-  @Column({ type: 'numeric', nullable: true, default: 0 })
-  total_asset_value: number;
+  @Column({ type: 'numeric', nullable: true, default: 100000 })
+  total_asset_value: number; // 方案 A：承載個人可用現金餘額 (Cash Balance)
 
   @Column({ type: 'numeric', nullable: true, default: 0 })
   total_profit_loss: number;
