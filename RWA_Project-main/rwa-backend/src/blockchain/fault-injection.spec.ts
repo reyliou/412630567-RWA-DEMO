@@ -156,6 +156,107 @@ describe('BlockchainService — 故障注入：區塊鏈節點無法連線', () 
   });
 });
 
+/**
+ * autoRecoverNodeState() 是每 30 秒執行一次的排程，偵測到「節點失憶」就會自動
+ * 呼叫 setupBlockchain() 重新部署整套 T-REX 並重新鑄造。誤判的代價是鏈上餘額全部歸零，
+ * 是整個服務裡後果最重的一條自動化路徑，因此三種判斷結果都必須有測試守住。
+ */
+describe('BlockchainService — 故障注入：節點失憶的自動重建判斷', () => {
+  const ORIGINAL_ENV = { ...process.env };
+  const IR_ADDRESS = '0x5FbDB2315678afecb367f032d93F642f64180aa3';
+
+  beforeEach(() => {
+    process.env.RPC_URL = UNREACHABLE_RPC;
+    process.env.ADMIN_KEY =
+      '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
+    delete process.env.NODE_ENV;
+  });
+
+  afterEach(() => {
+    process.env = { ...ORIGINAL_ENV };
+  });
+
+  // 讓服務進入「節點連得上、且資料庫記得曾經部署過」的狀態，
+  // 使流程能推進到 isConfigStale() 這個真正要驗證的判斷點。
+  function buildRecoverableService(getCodeImpl: () => Promise<string>) {
+    const built = buildService();
+    const { service, configRepo } = built;
+    service.onModuleInit();
+
+    jest.spyOn(service, 'isNodeReachable').mockResolvedValue(true);
+    configRepo.findOne.mockResolvedValue({ key: 'ir_address', value: IR_ADDRESS });
+    (service as any).provider.getCode = jest.fn(getCodeImpl);
+
+    const setupSpy = jest
+      .spyOn(service, 'setupBlockchain')
+      .mockResolvedValue(undefined as any);
+
+    return { ...built, setupSpy };
+  }
+
+  it('節點不可達時排程應直接跳過，不得觸發重建', async () => {
+    const { service, configRepo } = buildService();
+    service.onModuleInit();
+
+    const setupSpy = jest
+      .spyOn(service, 'setupBlockchain')
+      .mockResolvedValue(undefined as any);
+
+    await service.autoRecoverNodeState();
+
+    expect(setupSpy).not.toHaveBeenCalled();
+    // 應在可達性檢查就返回，連讀取 ir_address 都不該發生
+    expect(configRepo.findOne).not.toHaveBeenCalled();
+  });
+
+  it('🔒 getCode 因網路異常拋錯時不得重建 —— RPC 瞬斷不等於合約消失', async () => {
+    const { service, setupSpy } = buildRecoverableService(() =>
+      Promise.reject(new Error('network timeout')),
+    );
+
+    await service.autoRecoverNodeState();
+
+    // 若此處誤判為「失憶」而重建，線上鏈上餘額會因一次網路抖動全部歸零
+    expect(setupSpy).not.toHaveBeenCalled();
+  });
+
+  it('getCode 確實回傳 0x（合約真的不存在）時才應觸發重建', async () => {
+    const { service, setupSpy } = buildRecoverableService(() => Promise.resolve('0x'));
+
+    await service.autoRecoverNodeState();
+
+    expect(setupSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('前一次重建尚未結束時，下一次排程應被 isRecovering 擋下，且結束後要能再次執行', async () => {
+    // 重建整套 T-REX 耗時遠超過 30 秒的排程間隔，因此下一次排程必然在前一次
+    // 還沒結束時就進來。若沒有重入防護，同一次失憶會被重複部署多次。
+    let releaseSetup!: () => void;
+    const setupGate = new Promise<void>((resolve) => {
+      releaseSetup = resolve;
+    });
+
+    const { service, setupSpy } = buildRecoverableService(() => Promise.resolve('0x'));
+    setupSpy.mockImplementation(() => setupGate as any);
+
+    // 第一次排程：推進到 setupBlockchain 後卡在 setupGate，重建進行中
+    const inFlight = service.autoRecoverNodeState();
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(setupSpy).toHaveBeenCalledTimes(1);
+
+    // 第二次排程在重建進行中進來，應直接返回
+    await service.autoRecoverNodeState();
+    expect(setupSpy).toHaveBeenCalledTimes(1);
+
+    // 重建結束後旗標必須歸位，否則往後再也不會自動修復
+    releaseSetup();
+    await inFlight;
+
+    await service.autoRecoverNodeState();
+    expect(setupSpy).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe('BlockchainService — 負向：正式環境缺少 ADMIN_KEY', () => {
   const ORIGINAL_ENV = { ...process.env };
 

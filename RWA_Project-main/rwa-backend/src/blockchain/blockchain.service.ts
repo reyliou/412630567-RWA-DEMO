@@ -408,23 +408,46 @@ export class BlockchainService implements OnModuleInit {
   // Trading: on-chain buy / sell
   // ──────────────────────────────────────────
 
+  // NonceManager 會在本地累計 nonce。送出失敗時（nonce 已被佔用、或交易被替換）
+  // 本地計數會與鏈上實際值脫節，之後每一筆都沿用錯誤的 nonce 而連續失敗，
+  // 直到服務重啟為止。這裡在確認是 nonce 類錯誤時清掉快取，讓下一筆重新向節點取號。
+  //
+  // 刻意只針對 nonce 類錯誤 reset：其他失敗（例如 ERC-3643 合規檢查擋下轉帳）
+  // 不會讓 nonce 脫節，若一律 reset，反而可能在有其他交易在途時造成重號。
+  private resetNonceIfDesynced(e: any) {
+    const code = String(e?.code ?? '');
+    if (code !== 'NONCE_EXPIRED' && code !== 'REPLACEMENT_UNDERPRICED') return;
+    (this.adminWallet as any)?.reset?.();
+    this.logger.warn(`⚠️ 偵測到 nonce 脫節 (${code})，已清除 NonceManager 快取，下一筆將重新向節點取號`);
+  }
+
   async executeOnChainBuy(tokenAddress: string, toWalletAddress: string, amount: number): Promise<string> {
     const token = this.getContract('MySimpleRWA', tokenAddress);
     const amountWei = ethers.parseUnits(amount.toString(), 18);
-    const tx = await token.transfer(toWalletAddress, amountWei);
-    const receipt = await tx.wait();
-    await this.log('INFO', `⛓️ 鏈上轉帳 (BUY) → ${toWalletAddress} 數量 ${amount}｜txHash: ${receipt.hash}`);
-    return receipt.hash;
+    try {
+      const tx = await token.transfer(toWalletAddress, amountWei);
+      const receipt = await tx.wait();
+      await this.log('INFO', `⛓️ 鏈上轉帳 (BUY) → ${toWalletAddress} 數量 ${amount}｜txHash: ${receipt.hash}`);
+      return receipt.hash;
+    } catch (e: any) {
+      this.resetNonceIfDesynced(e);
+      throw e;
+    }
   }
 
   async executeOnChainSell(tokenAddress: string, userWalletAddress: string, amount: number): Promise<string> {
     // 用 forcedTransfer（admin agent 權限），不需要用戶錢包有 ETH 付 gas
     const token = this.getContract('MySimpleRWA', tokenAddress);
     const amountWei = ethers.parseUnits(amount.toString(), 18);
-    const tx = await token.forcedTransfer(userWalletAddress, this.adminAddress, amountWei);
-    const receipt = await tx.wait();
-    await this.log('INFO', `⛓️ 鏈上轉帳 (SELL) → 收回自 ${userWalletAddress} 數量 ${amount}｜txHash: ${receipt.hash}`);
-    return receipt.hash;
+    try {
+      const tx = await token.forcedTransfer(userWalletAddress, this.adminAddress, amountWei);
+      const receipt = await tx.wait();
+      await this.log('INFO', `⛓️ 鏈上轉帳 (SELL) → 收回自 ${userWalletAddress} 數量 ${amount}｜txHash: ${receipt.hash}`);
+      return receipt.hash;
+    } catch (e: any) {
+      this.resetNonceIfDesynced(e);
+      throw e;
+    }
   }
 
   // ──────────────────────────────────────────
