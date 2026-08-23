@@ -96,6 +96,9 @@ function makeQueryRunnerFactory(opts: {
           const key = options.where.idempotency_key;
           return savedIdempotencyKeys.includes(key) ? { id: 999, idempotency_key: key } : null;
         }
+        if (entity === User) {
+          return { id: 1, is_whitelisted: true, total_asset_value: 999999999999 };
+        }
         if (entity === Property) {
           return { ...MOCK_PROPERTY };
         }
@@ -108,9 +111,12 @@ function makeQueryRunnerFactory(opts: {
       createQueryBuilder: jest.fn(() => ({
         select: jest.fn().mockReturnThis(),
         addSelect: jest.fn().mockReturnThis(),
-        update: jest.fn().mockReturnThis(), // ← transactions.service.ts 用 .createQueryBuilder().update(User)... 更新 total_asset_value
+        update: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([]),
         set: jest.fn().mockReturnThis(),
         execute: jest.fn().mockResolvedValue(undefined),
         getRawOne: jest.fn(async () => {
@@ -164,7 +170,7 @@ function buildService(opts: {
 
   const notifRepo = { save: jest.fn().mockResolvedValue(undefined) } as any;
 
-  const defaultUser = { id: 1, is_whitelisted: true, wallet_address: null };
+  const defaultUser = { id: 1, is_whitelisted: true, wallet_address: null, total_asset_value: 999999999999 };
   const userRepo = {
     findOne: jest.fn().mockResolvedValue(
       opts.user === null ? null : { ...defaultUser, ...(opts.user ?? {}) },
@@ -526,5 +532,38 @@ describe('TransactionsService — 併發測試：AMM 定價的鎖定策略', () 
     );
     expect(lockedIndex).toBeGreaterThan(-1);
     expect(findOneCalls.slice(0, lockedIndex).some((c) => c.entity === Property)).toBe(false);
+  });
+
+  describe('方案 A：現金餘額防呆與資產保護測試', () => {
+    it('當買方現金餘額不足時（例如只有 500 TWD，買入需 1800 TWD），應拋出 BadRequestException 並阻斷交易', async () => {
+      const { service } = buildService({
+        user: { id: 1, is_whitelisted: true, total_asset_value: 500 },
+        circulatingSupply: 0,
+      });
+
+      await expect(
+        service.createTransaction(1, 1, 'BUY', 'MARKET', 10, 189.19),
+      ).rejects.toThrow('現金餘額不足');
+    });
+
+    it('當買方現金充足時，應正常放行並成交', async () => {
+      const { service } = buildService({
+        user: { id: 1, is_whitelisted: true, total_asset_value: 100000 },
+        circulatingSupply: 0,
+      });
+
+      const res = await service.createTransaction(1, 1, 'BUY', 'MARKET', 10, 189.19);
+      expect(res.success).toBe(true);
+    });
+
+    it('限價買單在現金不足時也應立即被擋下，不可加入掛單簿', async () => {
+      const { service } = buildService({
+        user: { id: 1, is_whitelisted: true, total_asset_value: 500 },
+      });
+
+      await expect(
+        service.createTransaction(1, 1, 'BUY', 'LIMIT', 10, 180.0),
+      ).rejects.toThrow('現金餘額不足');
+    });
   });
 });
