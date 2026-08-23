@@ -285,6 +285,204 @@ export class TransactionsService {
     }
   }
 
+  /**
+   * 混合撮合引擎：在執行 AMM 池子或存為 PENDING 前，先在訂單簿中尋找價格重疊的最佳對手盤（P2P Order Crossing）
+   * - 買單 (BUY)：尋找賣價最低且 <= 我的買價的賣單 (tx_type = 'SELL' & price_per_token <= pricePerToken)
+   * - 賣單 (SELL)：尋找買價最高且 >= 我的賣價的買單 (tx_type = 'BUY' & price_per_token >= pricePerToken)
+   * - 若有對手盤，以 Maker 的價格直接優先撮合（零滑價 / 價格優先原則）！
+   * - 回傳未成交的剩餘數量 (remainingAmount)。
+   */
+  private async tryP2PMatch(
+    userId: number,
+    propertyId: number,
+    txType: string,
+    orderType: string,
+    tokenAmount: number,
+    pricePerToken: number,
+    idempotencyKey?: string,
+  ): Promise<{ remainingAmount: number; matchedAmount: number }> {
+    const qr = this.dataSource.createQueryRunner();
+    await qr.connect();
+    await qr.startTransaction();
+
+    try {
+      const property = await qr.manager.findOne(Property, {
+        where: { id: propertyId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!property) throw new Error('建案不存在');
+
+      const oppositeType = txType === 'BUY' ? 'SELL' : 'BUY';
+      const query = qr.manager
+        .createQueryBuilder(AppTransaction, 'tx')
+        .where('tx.property_id = :propertyId', { propertyId })
+        .andWhere('tx.status = :status', { status: 'PENDING' })
+        .andWhere('tx.tx_type = :oppositeType', { oppositeType })
+        .andWhere('tx.user_id != :userId', { userId })
+        .andWhere('tx.is_simulated = :isSimulated', { isSimulated: false });
+
+      // 限價單才加價格限制；市價單則可以直接吃對手盤
+      if (orderType === 'LIMIT') {
+        if (txType === 'BUY') {
+          query.andWhere('tx.price_per_token <= :pricePerToken', { pricePerToken });
+        } else {
+          query.andWhere('tx.price_per_token >= :pricePerToken', { pricePerToken });
+        }
+      }
+
+      // 價格與時間優先排序：
+      // 買方吃賣單：優先吃最便宜的賣單 (ASC)
+      // 賣方吃買單：優先吃出價最高的買單 (DESC)
+      if (txType === 'BUY') {
+        query.orderBy('tx.price_per_token', 'ASC').addOrderBy('tx.created_at', 'ASC');
+      } else {
+        query.orderBy('tx.price_per_token', 'DESC').addOrderBy('tx.created_at', 'ASC');
+      }
+
+      const matchingOrders = await query.getMany();
+      let remainingAmount = tokenAmount;
+      let matchedAmount = 0;
+
+      for (const makerOrder of matchingOrders) {
+        if (remainingAmount <= 0) break;
+
+        const buyerId = txType === 'BUY' ? userId : makerOrder.user_id;
+        const sellerId = txType === 'SELL' ? userId : makerOrder.user_id;
+
+        // 檢查賣方持倉
+        const sellerHolding = await qr.manager.findOne(UserHolding, {
+          where: { user_id: sellerId, property_id: propertyId, holder_type: 'INVESTOR' },
+        });
+        const sellerBalance = sellerHolding ? parseFloat(String(sellerHolding.balance)) : 0;
+        if (sellerBalance <= 0) {
+          makerOrder.status = 'CANCELLED';
+          await qr.manager.save(makerOrder);
+          continue;
+        }
+
+        const availableSellerAmount = Math.min(sellerBalance, parseFloat(String(makerOrder.token_amount)));
+        const thisMatchAmount = Math.min(remainingAmount, availableSellerAmount);
+        if (thisMatchAmount <= 0) continue;
+
+        // 檢查買方持倉上限
+        const buyerHolding = await qr.manager.findOne(UserHolding, {
+          where: { user_id: buyerId, property_id: propertyId, holder_type: 'INVESTOR' },
+        });
+        const buyerBalance = buyerHolding ? parseFloat(String(buyerHolding.balance)) : 0;
+        const totalSupply = parseFloat(String(property.total_supply_x ?? 100000));
+        const limitPercentage = this.systemService.isThrottled() ? 0.01 : 0.05;
+        const maxAllowed = totalSupply * limitPercentage;
+        if (buyerBalance + thisMatchAmount > maxAllowed) {
+          break; // 買方超過持倉上限，停止撮合
+        }
+
+        const matchPrice = parseFloat(String(makerOrder.price_per_token));
+        const matchTotalValue = thisMatchAmount * matchPrice;
+
+        // 更新賣方持倉與資產
+        await qr.manager.update(
+          UserHolding,
+          { user_id: sellerId, property_id: propertyId, holder_type: 'INVESTOR' },
+          { balance: sellerBalance - thisMatchAmount },
+        );
+        await qr.manager
+          .createQueryBuilder()
+          .update(User)
+          .set({ total_asset_value: () => `COALESCE(total_asset_value, 0) + ${matchTotalValue}` })
+          .where('id = :userId', { userId: sellerId })
+          .execute();
+
+        // 更新買方持倉與資產
+        if (buyerHolding) {
+          await qr.manager.update(
+            UserHolding,
+            { user_id: buyerId, property_id: propertyId, holder_type: 'INVESTOR' },
+            { balance: buyerBalance + thisMatchAmount },
+          );
+        } else {
+          await qr.manager.save(UserHolding, {
+            user_id: buyerId,
+            property_id: propertyId,
+            balance: thisMatchAmount,
+            holder_type: 'INVESTOR',
+          });
+        }
+        await qr.manager
+          .createQueryBuilder()
+          .update(User)
+          .set({ total_asset_value: () => `COALESCE(total_asset_value, 0) - ${matchTotalValue}` })
+          .where('id = :userId', { userId: buyerId })
+          .execute();
+
+        // 更新 Maker 掛單
+        const makerRemaining = parseFloat(String(makerOrder.token_amount)) - thisMatchAmount;
+        if (makerRemaining <= 0) {
+          makerOrder.status = 'SUCCESS';
+          makerOrder.price_per_token = matchPrice;
+          await qr.manager.save(makerOrder);
+        } else {
+          makerOrder.token_amount = makerRemaining;
+          await qr.manager.save(makerOrder);
+
+          const makerFilled = new AppTransaction();
+          makerFilled.user_id = makerOrder.user_id;
+          makerFilled.property_id = propertyId;
+          makerFilled.tx_type = makerOrder.tx_type;
+          makerFilled.order_type = 'LIMIT_MATCHED';
+          makerFilled.token_amount = thisMatchAmount;
+          makerFilled.price_per_token = matchPrice;
+          makerFilled.status = 'SUCCESS';
+          await qr.manager.save(makerFilled);
+        }
+
+        // 記錄 Taker 成交紀錄
+        const takerTx = new AppTransaction();
+        takerTx.user_id = userId;
+        takerTx.property_id = propertyId;
+        takerTx.tx_type = txType;
+        takerTx.order_type = orderType === 'MARKET' ? 'MARKET_MATCHED' : 'LIMIT_MATCHED';
+        takerTx.token_amount = thisMatchAmount;
+        takerTx.price_per_token = matchPrice;
+        takerTx.status = 'SUCCESS';
+        if (idempotencyKey) takerTx.idempotency_key = `${idempotencyKey}_p2p_${makerOrder.id}`;
+        await qr.manager.save(takerTx);
+
+        // 通知買賣雙方
+        await qr.manager.save(UserNotification, {
+          user_id: buyerId,
+          title: '委託成交通知 (買入成功)',
+          message: `您在 ${property.title} 的買入委託已透過訂單簿成功撮合！成交單價：$${matchPrice.toFixed(2)} TWD，數量：${thisMatchAmount} 枚，總額：$${matchTotalValue.toLocaleString()} TWD。`,
+          is_read: false,
+        });
+        await qr.manager.save(UserNotification, {
+          user_id: sellerId,
+          title: '委託成交通知 (賣出成功)',
+          message: `您在 ${property.title} 的賣出委託已透過訂單簿成功撮合！成交單價：$${matchPrice.toFixed(2)} TWD，數量：${thisMatchAmount} 枚，總額：$${matchTotalValue.toLocaleString()} TWD。`,
+          is_read: false,
+        });
+
+        // 寫入審計記錄
+        await qr.manager.save(SystemAlert, {
+          alert_type: 'ORDER_MATCH',
+          severity: 'INFO',
+          message: `🤝 P2P 訂單撮合成交: Property #${propertyId} | Buyer UID ${buyerId} <-> Seller UID ${sellerId} | ${thisMatchAmount} tokens @ ${matchPrice} TWD`,
+        });
+
+        remainingAmount -= thisMatchAmount;
+        matchedAmount += thisMatchAmount;
+      }
+
+      await qr.commitTransaction();
+      return { remainingAmount, matchedAmount };
+    } catch (err: any) {
+      await qr.rollbackTransaction();
+      this.logger.error(`P2P 撮合過程發生異常: ${err.message}`);
+      return { remainingAmount: tokenAmount, matchedAmount: 0 };
+    } finally {
+      await qr.release();
+    }
+  }
+
   async createTransaction(
     userId: number,
     propertyId: number,
@@ -307,39 +505,84 @@ export class TransactionsService {
       throw new BadRequestException('無效的交易數量或價格');
     }
 
+    // 賣出前先檢查賣方持倉
+    if (txType === 'SELL') {
+      const holding = await this.dataSource.manager.findOne(UserHolding, {
+        where: { user_id: userId, property_id: propertyId, holder_type: 'INVESTOR' },
+      });
+      const currentBalance = holding ? parseFloat(String(holding.balance)) : 0;
+      if (currentBalance < tokenAmount) {
+        throw new BadRequestException(`持倉不足，目前持有 ${currentBalance} 枚，無法賣出 ${tokenAmount} 枚。`);
+      }
+    }
+
+    // 🌟 第一階段：先嘗試與訂單簿上的既有對手盤進行直接撮合 (P2P Order Crossing)
+    const { remainingAmount, matchedAmount } = await this.tryP2PMatch(
+      userId,
+      propertyId,
+      txType,
+      orderType,
+      tokenAmount,
+      pricePerToken,
+      idempotencyKey,
+    );
+
+    // 如果全部數量都已透過訂單簿撮合成交
+    if (remainingAmount <= 0) {
+      return { success: true, message: `已成功透過訂單簿以市場最佳價格完全撮合 ${matchedAmount} 枚代幣！` };
+    }
+
+    // 🌟 第二階段：處理剩餘未成交數量 (remainingAmount)
     if (orderType === 'LIMIT') {
-      // 真正的掛單追蹤系統 (利用既有的 AppTransaction 表)
+      // 剩餘數量存入掛單追蹤系統等候後續撮合
       const order = new AppTransaction();
       order.user_id = userId;
       order.property_id = propertyId;
       order.tx_type = txType;
       order.order_type = 'LIMIT';
-      order.token_amount = tokenAmount;
-      order.price_per_token = pricePerToken; // 這裡暫存用戶的限價
+      order.token_amount = remainingAmount;
+      order.price_per_token = pricePerToken;
       order.status = 'PENDING';
       if (idempotencyKey) order.idempotency_key = idempotencyKey;
-      
+
       try {
         await this.dataSource.manager.save(order);
       } catch (err: any) {
-        if (err.code === '23505') { // Postgres unique violation
-           throw new BadRequestException('偵測到重複的限價委託，已為您阻擋');
+        if (err.code === '23505') {
+          throw new BadRequestException('偵測到重複的限價委託，已為您阻擋');
         }
         throw err;
       }
 
-      // 同步發送一則通知，讓用戶知道有掛單成功
       await this.notifRepo.save({
         user_id: userId,
-        title: '掛單委託成功',
-        message: `您的 ${txType === 'BUY' ? '買入' : '賣出'} 限價委託 (單價 ${pricePerToken} TWD, 數量 ${tokenAmount}) 已加入掛單追蹤系統，將於 AMM 價格符合條件時自動撮合。`,
+        title: matchedAmount > 0 ? '部分撮合成功，剩餘已掛單' : '掛單委託成功',
+        message:
+          matchedAmount > 0
+            ? `您的 ${txType === 'BUY' ? '買入' : '賣出'} 委託已撮合 ${matchedAmount} 枚，剩餘 ${remainingAmount} 枚已加入掛單追蹤系統。`
+            : `您的 ${txType === 'BUY' ? '買入' : '賣出'} 限價委託 (單價 ${pricePerToken} TWD, 數量 ${remainingAmount}) 已加入掛單追蹤系統，將於價格符合條件時自動撮合。`,
         is_read: false,
       });
 
-      return { success: true, message: '委託已送出，已加入掛單追蹤系統等候價格撮合' };
+      return {
+        success: true,
+        message:
+          matchedAmount > 0
+            ? `已撮合 ${matchedAmount} 枚，剩餘 ${remainingAmount} 枚已加入掛單追蹤系統`
+            : '委託已送出，已加入掛單追蹤系統等候價格撮合',
+      };
     }
 
-    const result = await this.runTrade(userId, propertyId, txType, orderType, tokenAmount, pricePerToken, idempotencyKey);
+    // 市價單剩餘數量由 AMM 流動性池承接
+    const result = await this.runTrade(
+      userId,
+      propertyId,
+      txType,
+      orderType,
+      remainingAmount,
+      pricePerToken,
+      idempotencyKey,
+    );
     if (!result.success) throw new BadRequestException(result.message);
     return { success: true, txHash: result.txHash ?? null };
   }
