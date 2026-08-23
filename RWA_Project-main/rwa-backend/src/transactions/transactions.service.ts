@@ -238,12 +238,6 @@ export class TransactionsService {
           ? '（⚠️ 鏈上同步失敗，暫僅記錄於平台資料庫，請留意技術端稽核）'
           : '（DB 模式）';
       const msg = `您對 ${property.title} 的委託已成交${txInfo}。數量：${tokenAmount.toLocaleString()} 枚，總額：$${totalValue.toLocaleString()} TWD。`;
-      await qr.manager.save(UserNotification, {
-        user_id: userId,
-        title: `成交回報: ${typeLabel}成功`,
-        message: msg,
-        is_read: false,
-      });
       await qr.manager.save(SystemAlert, {
         alert_type: chainError ? 'BLOCKCHAIN' : 'ORDER_MATCH',
         severity: chainError ? 'WARNING' : 'INFO',
@@ -253,6 +247,21 @@ export class TransactionsService {
       });
 
       await qr.commitTransaction();
+
+      // 成交通知屬於可補送的周邊功能，不應具備否決一筆已完成鏈上轉帳的能力。
+      // 先前這段以 qr.manager 寫在 commit 之前，通知層一旦故障就會連帶把整筆交易
+      // 回滾 —— 但鏈上轉帳在更早之前就已送出且成功，結果是代幣在使用者的鏈上錢包裡，
+      // 平台帳上卻查無這筆交易。改為 commit 之後以獨立連線寫入，失敗只記錄告警。
+      try {
+        await this.notifRepo.save({
+          user_id: userId,
+          title: `成交回報: ${typeLabel}成功`,
+          message: msg,
+          is_read: false,
+        } as any);
+      } catch (notifyErr: any) {
+        this.logger.error(`成交通知寫入失敗（交易已完成，不受影響）: ${notifyErr.message}`);
+      }
       return { success: true, txHash: txHash ?? undefined };
     } catch (e: any) {
       await qr.rollbackTransaction();
