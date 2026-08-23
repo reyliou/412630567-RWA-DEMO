@@ -314,6 +314,9 @@ export class TransactionsService {
     await qr.connect();
     await qr.startTransaction();
 
+    const pendingNotifications: { userId: number; title: string; message: string }[] = [];
+    const pendingAlerts: { alert_type: string; severity: string; message: string }[] = [];
+
     try {
       const property = await qr.manager.findOne(Property, {
         where: { id: propertyId },
@@ -363,10 +366,18 @@ export class TransactionsService {
           where: { user_id: sellerId, property_id: propertyId, holder_type: 'INVESTOR' },
         });
         const sellerBalance = sellerHolding ? parseFloat(String(sellerHolding.balance)) : 0;
+        
+        // P1-① 修復：區分 Maker 賣單過期 vs Taker 自身無持倉，避免誤砍買方合法訂單
         if (sellerBalance <= 0) {
-          makerOrder.status = 'CANCELLED';
-          await qr.manager.save(makerOrder);
-          continue;
+          if (txType === 'BUY') {
+            // Maker 是賣方掛單者，但其持倉已歸零（過期/無效掛單），將其取消
+            makerOrder.status = 'CANCELLED';
+            await qr.manager.save(makerOrder);
+            continue;
+          } else {
+            // 當前 Taker（自己）是賣方且無持倉，停止撮合
+            break;
+          }
         }
 
         const availableSellerAmount = Math.min(sellerBalance, parseFloat(String(makerOrder.token_amount)));
@@ -381,8 +392,10 @@ export class TransactionsService {
         const totalSupply = parseFloat(String(property.total_supply_x ?? 100000));
         const limitPercentage = this.systemService.isThrottled() ? 0.01 : 0.05;
         const maxAllowed = totalSupply * limitPercentage;
+        
+        // P1-② 修復：買方滿倉時用 continue 跳過此單，讓後續未滿倉買家繼續撮合
         if (buyerBalance + thisMatchAmount > maxAllowed) {
-          break; // 買方超過持倉上限，停止撮合
+          continue;
         }
 
         const matchPrice = parseFloat(String(makerOrder.price_per_token));
@@ -472,22 +485,19 @@ export class TransactionsService {
         if (idempotencyKey) takerTx.idempotency_key = `${idempotencyKey}_p2p_${makerOrder.id}`;
         await qr.manager.save(takerTx);
 
-        // 通知買賣雙方
-        await qr.manager.save(UserNotification, {
-          user_id: buyerId,
+        // P1-④：收集通知與審計記錄，移至 commitTransaction() 之後發送
+        pendingNotifications.push({
+          userId: buyerId,
           title: '委託成交通知 (買入成功)',
           message: `您在 ${property.title} 的買入委託已透過訂單簿成功撮合！成交單價：$${matchPrice.toFixed(2)} TWD，數量：${thisMatchAmount} 枚，總額：$${matchTotalValue.toLocaleString()} TWD。`,
-          is_read: false,
         });
-        await qr.manager.save(UserNotification, {
-          user_id: sellerId,
+        pendingNotifications.push({
+          userId: sellerId,
           title: '委託成交通知 (賣出成功)',
           message: `您在 ${property.title} 的賣出委託已透過訂單簿成功撮合！成交單價：$${matchPrice.toFixed(2)} TWD，數量：${thisMatchAmount} 枚，總額：$${matchTotalValue.toLocaleString()} TWD。`,
-          is_read: false,
         });
 
-        // 寫入審計記錄
-        await qr.manager.save(SystemAlert, {
+        pendingAlerts.push({
           alert_type: 'ORDER_MATCH',
           severity: 'INFO',
           message: `🤝 P2P 訂單撮合成交: Property #${propertyId} | Buyer UID ${buyerId} <-> Seller UID ${sellerId} | ${thisMatchAmount} tokens @ ${matchPrice} TWD`,
@@ -498,9 +508,24 @@ export class TransactionsService {
       }
 
       await qr.commitTransaction();
+
+      // P1-④：commit 成功後異步發送通知，確保通知寫入異常絕不會影響主交易
+      for (const n of pendingNotifications) {
+        this.notifRepo.save({
+          user_id: n.userId,
+          title: n.title,
+          message: n.message,
+          is_read: false,
+        }).catch((err: any) => this.logger.warn(`成交通知發送異常: ${err.message}`));
+      }
+
       return { remainingAmount, matchedAmount };
     } catch (err: any) {
       await qr.rollbackTransaction();
+      // P1-③：若為現金不足等特定業務用戶錯誤，直接往上拋以利前端顯示
+      if (err.message && err.message.includes('現金餘額不足')) {
+        throw new BadRequestException(err.message);
+      }
       this.logger.error(`P2P 撮合過程發生異常: ${err.message}`);
       return { remainingAmount: tokenAmount, matchedAmount: 0 };
     } finally {
@@ -519,6 +544,19 @@ export class TransactionsService {
   ) {
     if (this.systemService.getState().isPaused) {
       throw new ForbiddenException('系統已暫停交易，請等待技術端解除鎖定。');
+    }
+
+    // P1-③：前置檢查 idempotency_key 避免重試請求重複下單
+    if (idempotencyKey) {
+      const existingTx = await this.dataSource.manager.findOne(AppTransaction, {
+        where: { idempotency_key: idempotencyKey },
+      });
+      if (existingTx) {
+        if (existingTx.status === 'PENDING') {
+          return { success: true, message: '委託已送出，已加入掛單追蹤系統等候價格撮合' };
+        }
+        return { success: true, txHash: existingTx.tx_hash ?? null };
+      }
     }
 
     const user = await this.userRepo.findOne({ where: { id: userId } });

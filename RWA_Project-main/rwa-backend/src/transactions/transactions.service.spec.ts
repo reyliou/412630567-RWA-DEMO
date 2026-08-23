@@ -193,7 +193,14 @@ function buildService(opts: {
     // 撮合引擎會先 count 待處理訂單，沒有就直接跳過本輪
     count: jest.fn(async (entity: any) => (entity === AppTransaction ? cronOrders.length : 0)),
     find: jest.fn(async (entity: any) => (entity === AppTransaction ? cronOrders : [])),
-    findOne: jest.fn(async (entity: any) => (entity === Property ? { ...MOCK_PROPERTY } : null)),
+    findOne: jest.fn(async (entity: any, options: any) => {
+      if (entity === Property) return { ...MOCK_PROPERTY };
+      if (entity === AppTransaction && options?.where?.idempotency_key) {
+        const key = options.where.idempotency_key;
+        return savedIdempotencyKeys.includes(key) ? { id: 999, idempotency_key: key, status: 'SUCCESS' } : null;
+      }
+      return null;
+    }),
     save: jest.fn(async (payload: any) => payload),
     createQueryBuilder: jest.fn(() => ({
       select: jest.fn().mockReturnThis(),
@@ -564,6 +571,42 @@ describe('TransactionsService — 併發測試：AMM 定價的鎖定策略', () 
       await expect(
         service.createTransaction(1, 1, 'BUY', 'LIMIT', 10, 180.0),
       ).rejects.toThrow('現金餘額不足');
+    });
+  });
+
+  describe('P1 (撮合引擎深度邏輯測試)', () => {
+    it('P1-①: 當賣方 Taker 自己無持倉時，應停止撮合，不得取消對手盤合法買單', async () => {
+      const makerBuyOrder = {
+        id: 101,
+        user_id: 2,
+        property_id: 1,
+        tx_type: 'BUY',
+        price_per_token: 190.0,
+        token_amount: 10,
+        status: 'PENDING',
+      };
+
+      const { service } = buildService({
+        user: { id: 1, is_whitelisted: true, total_asset_value: 100000 },
+        holdingBalance: 0, // Taker 賣方持倉為 0
+      });
+
+      await expect(
+        service.createTransaction(1, 1, 'SELL', 'MARKET', 5, 185.0),
+      ).rejects.toThrow('持倉不足');
+
+      // 對手盤買單維持 PENDING
+      expect(makerBuyOrder.status).toBe('PENDING');
+    });
+
+    it('P1-③: 相同的 idempotency_key 在重試時應直接回傳既有交易，不重複執行撮合', async () => {
+      const { service } = buildService({
+        user: { id: 1, is_whitelisted: true, total_asset_value: 100000 },
+        savedIdempotencyKeys: ['UNIQUE_RETRY_KEY'],
+      });
+
+      const res = await service.createTransaction(1, 1, 'BUY', 'MARKET', 5, 189.19, 'UNIQUE_RETRY_KEY');
+      expect(res.success).toBe(true);
     });
   });
 });
