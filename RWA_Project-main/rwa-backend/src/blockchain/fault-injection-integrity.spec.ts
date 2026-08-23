@@ -22,6 +22,7 @@ import { Logger } from '@nestjs/common';
 import { BlockchainService } from './blockchain.service';
 import { TransactionsService } from '../transactions/transactions.service';
 import { Property } from '../entities/property.entity';
+import { User } from '../entities/user.entity';
 
 const ADMIN_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
 const USER_WALLET = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
@@ -64,11 +65,18 @@ afterAll(async () => {
 // TransactionsService 的測試骨架
 // ──────────────────────────────────────────────────────────────
 
+// 本檔測的是故障注入下的交易完整性，不是餘額邏輯。餘額一律給足，
+// 避免現金檢查在進入受測情境前就先擋下交易。
+const CASH_BALANCE = 999_999_999_999;
+
 function buildQueryRunner(opts: { failOnCommit?: boolean; failOnNotification?: boolean } = {}) {
   const saved: any[] = [];
   const manager = {
     findOne: jest.fn(async (entity: any) => {
       if (entity === Property) return { ...MOCK_PROPERTY };
+      // runTrade 的現金餘額檢查會讀 User；這裡不是本測試的受測標的，
+      // 給足額餘額讓流程走到故障注入的情境。
+      if (entity === User) return { id: 1, is_whitelisted: true, total_asset_value: CASH_BALANCE };
       return null;
     }),
     createQueryBuilder: jest.fn(() => ({
@@ -77,6 +85,10 @@ function buildQueryRunner(opts: { failOnCommit?: boolean; failOnNotification?: b
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
       set: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
+      // 訂單簿無對手盤 → P2P 撮合不成交，全數交由 AMM 承接（本檔的受測路徑）
+      getMany: jest.fn().mockResolvedValue([]),
       execute: jest.fn().mockResolvedValue(undefined),
       getRawOne: jest.fn().mockResolvedValue({ total: '0' }),
     })),
@@ -106,18 +118,34 @@ function buildQueryRunner(opts: { failOnCommit?: boolean; failOnNotification?: b
 }
 
 function buildTxService(qr: any, blockchainService: any, opts: { failOnNotification?: boolean } = {}) {
-  const dataSource = { createQueryRunner: () => qr } as any;
+  // createTransaction 是兩階段的：先 tryP2PMatch() 掃訂單簿撮合，未成交的部分才交給
+  // runTrade() 走 AMM。兩個階段各自 createQueryRunner()，真實環境下會拿到兩條獨立連線。
+  //
+  // 這裡刻意讓第一次呼叫（P2P 階段）拿到獨立的 runner，第二次以後才回傳測試持有的 qr，
+  // 否則兩階段的 commit/rollback 會累加在同一個替身上，讓「回滾必須恰好一次」這類
+  // 斷言誤判。P2P 階段在本檔一律撮不到對手盤（getMany 回空陣列），不影響受測路徑。
+  const p2pQr = buildQueryRunner({});
+  let handedOut = 0;
+  const dataSource = { createQueryRunner: () => (handedOut++ === 0 ? p2pQr : qr) } as any;
   const notifRepo = {
     save: opts.failOnNotification
       ? jest.fn().mockRejectedValue(new Error('SIMULATED_NOTIFICATION_FAILURE: notification store unavailable'))
       : jest.fn().mockResolvedValue({ id: 1 }),
   } as any;
   const userRepo = {
-    findOne: jest.fn().mockResolvedValue({ id: 1, is_whitelisted: true, wallet_address: USER_WALLET }),
+    findOne: jest.fn().mockResolvedValue({
+      id: 1,
+      is_whitelisted: true,
+      wallet_address: USER_WALLET,
+      total_asset_value: CASH_BALANCE,
+    }),
   } as any;
   const systemService = { getState: () => ({ isPaused: false }), isThrottled: () => false } as any;
   const service = new TransactionsService(notifRepo, userRepo, dataSource, systemService, blockchainService);
-  return Object.assign(service, { __notifRepo: notifRepo }) as TransactionsService & { __notifRepo: any };
+  return Object.assign(service, { __notifRepo: notifRepo, __p2pQr: p2pQr }) as TransactionsService & {
+    __notifRepo: any;
+    __p2pQr: any;
+  };
 }
 
 // ──────────────────────────────────────────────────────────────
