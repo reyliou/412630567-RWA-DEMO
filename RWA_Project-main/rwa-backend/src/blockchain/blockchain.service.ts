@@ -30,7 +30,7 @@ export interface ReconcileDiscrepancy {
 export class BlockchainService implements OnModuleInit {
   private readonly logger = new Logger(BlockchainService.name);
   private provider: ethers.JsonRpcProvider;
-  private adminWallet: ethers.Wallet;
+  private adminWallet: ethers.NonceManager;
   private adminAddress: string;
   private isProviderReady = false;
   private artifactsDir: string;
@@ -99,7 +99,7 @@ export class BlockchainService implements OnModuleInit {
       this.provider = new ethers.JsonRpcProvider(rpcUrl);
       const baseWallet = new ethers.Wallet(adminKey, this.provider);
       this.adminAddress = baseWallet.address;
-      this.adminWallet = new ethers.NonceManager(baseWallet) as unknown as ethers.Wallet;
+      this.adminWallet = new ethers.NonceManager(baseWallet);
       this.isProviderReady = true;
       this.log('INFO', `⛓️ 區塊鏈 Provider 已初始化 → ${rpcUrl} (Admin: ${this.adminAddress})`);
     } catch {
@@ -217,8 +217,8 @@ export class BlockchainService implements OnModuleInit {
     }
 
     try {
-      // 確保每次重新開通時，NonceManager 都會向節點重新同步真實 Nonce，避免節點重啟後 Nonce 錯位 (Nonce too high)
-      (this.adminWallet as any)?.reset?.();
+      // 重新開通是受控的佈署動作，此時不會有其他交易在途，可以無條件重新同步
+      this.resetNonceCache('重新開通基礎設施');
 
       await this.log('INFO', '🚀 開始部署 ERC-3643 基礎設施...');
       await this.log('INFO', `Admin wallet: ${this.adminAddress}`);
@@ -408,17 +408,25 @@ export class BlockchainService implements OnModuleInit {
   // Trading: on-chain buy / sell
   // ──────────────────────────────────────────
 
-  // NonceManager 會在本地累計 nonce。送出失敗時（nonce 已被佔用、或交易被替換）
-  // 本地計數會與鏈上實際值脫節，之後每一筆都沿用錯誤的 nonce 而連續失敗，
-  // 直到服務重啟為止。這裡在確認是 nonce 類錯誤時清掉快取，讓下一筆重新向節點取號。
+  // NonceManager 會在本地累計 nonce，有兩個時機需要清掉快取、重新向節點取號：
   //
-  // 刻意只針對 nonce 類錯誤 reset：其他失敗（例如 ERC-3643 合規檢查擋下轉帳）
-  // 不會讓 nonce 脫節，若一律 reset，反而可能在有其他交易在途時造成重號。
+  //   1. 重新開通基礎設施時 —— 節點重啟或睡眠後，本地快取還停在舊值 (Nonce too high)。
+  //      這是受控的佈署動作，不會有其他交易在途，可以無條件 reset。
+  //   2. 執行期送出失敗時 —— nonce 已被佔用或交易被替換，本地計數與鏈上脫節，
+  //      之後每一筆都沿用錯誤的 nonce 而連續失敗，直到服務重啟為止。
+  //
+  // 兩個時機共用這個實作，差別只在呼叫端要不要先判斷條件。
+  private resetNonceCache(reason: string) {
+    this.adminWallet?.reset();
+    this.logger.warn(`⚠️ 已清除 NonceManager 快取（${reason}），下一筆將重新向節點取號`);
+  }
+
+  // 執行期刻意只針對 nonce 類錯誤 reset：其他失敗（例如 ERC-3643 合規檢查擋下轉帳）
+  // 不會讓 nonce 脫節，交易進行中若一律 reset，剛好有其他交易在途時就可能造成重號。
   private resetNonceIfDesynced(e: any) {
     const code = String(e?.code ?? '');
     if (code !== 'NONCE_EXPIRED' && code !== 'REPLACEMENT_UNDERPRICED') return;
-    (this.adminWallet as any)?.reset?.();
-    this.logger.warn(`⚠️ 偵測到 nonce 脫節 (${code})，已清除 NonceManager 快取，下一筆將重新向節點取號`);
+    this.resetNonceCache(`偵測到 nonce 脫節: ${code}`);
   }
 
   async executeOnChainBuy(tokenAddress: string, toWalletAddress: string, amount: number): Promise<string> {
