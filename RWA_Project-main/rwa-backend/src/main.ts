@@ -15,8 +15,26 @@ async function bootstrap() {
 
   app.enableCors({
     origin: (origin, callback) => {
-      // 允許所有來源 (Vercel 預覽網址、正式網址、localhost 與伺服器請求)
-      callback(null, true);
+      // 伺服器對伺服器請求 / Postman 沒有 origin，予以放行
+      if (!origin) return callback(null, true);
+      
+      // 白名單：Vercel 預覽與正式網址、設定的 FRONTEND_URL、localhost 開發環境
+      let isAllowed = false;
+      try {
+        const hostname = new URL(origin).hostname;
+        isAllowed = 
+          /\.vercel\.app$/.test(hostname) ||
+          hostname === 'localhost' ||
+          hostname === '127.0.0.1' ||
+          origin === process.env.FRONTEND_URL?.replace(/\/$/, '') ||
+          origin === 'http://localhost:5173' ||
+          origin === 'http://localhost:3000' ||
+          origin === 'http://localhost:5174';
+      } catch (e) {
+        isAllowed = false;
+      }
+
+      callback(null, isAllowed);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],

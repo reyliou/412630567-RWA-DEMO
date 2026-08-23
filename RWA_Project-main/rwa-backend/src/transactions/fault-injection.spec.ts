@@ -11,6 +11,7 @@
 
 import { TransactionsService } from './transactions.service';
 import { Property } from '../entities/property.entity';
+import { User } from '../entities/user.entity';
 
 const MOCK_PROPERTY = {
   id: 1,
@@ -25,13 +26,17 @@ function buildQueryRunner(opts: { failOnCommit?: boolean }) {
   const manager = {
     findOne: jest.fn(async (entity: any) => {
       if (entity === Property) return { ...MOCK_PROPERTY };
+      if (entity === User) return { id: 1, is_whitelisted: true, total_asset_value: 999999999999 };
       return null;
     }),
     createQueryBuilder: jest.fn(() => ({
       select: jest.fn().mockReturnThis(),
-      update: jest.fn().mockReturnThis(), // ← transactions.service.ts 用 .createQueryBuilder().update(User)... 更新 total_asset_value
+      update: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValue([]),
       set: jest.fn().mockReturnThis(),
       execute: jest.fn().mockResolvedValue(undefined),
       getRawOne: jest.fn().mockResolvedValue({ total: '0' }),
@@ -54,43 +59,45 @@ function buildQueryRunner(opts: { failOnCommit?: boolean }) {
 
 describe('故障注入測試 — DB 連線在 commit 階段中斷', () => {
   it('commitTransaction 失敗時，應該呼叫 rollbackTransaction 並回傳失敗，而不是讓例外往外爆', async () => {
-    const qr = buildQueryRunner({ failOnCommit: true });
-    const dataSource = { createQueryRunner: () => qr } as any;
+    const runners: any[] = [];
+    const dataSource = {
+      createQueryRunner: jest.fn(() => {
+        const qr = buildQueryRunner({ failOnCommit: true });
+        runners.push(qr);
+        return qr;
+      }),
+    } as any;
 
     const notifRepo = { save: jest.fn() } as any;
-    const userRepo = { findOne: jest.fn().mockResolvedValue({ id: 1, is_whitelisted: true, wallet_address: null }) } as any;
+    const userRepo = { findOne: jest.fn().mockResolvedValue({ id: 1, is_whitelisted: true, wallet_address: null, total_asset_value: 999999999999 }) } as any;
     const systemService = { getState: () => ({ isPaused: false }), isThrottled: () => false } as any;
     const blockchainService = {} as any;
 
     const service = new TransactionsService(notifRepo, userRepo, dataSource, systemService, blockchainService);
 
-    // ⚠️ 修正說明：
-    // 原本這裡斷言 result.success === false，但實際上 createTransaction() 內部
-    // 呼叫 private runTrade()、拿到 { success:false } 之後，會主動把它轉成
-    // BadRequestException 拋出（見 transactions.service.ts: `if (!result.success)
-    // throw new BadRequestException(result.message)`）。
-    // 這是刻意設計：讓 Controller 能直接回一個乾淨的 400 錯誤給前端，而不是把
-    // 內部的 {success:false} 物件原封不動回傳。所以正確的測試方式是「預期它會
-    // 拋出例外」，而不是「預期它回傳一個帶 success:false 的物件」。
-    //
-    // 這支測試真正該驗證的重點沒有變：即使最終是拋出例外，底層的 DB 交易
-    // 也必須正確 rollback、並釋放連線，不能留下半寫入的髒資料或洩漏連線。
     await expect(
       service.createTransaction(1, 1, 'BUY', 'MARKET', 10, 999999),
     ).rejects.toThrow('SIMULATED_DB_OUTAGE');
 
-    expect(qr.rollbackTransaction).toHaveBeenCalledTimes(1);
-    expect(qr.release).toHaveBeenCalledTimes(1); // finally 區塊要確實釋放連線，避免 connection pool 洩漏
+    const lastRunner = runners[runners.length - 1];
+    expect(lastRunner.rollbackTransaction).toHaveBeenCalledTimes(1);
+    expect(lastRunner.release).toHaveBeenCalledTimes(1);
   });
 });
 
 describe('故障注入測試 — 鏈上呼叫逾時/失敗', () => {
   it('executeOnChainBuy 拋錯時，DB 仍應完成交易並標記為 CHAIN_FAILED，而不是整筆請求失敗', async () => {
-    const qr = buildQueryRunner({ failOnCommit: false });
-    const dataSource = { createQueryRunner: () => qr } as any;
+    const runners: any[] = [];
+    const dataSource = {
+      createQueryRunner: jest.fn(() => {
+        const qr = buildQueryRunner({ failOnCommit: false });
+        runners.push(qr);
+        return qr;
+      }),
+    } as any;
 
     const notifRepo = { save: jest.fn() } as any;
-    const userRepo = { findOne: jest.fn().mockResolvedValue({ id: 1, is_whitelisted: true, wallet_address: '0xUSER' }) } as any;
+    const userRepo = { findOne: jest.fn().mockResolvedValue({ id: 1, is_whitelisted: true, wallet_address: '0xUSER', total_asset_value: 999999999999 }) } as any;
     const systemService = { getState: () => ({ isPaused: false }), isThrottled: () => false } as any;
     const blockchainService = {
       executeOnChainBuy: jest.fn().mockRejectedValue(new Error('SIMULATED_CHAIN_TIMEOUT')),
@@ -101,13 +108,14 @@ describe('故障注入測試 — 鏈上呼叫逾時/失敗', () => {
     const result: any = await service.createTransaction(1, 1, 'BUY', 'MARKET', 10, 999999);
 
     expect(result.success).toBe(true);
-    expect(qr.manager.save).toHaveBeenCalled();
 
-    const savedTx = qr.manager.save.mock.calls
+    const allSaves = runners.flatMap(r => r.manager.save.mock.calls);
+    const savedTx = allSaves
       .map((call: any[]) => call[call.length - 1])
       .find((payload: any) => payload && 'status' in payload);
 
     expect(savedTx?.status).toBe('CHAIN_FAILED');
-    expect(qr.commitTransaction).toHaveBeenCalledTimes(1);
+    const lastRunner = runners[runners.length - 1];
+    expect(lastRunner.commitTransaction).toHaveBeenCalledTimes(1);
   });
 });
