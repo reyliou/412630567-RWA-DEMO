@@ -84,23 +84,19 @@ export class AuthService {
       const { sanitizedFileName, format } = validateAndSanitizeKycFile(fileToUpload, username, suffix);
       const encryptedBuffer = encryptBuffer(fileToUpload.buffer);
       
-      try {
-        const { data, error } = await this.supabase.storage
-          .from('kyc-documents')
-          .upload(sanitizedFileName, encryptedBuffer, {
-            contentType: format === 'png' ? 'image/png' : 'image/jpeg',
-            upsert: true,
-          });
-        
-        if (error) {
-          console.warn(`KYC Supabase Storage upload warning (${suffix}): ${error.message}. Using fallback storage.`);
-          return `local_storage/${sanitizedFileName}`;
-        }
-        return data.path;
-      } catch (err: any) {
-        console.warn(`KYC Upload fallback (${suffix}): ${err.message}`);
-        return `local_storage/${sanitizedFileName}`;
+      const { data, error } = await this.supabase.storage
+        .from('kyc-documents')
+        .upload(sanitizedFileName, encryptedBuffer, {
+          contentType: format === 'png' ? 'image/png' : 'image/jpeg',
+          upsert: true,
+        });
+      
+      if (error || !data?.path) {
+        throw new BadRequestException(
+          `KYC 證件（${suffix === 'front' ? '正面' : '反面'}）上傳失敗：${error?.message || '雲端儲存空間連線異常'}，請重試或聯繫技術人員。`,
+        );
       }
+      return data.path;
     };
 
     if (fileFront) {
