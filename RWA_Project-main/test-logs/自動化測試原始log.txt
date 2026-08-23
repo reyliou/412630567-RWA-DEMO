@@ -1,0 +1,312 @@
+###############################################################
+#                                                             #
+#          RWA 專題 — 自動化測試原始終端機輸出                #
+#                                                             #
+###############################################################
+
+ 產生日期 : 2026-08-19
+ 基準 commit : 909db44 test: update fault-injection assertion for reconcile offline node message
+             （另含尚未提交的異動，見下方說明）
+ 專案路徑 : RWA_Project-main
+ 環境     : Windows 10 Pro / Node v24.18.0 / Jest 30.4.1 / Hardhat 2.28.6
+
+ 測試總數 : 89 筆，全數通過
+            後端 Jest 69 筆（src/ 54 + test/ 15）＋ 智能合約 Hardhat 20 筆
+
+---------------------------------------------------------------
+ 內容目次
+---------------------------------------------------------------
+  【一】後端 單元／負向／併發／故障注入        54 passed
+  【二】後端 整合／權限                        15 passed
+  【三】智能合約 ERC-3643                      20 passing
+  【四】負向測試（篩選執行，對應文件第五章）   9 passed / 10 skipped
+
+  【一】【二】【三】相加即為 89 筆的總數。
+  【四】為【一】的子集合以名稱篩選後單獨執行，不另計入總數。
+
+---------------------------------------------------------------
+ 尚未提交的異動
+---------------------------------------------------------------
+  測試檔：
+   · src/blockchain/fault-injection.spec.ts
+       新增 4 筆 —— 節點失憶的自動重建判斷（文件 8.3）
+   · src/blockchain/fault-injection-integrity.spec.ts（新檔）
+       新增 12 筆 —— 鏈上／鏈下狀態一致性五情境（文件 8.4）
+
+  程式碼修正（依 8.4 測出的缺口）：
+   · src/transactions/transactions.service.ts
+       成交通知由交易內（qr.manager）移至 commit 之後以獨立連線寫入，
+       失敗僅記錄告警 —— 修正「通知故障會回滾已上鏈交易」的缺口。
+   · src/blockchain/blockchain.service.ts
+       executeOnChainBuy/Sell 的失敗路徑新增 resetNonceIfDesynced()，
+       僅於 NONCE_EXPIRED / REPLACEMENT_UNDERPRICED 時清除 NonceManager 快取。
+
+  未修正（刻意保留，屬架構層面）：
+   · 服務重啟後重新結算會再次執行鏈上轉帳（文件 8.4(a) 標記為已知風險）
+
+---------------------------------------------------------------
+ 說明
+---------------------------------------------------------------
+  · 每段開頭均附執行指令、時間戳、commit 與版本，可依指令重跑驗證。
+  · npx jest 在非 TTY（輸出導向到檔案）時預設不印出逐筆測試名稱，
+    需加 --reporters=default，以下各段指令均已加上。
+  · 效能測試（文件第七章）不在此檔內 —— 其原始 autocannon 輸出見
+    文件附錄三；該測試需連線雲端 Supabase，數據隨網路狀況變動。
+
+
+===============================================================
+  【一】後端 單元／負向／併發／故障注入
+===============================================================
+
+===============================================================
+ 後端 單元／負向／併發／故障注入 (jest, rootDir=src)
+ 指令 : npx jest --verbose --reporters=default --ci
+ 路徑 : RWA_Project-main/rwa-backend
+ 基準 commit : 909db44 test: update fault-injection assertion for reconcile offline node message
+ 時間 : 2026-08-19 23:03:46
+ Node : v24.18.0
+ OS   : Windows 10 Pro
+===============================================================
+
+PASS src/properties/properties.service.spec.ts
+  PropertiesService.getKLineData — 單元測試：台北時區歸類
+    √ UTC 16:30（台北時間隔天 00:30）應該被歸類到「隔天」的 K 棒，而不是當天 (9 ms)
+    √ UTC 23:59（台北時間 07:59，同一個台北日）不應該被推到隔天
+    √ 同一個台北日的多筆交易應合併成一根 K 棒，並正確計算 open/high/low/close/volume (2 ms)
+    √ 沒有任何交易紀錄時應回傳空陣列，而不是報錯 (1 ms)
+  PropertiesService.getKLineData — 合約測試：回傳格式
+    √ 每個元素都必須包含 time/open/high/low/close/volume 六個欄位，型別正確 (1 ms)
+  PropertiesService.getKLineData — 查詢範圍
+    √ appTxRepo.find 呼叫時應帶入 take: 3000，避免無上限查詢全部歷史 (2 ms)
+    √ 時間下限應與造市資料的 31 天歷史對齊，使視窗內每一天都有資料、真實交易不會落單
+
+[Nest] 26756  - 2026/08/19 下午11:03:51    WARN [TransactionsService] ⚠️ 鏈上轉帳失敗（DB 仍會記錄，狀態標記為 CHAIN_FAILED）: SIMULATED_CHAIN_TIMEOUT
+PASS src/transactions/fault-injection.spec.ts
+  故障注入測試 — DB 連線在 commit 階段中斷
+    √ commitTransaction 失敗時，應該呼叫 rollbackTransaction 並回傳失敗，而不是讓例外往外爆 (59 ms)
+  故障注入測試 — 鏈上呼叫逾時/失敗
+    √ executeOnChainBuy 拋錯時，DB 仍應完成交易並標記為 CHAIN_FAILED，而不是整筆請求失敗 (3 ms)
+
+  console.log
+    [併發測試 log] 2 個併發請求 → 成功 2/2 筆，資料庫實際寫入相同 idempotency_key 共 2 次
+
+      at Object.<anonymous> (transactions/transactions.service.spec.ts:366:15)
+
+[Nest] 15812  - 2026/08/19 下午11:03:51   ERROR [TransactionsService] 唯一約束違反（非冪等性）: constraint=UQ_user_holdings_user_property detail=無 table=user_holdings
+PASS src/transactions/transactions.service.spec.ts
+  TransactionsService — 負向測試
+    √ 系統暫停時下單應被拒絕 (403) (40 ms)
+    √ 未通過 KYC (is_whitelisted=false) 的使用者下單應被拒絕 (3 ms)
+    √ 數量為 0 應回傳 400 錯誤 (6 ms)
+    √ 數量為負數 應回傳 400 錯誤 (2 ms)
+    √ 價格為 0 應回傳 400 錯誤 (1 ms)
+    √ 價格為負數 應回傳 400 錯誤 (1 ms)
+    √ 賣出數量超過實際持倉時應被拒絕 (2 ms)
+    √ AMM 池子被抽乾時（流通量 = 總發行量）應拒絕買入 (1 ms)
+    √ 限價買單若 AMM 滑價超過使用者限價應被拒絕 (1 ms)
+  TransactionsService — 單元測試：AMM 定價公式 (k = x*y)
+    √ 買入 100 枚時，服務算出的成交均價應該精確符合 k=x*y 公式（而不是約等於現貨價） (41 ms)
+    √ 買入量越大，均價應該越高（滑價方向正確） (2 ms)
+  TransactionsService — 併發測試
+    √ 🔴 已知風險：相同 idempotency_key 併發送出兩筆市價單，目前的檢查（先 findOne 再寫入）存在 TOCTOU 競態條件，可能兩筆都成交 (53 ms)
+    √ 不同 idempotency_key 的併發請求應該都能各自正常成交 (3 ms)
+  TransactionsService — 併發測試：AMM 定價的鎖定策略
+    √ 讀取建案資料時應帶入 pessimistic_write 排他鎖，使同一建案的交易序列化 (2 ms)
+    √ 資料庫以 UNIQUE 約束擋下重複的 idempotency_key 時，應轉為明確的重複交易訊息而非 500 (1 ms)
+    √ 其他唯一約束的衝突不應被誤報成重複交易，訊息要指出實際違反的約束 (2 ms)
+    √ 撮合引擎應以含滑價的成交均價判斷觸發，不可只看現貨價 (1 ms)
+    √ 限價單結算時若沒有鏈上雜湊，tx_hash 應維持未設定而非空字串 (1 ms)
+    √ 鎖應在資料庫交易開啟之後才取得，否則鎖不會生效
+
+PASS src/auth/fault-injection.spec.ts
+  故障注入測試 — 必要環境變數缺失時應 fail-fast
+    √ 缺少 SUPABASE_SERVICE_KEY 時，AuthService 應該在建構時直接拋錯，而不是等到呼叫 API 才炸 (1611 ms)
+    √ 缺少 IMAGE_ENCRYPTION_KEY 時，整個 auth module 在載入當下就應該拋錯 (347 ms)
+
+PASS src/blockchain/fault-injection-integrity.spec.ts
+  故障注入 — 情境一：服務重啟後的 pending 交易狀態
+    √ 寫入途中程序被砍（commit 失敗）時，不得留下半完成狀態：必須 rollback 並釋放連線 (55 ms)
+    √ 🔴 已知風險：鏈上轉帳成功但 DB commit 失敗時，重啟後重新結算會再次執行鏈上轉帳 (3 ms)
+  故障注入 — 情境二：重複事件（本系統無事件監聽器，測等價風險：對帳重複執行）
+    √ 對帳以 queryFilter 全量重建而非事件訂閱 —— 連續執行兩次不得重複累計不一致 (80 ms)
+    √ 同一筆 Transfer 事件已有對應交易紀錄時，不得再被判定為未追蹤轉帳（避免重複補建） (5 ms)
+  故障注入 — 情境三：Nonce 衝突
+    √ 鏈上轉帳遇到 nonce 衝突時，錯誤應如實往外拋，不得被吞掉造成成功假象 (4 ms)
+    √ nonce 脫節時應清除 NonceManager 快取，讓下一筆重新向節點取號 (2 ms)
+    √ 非 nonce 類的鏈上失敗不得觸發 reset —— 貿然重設在有交易在途時會造成重號 (3 ms)
+    √ nonce 衝突不得污染資料庫：該筆應標記為 CHAIN_FAILED，且不得寫入假的 tx_hash (2 ms)
+  故障注入 — 情境四：區塊重組（本系統無 reorg 專門處理，測等價風險：對帳能否偵測）
+    √ 已入帳的轉帳在鏈上被 reorg 掉（Transfer 事件消失）時，對帳必須偵測為餘額不一致 (4 ms)
+    √ 對帳偵測到不一致時應寫入 system_alerts，讓技術端稽核台看得到而非靜默 (6 ms)
+  故障注入 — 情境五：成交通知寄送失敗
+    √ 通知寫入失敗不得影響交易結果：交易須照常 commit，通知失敗只記錄告警 (2 ms)
+    √ 通知必須在 commit 之後才寫入，且不得再使用交易的 queryRunner (1 ms)
+
+PASS src/blockchain/fault-injection.spec.ts
+  BlockchainService — 故障注入：區塊鏈節點無法連線
+    √ RPC 位址連不上時，初始化不應拋出例外讓整個服務起不來 (104 ms)
+    √ isNodeReachable() 面對連不上的節點應回傳 false，而不是拋例外 (27 ms)
+    √ getStatus() 應照常回應並標示節點不可達，不因節點故障而讓 API 掛掉 (18 ms)
+    √ setupBlockchain() 應以明確訊息拒絕，而不是靜默失敗或卡住 (42 ms)
+    √ 節點故障應寫入 system_alerts 供技術端稽核台顯示 (16 ms)
+    √ reconcile() 在節點不可達時應拒絕執行，避免以殘缺的鏈上資料誤判持倉 (24 ms)
+  BlockchainService — 故障注入：節點失憶的自動重建判斷
+    √ 節點不可達時排程應直接跳過，不得觸發重建 (21 ms)
+    √ 🔒 getCode 因網路異常拋錯時不得重建 —— RPC 瞬斷不等於合約消失 (5 ms)
+    √ getCode 確實回傳 0x（合約真的不存在）時才應觸發重建 (4 ms)
+    √ 前一次重建尚未結束時，下一次排程應被 isRecovering 擋下，且結束後要能再次執行 (8 ms)
+  BlockchainService — 負向：正式環境缺少 ADMIN_KEY
+    √ 正式環境未設定 ADMIN_KEY 時，應拒絕以公開的 Hardhat 測試私鑰啟動鏈上功能 (2 ms)
+    √ 開發環境未設定 ADMIN_KEY 時仍可使用 Hardhat 預設帳戶，不影響本機開發 (3 ms)
+
+Test Suites: 6 passed, 6 total
+Tests:       54 passed, 54 total
+Snapshots:   0 total
+Time:        4.502 s
+Ran all test suites.
+
+
+===============================================================
+  【二】後端 整合／權限
+===============================================================
+
+===============================================================
+ 後端 整合／權限 (jest, config=test/jest-e2e.json)
+ 指令 : npx jest --config ./test/jest-e2e.json --verbose --reporters=default --ci
+ 路徑 : RWA_Project-main/rwa-backend
+ 基準 commit : 909db44 test: update fault-injection assertion for reconcile offline node message
+ 時間 : 2026-08-19 23:03:52
+ Node : v24.18.0
+ OS   : Windows 10 Pro
+===============================================================
+
+PASS test/integration-auth.e2e-spec.ts
+  整合測試 + 權限測試 (e2e, mocked DB)
+    權限測試 — JWT 驗證
+      √ 未帶 Authorization header 打受保護的 API 應回 401 (31 ms)
+      √ 帶壞掉/篡改過的 token 應回 401 (5 ms)
+      √ 帶合法 token 應該通過驗證（不是 401） (9 ms)
+    權限測試 — 資源擁有者檢查
+      √ user_id 跟 token 裡的 id 不一致時應回 403（不能幫別人下單） (13 ms)
+      √ user_id 跟 token 一致時應正常進入下單流程（不是 403） (9 ms)
+    權限測試 — BUSINESS 角色專屬 API
+      √ 一般投資人 (INVESTOR) 呼叫 get /api/users 應回 403 (3 ms)
+      √ 一般投資人 (INVESTOR) 呼叫 patch /api/users/2/whitelist 應回 403 (5 ms)
+      √ 一般投資人 (INVESTOR) 呼叫 patch /api/users/2/kyc 應回 403 (3 ms)
+      √ 一般投資人 (INVESTOR) 呼叫 post /api/kyc/2/decrypt 應回 403 (3 ms)
+      √ 管理員 (BUSINESS) 呼叫 get /api/users 不應被擋在權限這關（不是 403） (3 ms)
+      √ 管理員 (BUSINESS) 呼叫 patch /api/users/2/whitelist 不應被擋在權限這關（不是 403） (2 ms)
+      √ 管理員 (BUSINESS) 呼叫 patch /api/users/2/kyc 不應被擋在權限這關（不是 403） (2 ms)
+      √ 管理員 (BUSINESS) 呼叫 post /api/kyc/2/decrypt 不應被擋在權限這關（不是 403） (4 ms)
+    整合測試 — 下單完整路徑
+      √ 合法下單應該回傳 success:true，並帶有交易結果 (5 ms)
+      √ 系統暫停時，就算通過所有權限檢查，下單也應該在 Service 層被擋下 (10 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       15 passed, 15 total
+Snapshots:   0 total
+Time:        2.076 s
+Ran all test suites.
+
+
+===============================================================
+  【三】智能合約 ERC-3643
+===============================================================
+
+===============================================================
+ 智能合約 (Hardhat 內建網路, chainId 31337)
+ 指令 : npm test  (= hardhat test)
+ 路徑 : RWA_Project-main/blockchain
+ 基準 commit : 909db44 test: update fault-injection assertion for reconcile offline node message
+ 時間 : 2026-08-19 23:04:00
+ Node : v24.18.0
+ OS   : Windows 10 Pro
+===============================================================
+
+
+> test
+> hardhat test
+
+
+
+  SimpleRWA — 合約測試：部署與初始狀態
+    ✔ 代幣的名稱、代號、精度、總發行量應與部署參數一致 (742ms)
+    ✔ 鑄造出的全部代幣應在 admin 錢包中，作為未售出庫存
+    ✔ 代幣應綁定正確的 IdentityRegistry 與 Compliance
+
+  SimpleRWA — 合約測試：KYC 合規閘門（ERC-3643 核心）
+    ✔ 已登記身分且持有 KYC Claim 的地址，應被 IdentityRegistry 判定為已驗證
+    ✔ 完全未登記的地址應被判定為未驗證
+    ✔ 轉帳給已通過 KYC 的投資人應該成功，且雙方餘額正確變動
+    ✔ 🔒 轉帳給未通過 KYC 的地址必須被鏈上拒絕（就算後端權限被繞過也擋得住）
+    ✔ 🔒 未通過 KYC 的地址也不能被鑄造代幣
+    ✔ 身分登記被撤銷後，該地址應立即無法再收到代幣
+
+  SimpleRWA — 權限測試：agent 與 owner 角色
+    ✔ admin 應具備 agent 身分，一般投資人不應具備
+    ✔ 🔒 非 agent 呼叫 mint() 應被拒絕
+    ✔ 🔒 非 agent 呼叫 pause() 應被拒絕
+    ✔ 🔒 非 agent 呼叫 forcedTransfer() 應被拒絕（賣出流程依賴此權限）
+    ✔ agent 可用 forcedTransfer 收回投資人代幣，使用者錢包無需持有 ETH 付 gas
+    ✔ 🔒 非 owner 不能新增 agent
+
+  SimpleRWA — 負向測試：暫停與餘額邊界
+    ✔ pause() 之後所有轉帳都應被拒絕（技術端緊急煞車）
+    ✔ unpause() 之後轉帳應恢復正常
+    ✔ 重複 pause() 應被拒絕，避免狀態被誤改
+    ✔ 轉帳金額超過餘額時應被拒絕
+    ✔ 投資人賣超過自己持有的數量時應被拒絕
+
+
+  20 passing (876ms)
+
+
+
+===============================================================
+  【四】負向測試（篩選執行）
+===============================================================
+
+===============================================================
+ 負向測試（以檔案 + 名稱篩選執行）
+ 指令 : npx jest src/transactions/transactions.service.spec.ts -t "負向" --reporters=default --ci
+ 路徑 : RWA_Project-main/rwa-backend
+ 基準 commit : 909db44 test: update fault-injection assertion for reconcile offline node message
+ 時間 : 2026-08-19 23:03:56
+ Node : v24.18.0
+ OS   : Windows 10 Pro
+===============================================================
+
+PASS src/transactions/transactions.service.spec.ts
+  TransactionsService — 負向測試
+    √ 系統暫停時下單應被拒絕 (403) (34 ms)
+    √ 未通過 KYC (is_whitelisted=false) 的使用者下單應被拒絕 (2 ms)
+    √ 數量為 0 應回傳 400 錯誤 (1 ms)
+    √ 數量為負數 應回傳 400 錯誤
+    √ 價格為 0 應回傳 400 錯誤
+    √ 價格為負數 應回傳 400 錯誤 (1 ms)
+    √ 賣出數量超過實際持倉時應被拒絕 (2 ms)
+    √ AMM 池子被抽乾時（流通量 = 總發行量）應拒絕買入 (1 ms)
+    √ 限價買單若 AMM 滑價超過使用者限價應被拒絕 (1 ms)
+  TransactionsService — 單元測試：AMM 定價公式 (k = x*y)
+    ○ skipped 買入 100 枚時，服務算出的成交均價應該精確符合 k=x*y 公式（而不是約等於現貨價）
+    ○ skipped 買入量越大，均價應該越高（滑價方向正確）
+  TransactionsService — 併發測試
+    ○ skipped 🔴 已知風險：相同 idempotency_key 併發送出兩筆市價單，目前的檢查（先 findOne 再寫入）存在 TOCTOU 競態條件，可能兩筆都成交
+    ○ skipped 不同 idempotency_key 的併發請求應該都能各自正常成交
+  TransactionsService — 併發測試：AMM 定價的鎖定策略
+    ○ skipped 讀取建案資料時應帶入 pessimistic_write 排他鎖，使同一建案的交易序列化
+    ○ skipped 資料庫以 UNIQUE 約束擋下重複的 idempotency_key 時，應轉為明確的重複交易訊息而非 500
+    ○ skipped 其他唯一約束的衝突不應被誤報成重複交易，訊息要指出實際違反的約束
+    ○ skipped 撮合引擎應以含滑價的成交均價判斷觸發，不可只看現貨價
+    ○ skipped 限價單結算時若沒有鏈上雜湊，tx_hash 應維持未設定而非空字串
+    ○ skipped 鎖應在資料庫交易開啟之後才取得，否則鎖不會生效
+
+Test Suites: 1 passed, 1 total
+Tests:       10 skipped, 9 passed, 19 total
+Snapshots:   0 total
+Time:        1.459 s, estimated 3 s
+Ran all test suites matching src/transactions/transactions.service.spec.ts with tests matching "負向".
+
+===============================================================
+  檔案結束
+===============================================================
