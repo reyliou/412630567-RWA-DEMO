@@ -46,3 +46,17 @@ RWA_Project-main/rwa-backend/check-*.js
 RWA_Project-main/rwa-backend/test-*.js
 RWA_Project-main/rwa-backend/debug-*.js
 RWA_Project-main/rwa-backend/list-files.js
+
+# Code Dumps & Review Docs (Prevent leaking secrets)
+all_code.txt
+project_contents.txt
+file_list.txt
+*.env
+*.env.*
+.env
+.env.*
+**/.env
+**/.env.*
+codereview*.md
+*.pem
+*.key
