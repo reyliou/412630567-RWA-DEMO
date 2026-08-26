@@ -106,13 +106,17 @@ describe('整合測試 + 權限測試 (e2e, mocked DB)', () => {
       manager: {
         findOne: jest.fn(async (entity: any) => {
           if (entity === Property) return { ...MOCK_PROPERTY };
+          if (entity === User) return { id: 1, is_whitelisted: true, total_asset_value: 999999999999 };
           return null;
         }),
         createQueryBuilder: jest.fn(() => ({
           select: jest.fn().mockReturnThis(),
-          update: jest.fn().mockReturnThis(), // ← transactions.service.ts 用 .createQueryBuilder().update(User)... 更新 total_asset_value
+          update: jest.fn().mockReturnThis(),
           where: jest.fn().mockReturnThis(),
           andWhere: jest.fn().mockReturnThis(),
+          orderBy: jest.fn().mockReturnThis(),
+          addOrderBy: jest.fn().mockReturnThis(),
+          getMany: jest.fn().mockResolvedValue([]),
           set: jest.fn().mockReturnThis(),
           execute: jest.fn().mockResolvedValue(undefined),
           getRawOne: jest.fn().mockResolvedValue({ total: '0' }),
@@ -145,7 +149,7 @@ describe('整合測試 + 權限測試 (e2e, mocked DB)', () => {
         JwtStrategy,
         { provide: UsersService, useValue: mockUsersService },
         { provide: getRepositoryToken(UserNotification), useValue: { save: jest.fn() } },
-        { provide: getRepositoryToken(User), useValue: { findOne: jest.fn().mockResolvedValue({ id: 1, is_whitelisted: true, wallet_address: null }) } },
+        { provide: getRepositoryToken(User), useValue: { findOne: jest.fn().mockResolvedValue({ id: 1, is_whitelisted: true, wallet_address: null, total_asset_value: 999999999999 }) } },
         { provide: getRepositoryToken(AppTransaction), useValue: {} },
         { provide: getRepositoryToken(Property), useValue: {} },
         { provide: getRepositoryToken(UserHolding), useValue: {} },
@@ -305,7 +309,7 @@ describe('整合測試 + 權限測試 (e2e, mocked DB)', () => {
           TransactionsService,
           JwtStrategy,
           { provide: getRepositoryToken(UserNotification), useValue: { save: jest.fn() } },
-          { provide: getRepositoryToken(User), useValue: { findOne: jest.fn().mockResolvedValue({ id: 1, is_whitelisted: true }) } },
+          { provide: getRepositoryToken(User), useValue: { findOne: jest.fn().mockResolvedValue({ id: 1, is_whitelisted: true, total_asset_value: 999999999999 }) } },
           { provide: DataSource, useValue: mockDataSource },
           { provide: SystemService, useValue: { getState: () => ({ isPaused: true }), isThrottled: () => false } },
           { provide: BlockchainService, useValue: {} },

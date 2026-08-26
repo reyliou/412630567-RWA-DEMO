@@ -1,0 +1,16 @@
+◇ injected env (7) from .env // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+連線成功，正在開啟資料庫交易 (Transaction)...
+正在注入 50000 筆虛擬交易資料... (請稍候)
+注入完成！
+
+================ 大規模資料 EXPLAIN ANALYZE 結果 ================
+Limit  (cost=0.29..2.41 rows=1 width=117) (actual time=0.049..3.641 rows=3000 loops=1)
+  ->  Index Scan using idx_transactions_property_time on transactions  (cost=0.29..2.41 rows=1 width=117) (actual time=0.047..3.285 rows=3000 loops=1)
+        Index Cond: ((property_id = 9999) AND (created_at >= (now() - '31 days'::interval)))
+        Filter: ((status)::text = 'SUCCESS'::text)
+Planning Time: 2.588 ms
+Execution Time: 3.892 ms
+==============================================================
+
+正在還原資料庫狀態 (ROLLBACK)...
+狀態還原成功，資料庫維持乾淨！

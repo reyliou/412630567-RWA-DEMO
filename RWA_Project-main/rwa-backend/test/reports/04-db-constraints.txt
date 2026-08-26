@@ -1,0 +1,23 @@
+◇ injected env (7) from .env // tip: ⌘ enable debugging { debug: true }
+
+================ user_holdings 約束清單 ================
+名稱: user_holdings_holder_type_chk
+類型: c (p:主鍵, f:外鍵, u:唯一, c:檢查)
+定義: CHECK (((holder_type)::text = ANY ((ARRAY['INVESTOR'::character varying, 'PLATFORM_RESERVE'::character varying])::text[])))
+--------------------------------------------------------
+名稱: user_holdings_pkey
+類型: p (p:主鍵, f:外鍵, u:唯一, c:檢查)
+定義: PRIMARY KEY (id)
+--------------------------------------------------------
+名稱: user_holdings_property_id_fkey
+類型: f (p:主鍵, f:外鍵, u:唯一, c:檢查)
+定義: FOREIGN KEY (property_id) REFERENCES properties(id)
+--------------------------------------------------------
+名稱: user_holdings_unique_holding
+類型: u (p:主鍵, f:外鍵, u:唯一, c:檢查)
+定義: UNIQUE (user_id, property_id, holder_type)
+--------------------------------------------------------
+名稱: user_holdings_user_id_fkey
+類型: f (p:主鍵, f:外鍵, u:唯一, c:檢查)
+定義: FOREIGN KEY (user_id) REFERENCES users(id)
+--------------------------------------------------------

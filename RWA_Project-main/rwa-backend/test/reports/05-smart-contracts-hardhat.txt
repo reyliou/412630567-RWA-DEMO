@@ -1,0 +1,33 @@
+
+
+  SimpleRWA — 合約測試：部署與初始狀態
+    ✔ 代幣的名稱、代號、精度、總發行量應與部署參數一致 (628ms)
+    ✔ 鑄造出的全部代幣應在 admin 錢包中，作為未售出庫存
+    ✔ 代幣應綁定正確的 IdentityRegistry 與 Compliance
+
+  SimpleRWA — 合約測試：KYC 合規閘門（ERC-3643 核心）
+    ✔ 已登記身分且持有 KYC Claim 的地址，應被 IdentityRegistry 判定為已驗證
+    ✔ 完全未登記的地址應被判定為未驗證
+    ✔ 轉帳給已通過 KYC 的投資人應該成功，且雙方餘額正確變動
+    ✔ 🔒 轉帳給未通過 KYC 的地址必須被鏈上拒絕（就算後端權限被繞過也擋得住）
+    ✔ 🔒 未通過 KYC 的地址也不能被鑄造代幣
+    ✔ 身分登記被撤銷後，該地址應立即無法再收到代幣
+
+  SimpleRWA — 權限測試：agent 與 owner 角色
+    ✔ admin 應具備 agent 身分，一般投資人不應具備
+    ✔ 🔒 非 agent 呼叫 mint() 應被拒絕
+    ✔ 🔒 非 agent 呼叫 pause() 應被拒絕
+    ✔ 🔒 非 agent 呼叫 forcedTransfer() 應被拒絕（賣出流程依賴此權限）
+    ✔ agent 可用 forcedTransfer 收回投資人代幣，使用者錢包無需持有 ETH 付 gas
+    ✔ 🔒 非 owner 不能新增 agent
+
+  SimpleRWA — 負向測試：暫停與餘額邊界
+    ✔ pause() 之後所有轉帳都應被拒絕（技術端緊急煞車）
+    ✔ unpause() 之後轉帳應恢復正常
+    ✔ 重複 pause() 應被拒絕，避免狀態被誤改
+    ✔ 轉帳金額超過餘額時應被拒絕
+    ✔ 投資人賣超過自己持有的數量時應被拒絕
+
+
+  20 passing (760ms)
+
