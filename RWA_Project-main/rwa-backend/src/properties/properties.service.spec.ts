@@ -158,3 +158,135 @@ describe('PropertiesService.getKLineData — 查詢範圍', () => {
     expect(daysAgo).toBeLessThan(31.1);
   });
 });
+
+// ==================================================================
+// 單元測試：租金分潤引擎 (executePayout) 精度與信託帳本實報實銷
+// ==================================================================
+describe('PropertiesService.executePayout — 金融精度與信託記帳', () => {
+  it('未滿額認購時，信託現金帳戶應實報實銷（只扣除發放總額，未售出份額實質保留於專戶）', async () => {
+    const mockBatchRepo = { save: jest.fn().mockResolvedValue({ id: 101 }), update: jest.fn() } as any;
+    const mockDetailRepo = { save: jest.fn().mockImplementation((d) => Promise.resolve({ id: 1, ...d })) } as any;
+    const mockPropertyRepo = {
+      findOne: jest.fn().mockResolvedValue({ id: 1, title: '台北大安大樓', total_supply_x: 100000 }),
+    } as any;
+    // 投資人共持有 40,000 枚 (40%)
+    const mockHoldingRepo = {
+      find: jest.fn().mockResolvedValue([
+        { user_id: 1, balance: 25000 },
+        { user_id: 2, balance: 15000 },
+      ]),
+    } as any;
+    const mockUserRepo = {
+      findOne: jest.fn().mockResolvedValue({ id: 1, wallet_address: null }),
+      increment: jest.fn().mockResolvedValue(undefined),
+    } as any;
+    const mockTrustAccount = {
+      id: 5,
+      property_id: 1,
+      pending_rent_amount: 100000,
+      current_cash_balance: 500000,
+    };
+    const mockTrustAccountRepo = {
+      findOne: jest.fn().mockResolvedValue(mockTrustAccount),
+      save: jest.fn().mockImplementation((acc) => Promise.resolve(acc)),
+    } as any;
+    const mockTrustTxRepo = { save: jest.fn() } as any;
+    const mockNotifRepo = { save: jest.fn() } as any;
+
+    const service = new PropertiesService(
+      mockPropertyRepo,
+      {} as any,
+      mockBatchRepo,
+      mockDetailRepo,
+      mockHoldingRepo,
+      mockUserRepo,
+      mockTrustAccountRepo,
+      mockTrustTxRepo,
+      {} as any, // appTxRepo
+      mockNotifRepo, // notifRepo
+      {} as any, // blockchainService
+    );
+
+    const result = await service.executePayout(1, 100000);
+
+    // 總收取 10 萬，但只發給 40% 的持有人 ($40,000)
+    expect(result.total_collected).toBe(100000);
+    expect(result.total_distributed).toBe(40000);
+    expect(result.retained_in_trust).toBe(60000);
+
+    // 信託專戶扣款實報實銷：500,000 - 40,000 = 460,000 (而不是 400,000)
+    expect(mockTrustAccount.current_cash_balance).toBe(460000);
+    expect(mockTrustAccount.pending_rent_amount).toBe(0);
+
+    // 信託流水帳只記錄實際扣除金額 40,000
+    expect(mockTrustTxRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        trust_account_id: 5,
+        tx_type: 'PAYOUT_DEDUCTION',
+        amount: 40000,
+      }),
+    );
+  });
+
+  it('除不盡的持股比例應精確至小數點後兩位（分），避免浮點數發散', async () => {
+    const mockBatchRepo = { save: jest.fn().mockResolvedValue({ id: 102 }), update: jest.fn() } as any;
+    const mockDetailRepo = { save: jest.fn().mockImplementation((d) => Promise.resolve({ id: 1, ...d })) } as any;
+    const mockPropertyRepo = {
+      findOne: jest.fn().mockResolvedValue({ id: 1, title: '大安大樓', total_supply_x: 100000 }),
+    } as any;
+    // 3 人各持有 33,333 枚 (33.333%)，總收取租金 1,000 元
+    const mockHoldingRepo = {
+      find: jest.fn().mockResolvedValue([
+        { user_id: 1, balance: 33333 },
+        { user_id: 2, balance: 33333 },
+        { user_id: 3, balance: 33333 },
+      ]),
+    } as any;
+    const mockUserRepo = {
+      findOne: jest.fn().mockResolvedValue({ id: 1, wallet_address: null }),
+      increment: jest.fn().mockResolvedValue(undefined),
+    } as any;
+    const mockTrustAccount = {
+      id: 5,
+      property_id: 1,
+      pending_rent_amount: 1000,
+      current_cash_balance: 10000,
+    };
+    const mockTrustAccountRepo = {
+      findOne: jest.fn().mockResolvedValue(mockTrustAccount),
+      save: jest.fn().mockImplementation((acc) => Promise.resolve(acc)),
+    } as any;
+    const mockTrustTxRepo = { save: jest.fn() } as any;
+    const mockNotifRepo = { save: jest.fn() } as any;
+
+    const service = new PropertiesService(
+      mockPropertyRepo,
+      {} as any,
+      mockBatchRepo,
+      mockDetailRepo,
+      mockHoldingRepo,
+      mockUserRepo,
+      mockTrustAccountRepo,
+      mockTrustTxRepo,
+      {} as any, // appTxRepo
+      mockNotifRepo, // notifRepo
+      {} as any, // blockchainService
+    );
+
+    const result = await service.executePayout(1, 1000);
+
+    // 每人算出來是 (33333 / 100000) * 1000 = 333.33 元
+    expect(mockDetailRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        user_id: 1,
+        payout_amount: 333.33,
+      }),
+    );
+
+    // 3 人合計分出 999.99 元，剩下的 0.01 元尾差實質留存信託專戶
+    expect(result.total_distributed).toBe(999.99);
+    expect(result.retained_in_trust).toBe(0.01);
+    expect(mockTrustAccount.current_cash_balance).toBe(9000.01);
+  });
+});
+

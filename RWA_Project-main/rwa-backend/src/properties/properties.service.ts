@@ -122,7 +122,7 @@ export class PropertiesService {
       property_id: propertyId,
       payout_period: new Date(),
       total_rent_collected: totalRent,
-      status: 'PROCESSING'
+      status: 'PROCESSING',
     });
 
     // 2. Find all holders for this property
@@ -130,15 +130,20 @@ export class PropertiesService {
     const property = await this.propertyRepo.findOne({ where: { id: propertyId } });
     if (!property) throw new Error('Property not found');
 
-    let totalTokens = Number(property.total_supply_x) || 100000;
+    const totalTokens = Number(property.total_supply_x) || 100000;
     
     // 3. Distribute rent based on holdings
     let processedDetails: any[] = [];
+    let totalActualDistributed = 0;
+
     for (const holding of holdings) {
       if (Number(holding.balance) <= 0) continue;
 
       const holdingPercentage = (Number(holding.balance) / totalTokens) * 100;
-      const payoutAmount = (holdingPercentage / 100) * totalRent;
+      // 金融級精度：計算出法定分潤金額並精確至小數點後兩位（分），避免浮點數發散
+      const rawPayout = (Number(holding.balance) / totalTokens) * totalRent;
+      const payoutAmount = Math.round(rawPayout * 100) / 100;
+      totalActualDistributed += payoutAmount;
 
       // 鏈上發放：admin wallet 送出對應金額給持有人錢包，失敗不影響資料庫面的撥款紀錄
       let txHash: string | undefined;
@@ -183,27 +188,34 @@ export class PropertiesService {
     await this.batchRepo.update(batch.id, { status: 'COMPLETED' });
 
     // 5. Update Bank Trust Account and Record Transaction
+    // 計算未被認購份額與除不盡尾數（實打實保留於銀行信託專戶/平台儲備）
+    totalActualDistributed = Math.round(totalActualDistributed * 100) / 100;
+    const retainedInTrust = Math.max(0, Math.round((totalRent - totalActualDistributed) * 100) / 100);
+
     const trustAccount = await this.trustAccountRepo.findOne({ where: { property_id: propertyId } });
     if (trustAccount) {
-      // Deduct pending rent and cash balance
+      // 待發放租金歸零/扣除本期總額
       trustAccount.pending_rent_amount = Math.max(0, Number(trustAccount.pending_rent_amount) - totalRent);
-      trustAccount.current_cash_balance = Math.max(0, Number(trustAccount.current_cash_balance) - totalRent);
+      // 信託現金餘額實報實銷：只扣除實際派發給投資人的總額，未售出份額與尾差實質留存於專戶
+      trustAccount.current_cash_balance = Math.max(0, Number(trustAccount.current_cash_balance) - totalActualDistributed);
       await this.trustAccountRepo.save(trustAccount);
 
-      // Record the transaction
+      // 記錄信託流水帳（實收實支，備註保留金額）
       await this.trustTxRepo.save({
         trust_account_id: trustAccount.id,
         tx_type: 'PAYOUT_DEDUCTION',
-        amount: totalRent,
-        reference_note: `Rent payout for batch #${batch.id}`
+        amount: totalActualDistributed,
+        reference_note: `Rent payout batch #${batch.id} (Paid: $${totalActualDistributed.toFixed(2)}, Retained in Trust: $${retainedInTrust.toFixed(2)})`,
       });
     }
 
     return {
       success: true,
       batch_id: batch.id,
-      total_distributed: totalRent,
-      recipients_count: processedDetails.length
+      total_collected: totalRent,
+      total_distributed: totalActualDistributed,
+      retained_in_trust: retainedInTrust,
+      recipients_count: processedDetails.length,
     };
   }
 }

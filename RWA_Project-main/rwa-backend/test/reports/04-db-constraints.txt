@@ -1,4 +1,4 @@
-◇ injected env (7) from .env // tip: ⌘ enable debugging { debug: true }
+◇ injected env (7) from .env // tip: ◈ secrets for agents [www.dotenvx.com]
 
 ================ user_holdings 約束清單 ================
 名稱: user_holdings_holder_type_chk
