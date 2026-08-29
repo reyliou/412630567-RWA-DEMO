@@ -1,7 +1,7 @@
 # 📊 RWA 平台全系統測試與效能驗證總報告 (Test Execution & Performance Summary)
 
 **測試執行日期：** 2026-08-29
-**基準 Commit：** `41d822c`（工作目錄乾淨，與遠端 `origin/main` 同步）
+**基準：** 移除系統監控 CPU 負載的隨機抖動後重跑（`system.service.ts`），三組測試結果不變
 **報告儲存目錄：** `RWA_Project-main/rwa-backend/test/reports/`
 **自動化測試總結：** ✅ **94 筆全數通過 (100% PASS)**
 

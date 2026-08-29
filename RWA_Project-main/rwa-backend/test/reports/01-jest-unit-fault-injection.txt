@@ -1,20 +1,20 @@
 PASS src/properties/properties.service.spec.ts
   PropertiesService.getKLineData — 單元測試：台北時區歸類
-    √ UTC 16:30（台北時間隔天 00:30）應該被歸類到「隔天」的 K 棒，而不是當天 (12 ms)
-    √ UTC 23:59（台北時間 07:59，同一個台北日）不應該被推到隔天 (3 ms)
+    √ UTC 16:30（台北時間隔天 00:30）應該被歸類到「隔天」的 K 棒，而不是當天 (8 ms)
+    √ UTC 23:59（台北時間 07:59，同一個台北日）不應該被推到隔天 (1 ms)
     √ 同一個台北日的多筆交易應合併成一根 K 棒，並正確計算 open/high/low/close/volume (2 ms)
-    √ 沒有任何交易紀錄時應回傳空陣列，而不是報錯 (2 ms)
+    √ 沒有任何交易紀錄時應回傳空陣列，而不是報錯 (4 ms)
   PropertiesService.getKLineData — 合約測試：回傳格式
-    √ 每個元素都必須包含 time/open/high/low/close/volume 六個欄位，型別正確 (1 ms)
+    √ 每個元素都必須包含 time/open/high/low/close/volume 六個欄位，型別正確 (3 ms)
   PropertiesService.getKLineData — 查詢範圍
-    √ appTxRepo.find 呼叫時應帶入 take: 3000，避免無上限查詢全部歷史
+    √ appTxRepo.find 呼叫時應帶入 take: 3000，避免無上限查詢全部歷史 (1 ms)
     √ 時間下限應與造市資料的 31 天歷史對齊，使視窗內每一天都有資料、真實交易不會落單 (1 ms)
 
-[31m[Nest] 7560  - [39m2026/08/29 下午10:46:03 [31m  ERROR[39m [38;5;3m[TransactionsService] [39m[31mP2P 撮合過程發生異常: SIMULATED_DB_OUTAGE: connection terminated[39m
-[33m[Nest] 7560  - [39m2026/08/29 下午10:46:03 [33m   WARN[39m [38;5;3m[TransactionsService] [39m[33m⚠️ 鏈上轉帳失敗（DB 仍會記錄，狀態標記為 CHAIN_FAILED）: SIMULATED_CHAIN_TIMEOUT[39m
+[31m[Nest] 11568  - [39m2026/08/29 下午11:53:42 [31m  ERROR[39m [38;5;3m[TransactionsService] [39m[31mP2P 撮合過程發生異常: SIMULATED_DB_OUTAGE: connection terminated[39m
+[33m[Nest] 11568  - [39m2026/08/29 下午11:53:42 [33m   WARN[39m [38;5;3m[TransactionsService] [39m[33m⚠️ 鏈上轉帳失敗（DB 仍會記錄，狀態標記為 CHAIN_FAILED）: SIMULATED_CHAIN_TIMEOUT[39m
 PASS src/transactions/fault-injection.spec.ts
   故障注入測試 — DB 連線在 commit 階段中斷
-    √ commitTransaction 失敗時，應該呼叫 rollbackTransaction 並回傳失敗，而不是讓例外往外爆 (35 ms)
+    √ commitTransaction 失敗時，應該呼叫 rollbackTransaction 並回傳失敗，而不是讓例外往外爆 (62 ms)
   故障注入測試 — 鏈上呼叫逾時/失敗
     √ executeOnChainBuy 拋錯時，DB 仍應完成交易並標記為 CHAIN_FAILED，而不是整筆請求失敗 (2 ms)
 
@@ -23,82 +23,82 @@ PASS src/transactions/fault-injection.spec.ts
 
       at Object.<anonymous> (transactions/transactions.service.spec.ts:379:15)
 
-[31m[Nest] 1964  - [39m2026/08/29 下午10:46:03 [31m  ERROR[39m [38;5;3m[TransactionsService] [39m[31m唯一約束違反（非冪等性）: constraint=UQ_user_holdings_user_property detail=無 table=user_holdings[39m
+[31m[Nest] 23548  - [39m2026/08/29 下午11:53:42 [31m  ERROR[39m [38;5;3m[TransactionsService] [39m[31m唯一約束違反（非冪等性）: constraint=UQ_user_holdings_user_property detail=無 table=user_holdings[39m
 PASS src/transactions/transactions.service.spec.ts
   TransactionsService — 負向測試
-    √ 系統暫停時下單應被拒絕 (403) (40 ms)
+    √ 系統暫停時下單應被拒絕 (403) (53 ms)
     √ 未通過 KYC (is_whitelisted=false) 的使用者下單應被拒絕 (1 ms)
     √ 數量為 0 應回傳 400 錯誤 (1 ms)
     √ 數量為負數 應回傳 400 錯誤 (1 ms)
     √ 價格為 0 應回傳 400 錯誤 (1 ms)
     √ 價格為負數 應回傳 400 錯誤 (1 ms)
-    √ 賣出數量超過實際持倉時應被拒絕 (2 ms)
-    √ AMM 池子被抽乾時（流通量 = 總發行量）應拒絕買入 (3 ms)
+    √ 賣出數量超過實際持倉時應被拒絕 (1 ms)
+    √ AMM 池子被抽乾時（流通量 = 總發行量）應拒絕買入 (2 ms)
     √ 限價買單若 AMM 滑價超過使用者限價應被拒絕 (1 ms)
   TransactionsService — 單元測試：AMM 定價公式 (k = x*y)
-    √ 買入 100 枚時，服務算出的成交均價應該精確符合 k=x*y 公式（而不是約等於現貨價） (9 ms)
-    √ 買入量越大，均價應該越高（滑價方向正確） (16 ms)
+    √ 買入 100 枚時，服務算出的成交均價應該精確符合 k=x*y 公式（而不是約等於現貨價） (6 ms)
+    √ 買入量越大，均價應該越高（滑價方向正確） (2 ms)
   TransactionsService — 併發測試
-    √ 🔴 已知風險：相同 idempotency_key 併發送出兩筆市價單，目前的檢查（先 findOne 再寫入）存在 TOCTOU 競態條件，可能兩筆都成交 (37 ms)
-    √ 不同 idempotency_key 的併發請求應該都能各自正常成交 (5 ms)
+    √ 🔴 已知風險：相同 idempotency_key 併發送出兩筆市價單，目前的檢查（先 findOne 再寫入）存在 TOCTOU 競態條件，可能兩筆都成交 (41 ms)
+    √ 不同 idempotency_key 的併發請求應該都能各自正常成交 (3 ms)
   TransactionsService — 併發測試：AMM 定價的鎖定策略
-    √ 讀取建案資料時應帶入 pessimistic_write 排他鎖，使同一建案的交易序列化 (1 ms)
+    √ 讀取建案資料時應帶入 pessimistic_write 排他鎖，使同一建案的交易序列化 (2 ms)
     √ 資料庫以 UNIQUE 約束擋下重複的 idempotency_key 時，應轉為明確的重複交易訊息而非 500 (1 ms)
     √ 其他唯一約束的衝突不應被誤報成重複交易，訊息要指出實際違反的約束 (2 ms)
     √ 撮合引擎應以含滑價的成交均價判斷觸發，不可只看現貨價 (1 ms)
     √ 限價單結算時若沒有鏈上雜湊，tx_hash 應維持未設定而非空字串 (1 ms)
     √ 鎖應在資料庫交易開啟之後才取得，否則鎖不會生效 (1 ms)
     方案 A：現金餘額防呆與資產保護測試
-      √ 當買方現金餘額不足時（例如只有 500 TWD，買入需 1800 TWD），應拋出 BadRequestException 並阻斷交易
+      √ 當買方現金餘額不足時（例如只有 500 TWD，買入需 1800 TWD），應拋出 BadRequestException 並阻斷交易 (1 ms)
       √ 當買方現金充足時，應正常放行並成交 (1 ms)
-      √ 限價買單在現金不足時也應立即被擋下，不可加入掛單簿 (1 ms)
+      √ 限價買單在現金不足時也應立即被擋下，不可加入掛單簿
     P1 (撮合引擎深度邏輯測試)
-      √ P1-①: 當賣方 Taker 自己無持倉時，應停止撮合，不得取消對手盤合法買單
+      √ P1-①: 當賣方 Taker 自己無持倉時，應停止撮合，不得取消對手盤合法買單 (1 ms)
       √ P1-③: 相同的 idempotency_key 在重試時應直接回傳既有交易，不重複執行撮合
 
 PASS src/auth/fault-injection.spec.ts
   故障注入測試 — 必要環境變數缺失時應 fail-fast
-    √ 缺少 SUPABASE_SERVICE_KEY 時，AuthService 應該在建構時直接拋錯，而不是等到呼叫 API 才炸 (1440 ms)
-    √ 缺少 IMAGE_ENCRYPTION_KEY 時，整個 auth module 在載入當下就應該拋錯 (313 ms)
+    √ 缺少 SUPABASE_SERVICE_KEY 時，AuthService 應該在建構時直接拋錯，而不是等到呼叫 API 才炸 (1321 ms)
+    √ 缺少 IMAGE_ENCRYPTION_KEY 時，整個 auth module 在載入當下就應該拋錯 (323 ms)
 
 PASS src/blockchain/fault-injection-integrity.spec.ts
   故障注入 — 情境一：服務重啟後的 pending 交易狀態
-    √ 寫入途中程序被砍（commit 失敗）時，不得留下半完成狀態：必須 rollback 並釋放連線 (38 ms)
-    √ 🔴 已知風險：鏈上轉帳成功但 DB commit 失敗時，重啟後重新結算會再次執行鏈上轉帳 (4 ms)
+    √ 寫入途中程序被砍（commit 失敗）時，不得留下半完成狀態：必須 rollback 並釋放連線 (45 ms)
+    √ 🔴 已知風險：鏈上轉帳成功但 DB commit 失敗時，重啟後重新結算會再次執行鏈上轉帳 (7 ms)
   故障注入 — 情境二：重複事件（本系統無事件監聽器，測等價風險：對帳重複執行）
-    √ 對帳以 queryFilter 全量重建而非事件訂閱 —— 連續執行兩次不得重複累計不一致 (47 ms)
+    √ 對帳以 queryFilter 全量重建而非事件訂閱 —— 連續執行兩次不得重複累計不一致 (65 ms)
     √ 同一筆 Transfer 事件已有對應交易紀錄時，不得再被判定為未追蹤轉帳（避免重複補建） (4 ms)
   故障注入 — 情境三：Nonce 衝突
-    √ 鏈上轉帳遇到 nonce 衝突時，錯誤應如實往外拋，不得被吞掉造成成功假象 (4 ms)
+    √ 鏈上轉帳遇到 nonce 衝突時，錯誤應如實往外拋，不得被吞掉造成成功假象 (5 ms)
     √ nonce 脫節時應清除 NonceManager 快取，讓下一筆重新向節點取號 (3 ms)
-    √ 非 nonce 類的鏈上失敗不得觸發 reset —— 貿然重設在有交易在途時會造成重號 (4 ms)
-    √ nonce 衝突不得污染資料庫：該筆應標記為 CHAIN_FAILED，且不得寫入假的 tx_hash (2 ms)
+    √ 非 nonce 類的鏈上失敗不得觸發 reset —— 貿然重設在有交易在途時會造成重號 (3 ms)
+    √ nonce 衝突不得污染資料庫：該筆應標記為 CHAIN_FAILED，且不得寫入假的 tx_hash (1 ms)
   故障注入 — 情境四：區塊重組（本系統無 reorg 專門處理，測等價風險：對帳能否偵測）
-    √ 已入帳的轉帳在鏈上被 reorg 掉（Transfer 事件消失）時，對帳必須偵測為餘額不一致 (4 ms)
-    √ 對帳偵測到不一致時應寫入 system_alerts，讓技術端稽核台看得到而非靜默 (5 ms)
+    √ 已入帳的轉帳在鏈上被 reorg 掉（Transfer 事件消失）時，對帳必須偵測為餘額不一致 (2 ms)
+    √ 對帳偵測到不一致時應寫入 system_alerts，讓技術端稽核台看得到而非靜默 (2 ms)
   故障注入 — 情境五：成交通知寄送失敗
     √ 通知寫入失敗不得影響交易結果：交易須照常 commit，通知失敗只記錄告警 (2 ms)
     √ 通知必須在 commit 之後才寫入，且不得再使用交易的 queryRunner (2 ms)
 
 PASS src/blockchain/fault-injection.spec.ts
   BlockchainService — 故障注入：區塊鏈節點無法連線
-    √ RPC 位址連不上時，初始化不應拋出例外讓整個服務起不來 (55 ms)
-    √ isNodeReachable() 面對連不上的節點應回傳 false，而不是拋例外 (24 ms)
-    √ getStatus() 應照常回應並標示節點不可達，不因節點故障而讓 API 掛掉 (15 ms)
-    √ setupBlockchain() 應以明確訊息拒絕，而不是靜默失敗或卡住 (48 ms)
-    √ 節點故障應寫入 system_alerts 供技術端稽核台顯示 (20 ms)
-    √ reconcile() 在節點不可達時應拒絕執行，避免以殘缺的鏈上資料誤判持倉 (15 ms)
+    √ RPC 位址連不上時，初始化不應拋出例外讓整個服務起不來 (77 ms)
+    √ isNodeReachable() 面對連不上的節點應回傳 false，而不是拋例外 (27 ms)
+    √ getStatus() 應照常回應並標示節點不可達，不因節點故障而讓 API 掛掉 (16 ms)
+    √ setupBlockchain() 應以明確訊息拒絕，而不是靜默失敗或卡住 (45 ms)
+    √ 節點故障應寫入 system_alerts 供技術端稽核台顯示 (17 ms)
+    √ reconcile() 在節點不可達時應拒絕執行，避免以殘缺的鏈上資料誤判持倉 (22 ms)
   BlockchainService — 故障注入：節點失憶的自動重建判斷
-    √ 節點不可達時排程應直接跳過，不得觸發重建 (17 ms)
+    √ 節點不可達時排程應直接跳過，不得觸發重建 (15 ms)
     √ 🔒 getCode 因網路異常拋錯時不得重建 —— RPC 瞬斷不等於合約消失 (2 ms)
     √ getCode 確實回傳 0x（合約真的不存在）時才應觸發重建 (2 ms)
-    √ 前一次重建尚未結束時，下一次排程應被 isRecovering 擋下，且結束後要能再次執行 (2 ms)
+    √ 前一次重建尚未結束時，下一次排程應被 isRecovering 擋下，且結束後要能再次執行 (3 ms)
   BlockchainService — 負向：正式環境缺少 ADMIN_KEY
     √ 正式環境未設定 ADMIN_KEY 時，應拒絕以公開的 Hardhat 測試私鑰啟動鏈上功能 (1 ms)
-    √ 開發環境未設定 ADMIN_KEY 時仍可使用 Hardhat 預設帳戶，不影響本機開發 (1 ms)
+    √ 開發環境未設定 ADMIN_KEY 時仍可使用 Hardhat 預設帳戶，不影響本機開發 (2 ms)
 
 Test Suites: 6 passed, 6 total
 Tests:       59 passed, 59 total
 Snapshots:   0 total
-Time:        4.165 s
+Time:        4.036 s
 Ran all test suites.

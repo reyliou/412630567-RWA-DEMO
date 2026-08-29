@@ -98,19 +98,31 @@ export class SystemService {
       currentIdle += cpu.times.idle;
     });
 
-    let cpuLoad = 1.5;
+    // 監控數值一律回報實測值，不做任何美化。
+    // 先前這裡在回傳前加了 ±1% 的隨機抖動（`+ (Math.random() * 2 - 1)`）並箝住 1.2% 下限，
+    // 目的是讓儀表板的折線圖在系統閒置時「看起來會動」。但這會讓畫面顯示值不等於實測值，
+    // 而監控的全部價值正在於數字可信 —— 一個會自己加噪音的監控，比沒有監控更危險。
+    // 若嫌圖表太平，應該調整取樣頻率或 Y 軸刻度，而不是竄改數據。
+    //
+    // 首次呼叫沒有前一次取樣可做差值，原本回傳寫死的 1.5，同樣是憑空的數字；
+    // 改為以「開機以來的累計平均」計算 —— 取樣窗口不同，但仍是真實量測值。
+    let cpuLoad: number;
     if (this.lastCpuTick > 0) {
       const idleDiff = currentIdle - this.lastCpuIdle;
       const totalDiff = currentTick - this.lastCpuTick;
-      if (totalDiff > 0) cpuLoad = 100 - ~~((100 * idleDiff) / totalDiff);
+      cpuLoad = totalDiff > 0 ? 100 - (100 * idleDiff) / totalDiff : 0;
+    } else {
+      cpuLoad = currentTick > 0 ? 100 - (100 * currentIdle) / currentTick : 0;
     }
+    // 只做四捨五入到小數一位，不改變量值本身
+    cpuLoad = Math.round(cpuLoad * 10) / 10;
     this.lastCpuIdle = currentIdle;
     this.lastCpuTick = currentTick;
 
     this.healthCheckCounter++;
     if (this.healthCheckCounter % 10 === 0 || dbLatency > 200) {
       const severity = dbLatency > 200 ? 'WARNING' : 'INFO';
-      const msg = `系統性能查核：DB 延遲 ${dbLatency}ms, CPU 負載 ${Math.max(1.2, cpuLoad).toFixed(1)}%`;
+      const msg = `系統性能查核：DB 延遲 ${dbLatency}ms, CPU 負載 ${cpuLoad.toFixed(1)}%`;
       await this.alertRepo.save(
         this.alertRepo.create({ alert_type: 'SYSTEM_HEALTH', severity, message: msg }),
       );
@@ -119,7 +131,7 @@ export class SystemService {
     return {
       status: 'OK',
       dbLatency,
-      cpuLoad: Math.max(1.2, cpuLoad + (Math.random() * 2 - 1)),
+      cpuLoad,
       serverTime: new Date(),
     };
   }

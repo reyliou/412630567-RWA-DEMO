@@ -1,27 +1,27 @@
 PASS test/integration-auth.e2e-spec.ts
   整合測試 + 權限測試 (e2e, mocked DB)
     權限測試 — JWT 驗證
-      √ 未帶 Authorization header 打受保護的 API 應回 401 (35 ms)
-      √ 帶壞掉/篡改過的 token 應回 401 (4 ms)
-      √ 帶合法 token 應該通過驗證（不是 401） (8 ms)
+      √ 未帶 Authorization header 打受保護的 API 應回 401 (40 ms)
+      √ 帶壞掉/篡改過的 token 應回 401 (5 ms)
+      √ 帶合法 token 應該通過驗證（不是 401） (7 ms)
     權限測試 — 資源擁有者檢查
       √ user_id 跟 token 裡的 id 不一致時應回 403（不能幫別人下單） (19 ms)
       √ user_id 跟 token 一致時應正常進入下單流程（不是 403） (10 ms)
     權限測試 — BUSINESS 角色專屬 API
       √ 一般投資人 (INVESTOR) 呼叫 get /api/users 應回 403 (5 ms)
-      √ 一般投資人 (INVESTOR) 呼叫 patch /api/users/2/whitelist 應回 403 (3 ms)
+      √ 一般投資人 (INVESTOR) 呼叫 patch /api/users/2/whitelist 應回 403 (4 ms)
       √ 一般投資人 (INVESTOR) 呼叫 patch /api/users/2/kyc 應回 403 (4 ms)
       √ 一般投資人 (INVESTOR) 呼叫 post /api/kyc/2/decrypt 應回 403 (3 ms)
-      √ 管理員 (BUSINESS) 呼叫 get /api/users 不應被擋在權限這關（不是 403） (3 ms)
-      √ 管理員 (BUSINESS) 呼叫 patch /api/users/2/whitelist 不應被擋在權限這關（不是 403） (2 ms)
-      √ 管理員 (BUSINESS) 呼叫 patch /api/users/2/kyc 不應被擋在權限這關（不是 403） (2 ms)
-      √ 管理員 (BUSINESS) 呼叫 post /api/kyc/2/decrypt 不應被擋在權限這關（不是 403） (3 ms)
+      √ 管理員 (BUSINESS) 呼叫 get /api/users 不應被擋在權限這關（不是 403） (2 ms)
+      √ 管理員 (BUSINESS) 呼叫 patch /api/users/2/whitelist 不應被擋在權限這關（不是 403） (3 ms)
+      √ 管理員 (BUSINESS) 呼叫 patch /api/users/2/kyc 不應被擋在權限這關（不是 403） (3 ms)
+      √ 管理員 (BUSINESS) 呼叫 post /api/kyc/2/decrypt 不應被擋在權限這關（不是 403） (2 ms)
     整合測試 — 下單完整路徑
-      √ 合法下單應該回傳 success:true，並帶有交易結果 (3 ms)
-      √ 系統暫停時，就算通過所有權限檢查，下單也應該在 Service 層被擋下 (10 ms)
+      √ 合法下單應該回傳 success:true，並帶有交易結果 (4 ms)
+      √ 系統暫停時，就算通過所有權限檢查，下單也應該在 Service 層被擋下 (9 ms)
 
 Test Suites: 1 passed, 1 total
 Tests:       15 passed, 15 total
 Snapshots:   0 total
-Time:        2.123 s
+Time:        1.809 s, estimated 2 s
 Ran all test suites.
