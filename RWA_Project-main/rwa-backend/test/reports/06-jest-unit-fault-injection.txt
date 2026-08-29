@@ -1,6 +1,0 @@
-[33m[Nest] 10324  - [39m2026/08/26 下午10:21:40 [33m   WARN[39m [38;5;3m[TransactionsService] [39m[33m⚠️ 鏈上轉帳失敗（DB 仍會記錄，狀態標記為 CHAIN_FAILED）: SIMULATED_CHAIN_TIMEOUT[39m
-  console.log
-    [併發測試 log] 2 個併發請求 → 成功 2/2 筆，資料庫實際寫入相同 idempotency_key 共 2 次
-
-      at Object.<anonymous> (transactions/transactions.service.spec.ts:379:15)
-
