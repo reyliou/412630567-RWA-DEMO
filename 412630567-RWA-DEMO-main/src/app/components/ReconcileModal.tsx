@@ -187,24 +187,41 @@ export function ReconcileModal({ isOpen, onClose, onLog }: ReconcileModalProps) 
                 </div>
                 <div className="max-h-52 overflow-y-auto border border-slate-100 rounded-2xl divide-y divide-slate-100 bg-slate-50/50">
                   {discrepancies.map((d, idx) => (
-                    <div key={idx} className="p-4 flex items-center justify-between text-xs">
-                      <div className="space-y-1">
-                        <div className="font-black text-slate-800 text-sm">{d.propertyTitle}</div>
-                        <div className="text-[11px] text-slate-400 font-mono">
-                          錢包: {d.walletAddress.substring(0, 10)}...{d.walletAddress.substring(36)}
+                    <div key={idx} className="p-4 flex items-center justify-between text-xs gap-4">
+                      <div className="space-y-1 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-black text-slate-800 text-sm">{d.propertyTitle}</span>
+                          <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                            d.type === 'UNTRACKED_TRANSFER' ? 'bg-purple-100 text-purple-700' : 'bg-amber-100 text-amber-700'
+                          }`}>
+                            {d.type === 'UNTRACKED_TRANSFER' ? '鏈下漏記 (未記錄轉帳)' : '持倉不一致 (雙帳本分歧)'}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-slate-500 font-mono">
+                          {d.txHash && <div>txHash: {d.txHash.substring(0, 10)}...{d.txHash.substring(d.txHash.length - 8)}</div>}
+                          {d.walletAddress && <div>錢包: {d.walletAddress.substring(0, 10)}...{d.walletAddress.substring(d.walletAddress.length - 6)}</div>}
+                          <div className="text-[10px] text-slate-400 mt-0.5">{d.detail}</div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-4 text-right">
-                        <div className="flex flex-col items-end">
-                          <span className="text-[10px] text-slate-400 font-bold uppercase">資料庫記錄</span>
-                          <span className="font-mono font-black text-red-600">{d.dbBalance} 枚</span>
+                      {d.onChainBalance !== undefined && d.dbBalance !== undefined ? (
+                        <div className="flex items-center gap-3 text-right shrink-0">
+                          <div className="flex flex-col items-end">
+                            <span className="text-[10px] text-slate-400 font-bold uppercase">資料庫記錄</span>
+                            <span className="font-mono font-black text-red-600">{d.dbBalance} 枚</span>
+                          </div>
+                          <ArrowRight className="w-4 h-4 text-slate-300" />
+                          <div className="flex flex-col items-end">
+                            <span className="text-[10px] text-green-600 font-bold uppercase">鏈上真實值</span>
+                            <span className="font-mono font-black text-green-600">{d.onChainBalance} 枚</span>
+                          </div>
                         </div>
-                        <ArrowRight className="w-4 h-4 text-slate-300" />
-                        <div className="flex flex-col items-end">
-                          <span className="text-[10px] text-green-600 font-bold uppercase">鏈上真實值</span>
-                          <span className="font-mono font-black text-green-600">{d.onChainBalance} 枚</span>
+                      ) : (
+                        <div className="text-right shrink-0">
+                          <span className="text-[10px] font-black px-2.5 py-1 bg-amber-50 text-amber-700 rounded-lg border border-amber-200">
+                            待補建交易憑證
+                          </span>
                         </div>
-                      </div>
+                      )}
                     </div>
                   ))}
                 </div>

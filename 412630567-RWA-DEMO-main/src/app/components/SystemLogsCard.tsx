@@ -132,8 +132,8 @@ export const SystemLogsCard = forwardRef<SystemLogsCardHandle>((props, ref) => {
 
       <div className="bg-black p-4 h-[300px] overflow-y-auto font-mono text-[11px] leading-5">
         <div className="space-y-0.5">
-          {logs.map((log) => (
-            <div key={log.id} className="flex items-start gap-2 hover:bg-white/5 px-1 py-0.5 rounded transition-colors text-slate-800">
+          {logs.map((log, index) => (
+            <div key={`${log.id}-${index}`} className="flex items-start gap-2 hover:bg-white/5 px-1 py-0.5 rounded transition-colors text-slate-800">
               {getLogIcon(log.type)}
               <span className="text-gray-500 shrink-0 font-bold">[{log.timestamp.toLocaleTimeString()}]</span>
               <span className={
