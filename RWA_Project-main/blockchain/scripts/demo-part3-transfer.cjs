@@ -24,13 +24,13 @@ async function main() {
   const dbUrl = getDatabaseUrl();
   if (!dbUrl) throw new Error("找不到 DATABASE_URL，請確認 rwa-backend/.env 是否存在。");
 
-  console.log("[Part 3 Setup] 正在連線資料庫讀取當前啟用的房產合約與目標用戶...");
+  console.log("[Part 3 Setup] 正在連線資料庫並智慧探測鏈上存活中的房產合約...");
 
   const client = new Client({ connectionString: dbUrl, ssl: { rejectUnauthorized: false } });
   await client.connect();
 
   const propRes = await client.query(
-    "SELECT id, title, token_address, token_symbol FROM properties WHERE token_address IS NOT NULL ORDER BY id ASC LIMIT 1;"
+    "SELECT id, title, token_address, token_symbol FROM properties WHERE token_address IS NOT NULL;"
   );
   const userRes = await client.query(
     "SELECT id, username, wallet_address FROM users WHERE wallet_address IS NOT NULL AND username = 'reyliou' LIMIT 1;"
@@ -40,13 +40,28 @@ async function main() {
   if (propRes.rows.length === 0) throw new Error("資料庫中無任何已綁定 token_address 的房產！");
   if (userRes.rows.length === 0) throw new Error("找不到用戶 reyliou 的錢包地址！");
 
-  const targetProperty = propRes.rows[0];
+  // 智慧挑選鏈上存活中的合約
+  let targetProperty = null;
+  for (const p of propRes.rows) {
+    try {
+      const code = await ethers.provider.getCode(p.token_address);
+      if (code && code.length > 2) {
+        targetProperty = p;
+        break;
+      }
+    } catch(e) {}
+  }
+
+  if (!targetProperty) {
+    throw new Error("在本地區塊鏈上找不到任何存活的合約！請先確認後端正在運行。");
+  }
+
   const targetUser = userRes.rows[0];
   const tokenAddress = targetProperty.token_address;
   const recipientWallet = targetUser.wallet_address;
 
   console.log(`[Target Property] #${targetProperty.id} ${targetProperty.title} (${targetProperty.token_symbol || 'RWA'})`);
-  console.log(`                  Token Address: ${tokenAddress}`);
+  console.log(`                  Token Address: ${tokenAddress} (🟢 鏈上已就緒)`);
   console.log(`[Target User]     #${targetUser.id} ${targetUser.username}`);
   console.log(`                  Wallet: ${recipientWallet}\n`);
 
@@ -55,11 +70,13 @@ async function main() {
 
   // 確保 Admin 有足夠餘額
   const transferAmount = ethers.parseUnits("50", 18);
-  const adminBalance = await token.balanceOf(admin.address);
-  if (adminBalance < transferAmount) {
-    console.log("[Notice] 正在為 Admin 增發 10,000 代幣以供轉帳展示...");
-    try { await (await token.mint(admin.address, ethers.parseUnits("10000", 18))).wait(); } catch(e) {}
-  }
+  try {
+    const adminBalance = await token.balanceOf(admin.address);
+    if (adminBalance < transferAmount) {
+      console.log("[Notice] 正在為 Admin 增發 10,000 代幣以供轉帳展示...");
+      await (await token.mint(admin.address, ethers.parseUnits("10000", 18))).wait();
+    }
+  } catch(e) {}
 
   // 確保代幣處於未暫停狀態
   try {
