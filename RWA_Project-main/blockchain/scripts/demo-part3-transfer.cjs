@@ -1,8 +1,26 @@
 const hre = require("hardhat");
 const { ethers } = hre;
-const { Client } = require("pg");
+const fs = require("fs");
 const path = require("path");
-require("dotenv").config({ path: path.join(__dirname, "..", "..", "rwa-backend", ".env") });
+
+// 自適應讀取 rwa-backend/.env 的 DATABASE_URL，免安裝額外 dotenv
+function getDatabaseUrl() {
+  const envPath = path.join(__dirname, "..", "..", "rwa-backend", ".env");
+  if (fs.existsSync(envPath)) {
+    const lines = fs.readFileSync(envPath, "utf8").split("\n");
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith("DATABASE_URL=")) {
+        return trimmed.replace(/^DATABASE_URL=/, "").replace(/^["']|["']$/g, "");
+      }
+    }
+  }
+  return process.env.DATABASE_URL;
+}
+
+// 從 rwa-backend 解析 pg 模組
+const pgPath = path.join(__dirname, "..", "..", "rwa-backend", "node_modules", "pg");
+const { Client } = require(pgPath);
 
 const KYC_TOPIC = 1;
 const COUNTRY_CODE = 886;
@@ -23,11 +41,14 @@ async function issueKycClaim(identityContract, adminIdentityAddr, adminSigner) {
 }
 
 async function main() {
-  console.log("[Part 3 Setup] 正在連線資料庫並自動讀取房產合約與目標用戶...");
+  const dbUrl = getDatabaseUrl();
+  if (!dbUrl) throw new Error("找不到 DATABASE_URL，請確認 rwa-backend/.env 是否存在。");
+
+  console.log("[Part 3 Setup] 正在連線資料庫讀取房產合約與目標用戶...");
 
   // 1. 連線資料庫取得房產與用戶
   const client = new Client({
-    connectionString: process.env.DATABASE_URL,
+    connectionString: dbUrl,
     ssl: { rejectUnauthorized: false },
   });
   await client.connect();
@@ -61,7 +82,7 @@ async function main() {
     token = await ethers.getContractAt("MySimpleRWA", tokenAddress);
     await token.name();
   } catch {
-    // 若本機 Hardhat 重啟過导致合約未部署，自動在此地址就地部署實例
+    // 若本機 Hardhat 重啟過導致合約未部署，自動在此地址就地部署實例
     console.log("[Notice] 偵測到本地節點重置，正在為該地址快速部署模擬合約...");
     const irs = await (await ethers.getContractFactory("MyIdentityRegistryStorage")).deploy();
     await (await irs.init()).wait();
@@ -98,7 +119,7 @@ async function main() {
 
     // 更新 DB 中的 token_address 為當前實例地址
     const liveAddr = await token.getAddress();
-    const updateClient = new Client({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+    const updateClient = new Client({ connectionString: dbUrl, ssl: { rejectUnauthorized: false } });
     await updateClient.connect();
     await updateClient.query("UPDATE properties SET token_address = $1 WHERE id = $2;", [liveAddr, targetProperty.id]);
     await updateClient.end();
