@@ -70,26 +70,58 @@ export function PropertyOversightCard() {
     }
   };
 
-  const handleUpdatePeriod = () => {
+  const handleUpdatePeriod = async () => {
+    if (!mainProperty || !mainProperty.id) {
+      setFeedbackModal({ title: "操作提示", desc: "請選擇有效的房產資產", type: "warning" });
+      return;
+    }
+    const days = parseInt(payoutPeriod);
+    if (isNaN(days) || days < 1 || days > 365) {
+      setFeedbackModal({ title: "設定錯誤", desc: "發放週期天數必須在 1 至 365 天之間！", type: "error" });
+      return;
+    }
+
     setIsUpdatingPeriod(true);
-    setTimeout(() => {
-      setIsUpdatingPeriod(false);
-      setFeedbackModal({
-        title: "週期更新成功",
-        desc: `收益發放週期已成功設定為 ${payoutPeriod} 天，並已同步寫入資料庫！`,
-        type: "success"
+    try {
+      const res = await apiFetch(`/api/properties/${mainProperty.id}/payout-cycle`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ payout_cycle_days: days }),
       });
-    }, 1000);
+      if (res.ok) {
+        setFeedbackModal({
+          title: "週期更新成功",
+          desc: `收益發放週期已成功設定為 ${days} 天，並已真實儲存至資料庫！`,
+          type: "success"
+        });
+        // 重新同步最新監管數據
+        const refresh = await apiFetch(`/api/oversight`);
+        if (refresh.ok) setData(await refresh.json());
+      } else {
+        const data = await res.json();
+        setFeedbackModal({ title: "更新失敗", desc: data.message || "無法更新發放週期", type: "error" });
+      }
+    } catch (e: any) {
+      setFeedbackModal({ title: "連線異常", desc: e.message || "連線伺服器失敗，請稍後重試。", type: "error" });
+    } finally {
+      setIsUpdatingPeriod(false);
+    }
   };
 
   // 取得第一個標的作為主要顯示 (範例展示用)
   const mainProperty = data[0] || { 
     title: "載入中...", 
     fundraising_goal: 0, 
-    expected_apy: 0, 
+    payout_cycle_days: 30, 
     current_cash_balance: 0, 
     pending_rent_amount: 0 
   };
+
+  useEffect(() => {
+    if (data[0] && data[0].payout_cycle_days) {
+      setPayoutPeriod(String(data[0].payout_cycle_days));
+    }
+  }, [data]);
 
   return (
     <div className="bg-card border border-border rounded-[2rem] shadow-xl overflow-hidden flex flex-col transition-all duration-500 ring-1 ring-slate-100 text-slate-800">
@@ -140,7 +172,7 @@ export function PropertyOversightCard() {
               
               <div className="p-5 bg-purple-50 rounded-2xl border border-purple-100">
                  <p className="text-[10px] font-black text-purple-800 uppercase italic tracking-widest">
-                    Asset ID: {mainProperty.token_symbol} // 預計年化: {mainProperty.expected_apy}%
+                    Asset ID: {mainProperty.token_symbol} // 收益週期: {mainProperty.payout_cycle_days || 30} 天 (定期月結)
                  </p>
               </div>
             </div>

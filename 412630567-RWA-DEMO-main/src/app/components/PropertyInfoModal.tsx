@@ -20,6 +20,7 @@ interface PropertyInfoModalProps {
     total_value?: number;
     fundraising_goal?: number;
     expected_apy?: number;
+    payout_cycle_days?: number;
     token_address?: string;
     token_symbol?: string;
   } | null;
@@ -34,7 +35,7 @@ export function PropertyInfoModal({ isOpen, onClose, property }: PropertyInfoMod
   const address = property.complete_address || property.addr || "台北市精華地段";
   const city = property.location || property.city_tag || "台北市";
   const image = property.main_image || property.img || "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=800";
-  const apy = property.expected_apy || 4.5;
+  const cycleDays = property.payout_cycle_days || 30;
   const totalSupply = property.total_supply || property.total_supply_x || 100000;
   const currentPrice = property.price || 189.7;
   const totalValue = property.fundraising_goal || property.total_value || (currentPrice * totalSupply);
@@ -108,8 +109,8 @@ export function PropertyInfoModal({ isOpen, onClose, property }: PropertyInfoMod
               <div className="text-lg font-black text-blue-600">{unitPriceWan} 萬/坪</div>
             </div>
             <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-center">
-              <div className="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-1">預估年化收益</div>
-              <div className="text-lg font-black text-emerald-600">{apy}% APY</div>
+              <div className="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-1">收益發放週期</div>
+              <div className="text-lg font-black text-emerald-600">{cycleDays} 天 (定期)</div>
             </div>
             <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-center">
               <div className="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-1">總銷估值</div>

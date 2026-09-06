@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { MoreThanOrEqual, Repository } from 'typeorm';
 import { Property } from '../entities/property.entity';
@@ -63,6 +63,14 @@ export class PropertiesService {
       where: { property_id: propertyId },
       order: { recorded_at: 'ASC' },
     });
+  }
+
+  async updatePayoutCycle(propertyId: number, days: number) {
+    const property = await this.propertyRepo.findOne({ where: { id: propertyId } });
+    if (!property) throw new NotFoundException('Property not found');
+    property.payout_cycle_days = days;
+    await this.propertyRepo.save(property);
+    return { success: true, propertyId, payout_cycle_days: days };
   }
 
   // K 線只呈現近期區間。沒有時間下限時，數月前的零星交易也會被畫進來，

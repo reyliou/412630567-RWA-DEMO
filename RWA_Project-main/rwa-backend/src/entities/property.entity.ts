@@ -35,6 +35,9 @@ export class Property {
   @Column({ type: 'numeric', nullable: true, default: 4.5 })
   expected_apy: number;
 
+  @Column({ type: 'integer', nullable: true, default: 30 })
+  payout_cycle_days: number;
+
   @Column({ nullable: true })
   token_address: string;
 
