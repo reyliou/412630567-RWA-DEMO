@@ -1,4 +1,4 @@
-import { ArrowUpRight, ArrowDownRight, Search, Filter, Calendar, History, Building2, Loader2 } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, Search, Filter, Calendar, History, Building2, Loader2, Download } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 
@@ -67,6 +67,85 @@ export function InvestorTransactions({ userId }: InvestorTransactionsProps) {
     } catch (e) {
       setToastMsg({ text: "系統錯誤，請稍後重試", type: 'error' });
       setTimeout(() => setToastMsg(null), 3500);
+    }
+  };
+
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExportCSV = async () => {
+    try {
+      setIsExporting(true);
+      const res = await apiFetch(`/api/transactions/${userId}?t=${Date.now()}`);
+      if (!res.ok) throw new Error("讀取交易紀錄失敗");
+      const list: any[] = await res.json();
+
+      if (!list || list.length === 0) {
+        setToastMsg({ text: "目前尚無歷史交易紀錄可供匯出", type: "error" });
+        setTimeout(() => setToastMsg(null), 3500);
+        return;
+      }
+
+      // 產生 CSV 格式，加入 UTF-8 BOM (\uFEFF) 防止 Excel 開啟時中文亂碼
+      const headers = [
+        "交易編號(ID)",
+        "建案名稱",
+        "建案ID",
+        "交易類型",
+        "委託類型",
+        "代幣數量(枚)",
+        "成交單價(TWD)",
+        "總金額(TWD)",
+        "交易狀態",
+        "區塊鏈交易雜湊(txHash)",
+        "交易時間"
+      ];
+
+      const csvRows = [headers.join(",")];
+
+      for (const tx of list) {
+        const amount = parseFloat(tx.token_amount || "0");
+        const price = parseFloat(tx.price_per_token || "0");
+        const total = (amount * price).toFixed(2);
+        const typeLabel = tx.tx_type === "BUY" ? "買入" : "賣出";
+        const orderTypeLabel = tx.order_type || "MARKET";
+        const txHash = tx.tx_hash || "N/A";
+        const dateStr = tx.created_at ? new Date(tx.created_at).toLocaleString("zh-TW") : "N/A";
+        const propName = `"${(tx.property_name || `房產 #${tx.property_id}`).replace(/"/g, '""')}"`;
+
+        csvRows.push([
+          tx.id,
+          propName,
+          tx.property_id,
+          typeLabel,
+          orderTypeLabel,
+          amount,
+          price,
+          total,
+          tx.status,
+          `"${txHash}"`,
+          `"${dateStr}"`
+        ].join(","));
+      }
+
+      const csvString = "\uFEFF" + csvRows.join("\r\n");
+      const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const filename = `RWA_交易稽核報表_UID${userId}_${new Date().toISOString().split("T")[0]}.csv`;
+      link.setAttribute("href", url);
+      link.setAttribute("download", filename);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      setToastMsg({ text: `🎉 已成功匯出並下載交易稽核報表（共 ${list.length} 筆紀錄）！`, type: "success" });
+      setTimeout(() => setToastMsg(null), 3500);
+    } catch (e: any) {
+      setToastMsg({ text: e.message || "匯出 CSV 失敗，請稍後重試", type: "error" });
+      setTimeout(() => setToastMsg(null), 3500);
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -208,7 +287,14 @@ export function InvestorTransactions({ userId }: InvestorTransactionsProps) {
            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-[0.2em] flex items-center gap-2">
               <Calendar className="w-4 h-4" /> 所有數據已同步至 RWA-BANK POSTGRES 稽核節點
            </p>
-           <button className="text-[10px] font-black text-blue-600 hover:underline uppercase tracking-widest">下載完整 CSV 稽核報表</button>
+           <button 
+             onClick={handleExportCSV}
+             disabled={isExporting}
+             className="text-[10px] font-black text-blue-600 hover:text-blue-800 hover:underline uppercase tracking-widest flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-50"
+           >
+             {isExporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+             {isExporting ? "正在產生報表..." : "下載完整 CSV 稽核報表"}
+           </button>
         </div>
       </div>
     </div>
