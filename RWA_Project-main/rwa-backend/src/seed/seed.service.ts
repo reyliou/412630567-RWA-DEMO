@@ -102,7 +102,7 @@ export class SeedService implements OnApplicationBootstrap {
         current_price: 32.5,
         fundraising_goal: 3250000,
         status: '交易中',
-        expected_apy: 4.5,
+        payout_cycle_days: 30,
       },
       {
         title: '中工雋詠',
@@ -114,7 +114,7 @@ export class SeedService implements OnApplicationBootstrap {
         current_price: 28.8,
         fundraising_goal: 2880000,
         status: '交易中',
-        expected_apy: 4.2,
+        payout_cycle_days: 30,
       },
       {
         title: '潤泰之森',
@@ -126,7 +126,7 @@ export class SeedService implements OnApplicationBootstrap {
         current_price: 41.2,
         fundraising_goal: 4120000,
         status: '交易中',
-        expected_apy: 5.1,
+        payout_cycle_days: 30,
       },
     ]);
 

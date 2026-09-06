@@ -19,7 +19,6 @@ interface PropertyInfoModalProps {
     total_supply_x?: number;
     total_value?: number;
     fundraising_goal?: number;
-    expected_apy?: number;
     payout_cycle_days?: number;
     token_address?: string;
     token_symbol?: string;

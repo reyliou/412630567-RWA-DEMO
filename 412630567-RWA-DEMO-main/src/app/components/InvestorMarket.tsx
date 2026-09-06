@@ -15,7 +15,6 @@ interface Property {
   total_value?: number;
   total_supply?: number;
   total_supply_x?: number;
-  expected_apy?: number;
   payout_cycle_days?: number;
   token_address?: string;
   token_symbol?: string;
@@ -60,7 +59,6 @@ export function InvestorMarket({ onSelectProperty }: InvestorMarketProps) {
             city_tag: p.location,
             total_supply: parseFloat(p.total_supply_x || "100000"),
             total_value: parseFloat(p.current_price) * parseFloat(p.total_supply_x || "100000"),
-            expected_apy: parseFloat(p.expected_apy || "4.5"),
             payout_cycle_days: parseInt(p.payout_cycle_days || "30"),
             token_address: p.token_address || "0x95401dc811bb5740090279ba06cfa8fcf6113778",
             fundraising_goal: parseFloat(p.fundraising_goal || "18900000"),

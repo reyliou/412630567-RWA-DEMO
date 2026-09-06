@@ -115,7 +115,7 @@ async def crawl_property(page, url):
         "current_price": token_price,
         "fundraising_goal": total_value,
         "status": "交易中",
-        "expected_apy": 4.5,
+        "payout_cycle_days": 30,
         "integrity": data_integrity
     }
 
@@ -136,11 +136,11 @@ async def run_crawler():
             try:
                 data = await crawl_property(page, url)
                 query = """
-                INSERT INTO properties (id, title, location, complete_address, main_image, token_symbol, total_supply_x, current_price, fundraising_goal, status, expected_apy)
+                INSERT INTO properties (id, title, location, complete_address, main_image, token_symbol, total_supply_x, current_price, fundraising_goal, status, payout_cycle_days)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (id) DO UPDATE SET current_price = EXCLUDED.current_price, main_image = EXCLUDED.main_image;
                 """
-                cur.execute(query, (data["id"], data["title"], data["location"], data["complete_address"], data["main_image"], data["token_symbol"], data["total_supply_x"], data["current_price"], data["fundraising_goal"], data["status"], data["expected_apy"]))
+                cur.execute(query, (data["id"], data["title"], data["location"], data["complete_address"], data["main_image"], data["token_symbol"], data["total_supply_x"], data["current_price"], data["fundraising_goal"], data["status"], data["payout_cycle_days"]))
                 conn.commit()
                 total_integrity += data["integrity"]
                 success_count += 1
