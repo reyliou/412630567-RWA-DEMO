@@ -44,8 +44,6 @@ export function InvestorPortfolio({ userId, userName }: { userId: number, userNa
   const holdingsMarketValue = parseFloat(data?.summary?.holdings_market_value || "0");
   const totalNetWorth = parseFloat(data?.summary?.total_net_worth || String(cashBalance + holdingsMarketValue));
   const unrealizedPnL = parseFloat(data?.summary?.total_profit_loss || "0");
-  const todayProfit = unrealizedPnL * 0.01;
-  const profitPercent = totalNetWorth > 0 ? ((todayProfit / totalNetWorth) * 100).toFixed(2) : "0.00";
   const holdings = data?.holdings || [];
 
   return (
@@ -64,11 +62,20 @@ export function InvestorPortfolio({ userId, userName }: { userId: number, userNa
               <span className="text-sm font-bold opacity-60 font-mono">TWD</span>
             </div>
           </div>
-          <div className="relative z-10 mt-6">
+          <div className="relative z-10 mt-6 flex flex-wrap items-center gap-2">
              <div className="inline-flex items-center gap-2 bg-black/20 px-4 py-2 rounded-xl border border-white/10 backdrop-blur-sm">
                 <PieChart className="w-4 h-4 text-blue-200" />
-                <span className="text-xs font-black">現金 $${cashBalance.toLocaleString()} + 代幣 $${holdingsMarketValue.toLocaleString()}</span>
+                <span className="text-xs font-black">現金 ${cashBalance.toLocaleString()} + 代幣 ${holdingsMarketValue.toLocaleString()}</span>
              </div>
+             {unrealizedPnL !== 0 && (
+               <div className={`inline-flex items-center gap-1 px-3 py-2 rounded-xl border backdrop-blur-sm text-xs font-black ${
+                 unrealizedPnL > 0 
+                   ? 'bg-emerald-500/20 border-emerald-400/30 text-emerald-200' 
+                   : 'bg-rose-500/20 border-rose-400/30 text-rose-200'
+               }`}>
+                 <span>未實現損益: {unrealizedPnL > 0 ? '+' : ''}${unrealizedPnL.toLocaleString()}</span>
+               </div>
+             )}
           </div>
           <PieChart className="absolute -right-6 -bottom-6 w-40 h-48 opacity-10 text-white rotate-12" />
         </div>

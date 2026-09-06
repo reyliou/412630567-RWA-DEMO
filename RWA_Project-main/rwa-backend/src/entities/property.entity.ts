@@ -38,6 +38,12 @@ export class Property {
   @Column({ type: 'integer', nullable: true, default: 30 })
   payout_cycle_days: number;
 
+  @Column({ type: 'numeric', nullable: true, default: 35.0 })
+  size_ping: number;
+
+  @Column({ type: 'numeric', nullable: true })
+  yesterday_close_price: number;
+
   @Column({ nullable: true })
   token_address: string;
 

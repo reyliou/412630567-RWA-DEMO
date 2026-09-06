@@ -16,6 +16,8 @@ interface Property {
   total_supply?: number;
   total_supply_x?: number;
   payout_cycle_days?: number;
+  size_ping?: number;
+  yesterday_close_price?: number;
   token_address?: string;
   token_symbol?: string;
   fundraising_goal?: number;
@@ -47,23 +49,34 @@ export function InvestorMarket({ onSelectProperty }: InvestorMarketProps) {
         const response = await apiFetch(`/api/properties`);
         if (response.ok) {
           const data = await response.json();
-          // 資料庫欄位對齊：將 title 映射到 name，complete_address 映射到 addr 等
-          const mappedData = data.map((p: any) => ({
-            id: p.id,
-            name: p.title,
-            addr: p.complete_address,
-            complete_address: p.complete_address,
-            price: parseFloat(p.current_price),
-            change: p.status === '交易中' ? '+0.00' : '-0.00',
-            img: p.main_image || "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=400",
-            city_tag: p.location,
-            total_supply: parseFloat(p.total_supply_x || "100000"),
-            total_value: parseFloat(p.current_price) * parseFloat(p.total_supply_x || "100000"),
-            payout_cycle_days: parseInt(p.payout_cycle_days || "30"),
-            token_address: p.token_address || "0x95401dc811bb5740090279ba06cfa8fcf6113778",
-            fundraising_goal: parseFloat(p.fundraising_goal || "18900000"),
-            token_symbol: p.token_symbol || "RWA"
-          }));
+          // 資料庫欄位對齊：將 title 映射到 name，依昨收價動態計算漲跌幅
+          const mappedData = data.map((p: any) => {
+            const curPrice = parseFloat(p.current_price || "0");
+            const yestPrice = parseFloat(p.yesterday_close_price || "0");
+            let changePercentStr = "+0.00";
+            if (yestPrice > 0) {
+              const diff = ((curPrice - yestPrice) / yestPrice) * 100;
+              changePercentStr = (diff >= 0 ? "+" : "") + diff.toFixed(2);
+            }
+            return {
+              id: p.id,
+              name: p.title,
+              addr: p.complete_address,
+              complete_address: p.complete_address,
+              price: curPrice,
+              change: changePercentStr,
+              img: p.main_image || "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=400",
+              city_tag: p.location,
+              total_supply: parseFloat(p.total_supply_x || "100000"),
+              total_value: curPrice * parseFloat(p.total_supply_x || "100000"),
+              payout_cycle_days: parseInt(p.payout_cycle_days || "30"),
+              size_ping: parseFloat(p.size_ping || "35.0"),
+              yesterday_close_price: yestPrice,
+              token_address: p.token_address || "0x95401dc811bb5740090279ba06cfa8fcf6113778",
+              fundraising_goal: parseFloat(p.fundraising_goal || "18900000"),
+              token_symbol: p.token_symbol || "RWA"
+            };
+          });
           setProperties(mappedData);
         }
       } catch (e) {

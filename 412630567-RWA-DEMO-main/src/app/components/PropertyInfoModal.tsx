@@ -20,6 +20,7 @@ interface PropertyInfoModalProps {
     total_value?: number;
     fundraising_goal?: number;
     payout_cycle_days?: number;
+    size_ping?: number;
     token_address?: string;
     token_symbol?: string;
   } | null;
@@ -42,9 +43,9 @@ export function PropertyInfoModal({ isOpen, onClose, property }: PropertyInfoMod
   const tokenSymbol = property.token_symbol || "RWA";
   const source591Url = `https://newhouse.591.com.tw/${property.id}`;
 
-  // 估算坪數與每坪單價
-  const sizePing = 35.0; // 爬蟲標準規格
-  const unitPriceWan = Math.round((totalValue / sizePing / 10000) * 10) / 10;
+  // 真實規劃坪數與每坪單價
+  const sizePing = property.size_ping ? parseFloat(String(property.size_ping)) : 35.0;
+  const unitPriceWan = sizePing > 0 ? Math.round((totalValue / sizePing / 10000) * 10) / 10 : 0;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(tokenAddress);
