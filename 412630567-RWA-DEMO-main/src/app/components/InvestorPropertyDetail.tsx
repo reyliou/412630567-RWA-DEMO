@@ -103,7 +103,7 @@ export function InvestorPropertyDetail({ userId, property, userProfile, onBack }
              <div className="bg-white border p-8 rounded-[2rem] text-center shadow-sm"><div className="text-xs text-slate-400 font-bold mb-2">當日最高</div><div className="text-3xl text-red-500">${marketStats.high}</div></div>
              <div className="bg-white border p-8 rounded-[2rem] text-center shadow-sm"><div className="text-xs text-slate-400 font-bold mb-2">當日最低</div><div className="text-3xl text-green-500">${marketStats.low}</div></div>
              <div className="bg-white border p-8 rounded-[2rem] text-center shadow-sm"><div className="text-xs text-slate-400 font-bold mb-2">總銷估值</div><div className="text-3xl text-slate-800">${((property.price * 100000)/10000).toLocaleString()}萬</div></div>
-             <div className="bg-white border p-8 rounded-[2rem] text-center shadow-sm"><div className="text-xs text-slate-400 font-bold mb-2">發行總量</div><div className="text-3xl text-blue-500">{liveSupply.toLocaleString()}</div></div>
+             <div className="bg-white border p-8 rounded-[2rem] text-center shadow-sm"><div className="text-xs text-slate-400 font-bold mb-2">市場流通量</div><div className="text-3xl text-blue-500">{liveSupply.toLocaleString()}</div></div>
           </div>
         </div>
         <div className="lg:col-span-4 space-y-8">
