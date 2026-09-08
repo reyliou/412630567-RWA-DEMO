@@ -231,8 +231,8 @@ export function KycResubmitModal({
                       <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm mx-auto group-hover:scale-110 transition-transform">
                         <FileText className="w-6 h-6 text-blue-500" />
                       </div>
-                      <p className="text-xs font-black text-slate-700">上傳身分證正面</p>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase">JPG, PNG (MAX 5MB)</p>
+                      <p className="text-sm font-bold text-slate-800">上傳身分證正面</p>
+                      <p className="text-xs text-slate-500 font-medium">支援 JPG、PNG 格式 (最大 5MB)</p>
                     </div>
                   )}
                 </label>
@@ -242,7 +242,7 @@ export function KycResubmitModal({
               <div className="space-y-2">
                 <label className="text-xs font-black text-slate-700 uppercase tracking-wider ml-1 flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-blue-600"></span>
-                  身分證反面 (Back)
+                  身分證反面
                 </label>
                 <label className="relative aspect-[1.5/1] bg-slate-50 border-2 border-dashed border-slate-200 hover:border-blue-500 rounded-3xl flex flex-col items-center justify-center p-4 group cursor-pointer transition-all overflow-hidden">
                   <input
@@ -263,8 +263,8 @@ export function KycResubmitModal({
                       <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm mx-auto group-hover:scale-110 transition-transform">
                         <FileText className="w-6 h-6 text-blue-500" />
                       </div>
-                      <p className="text-xs font-black text-slate-700">上傳身分證反面</p>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase">JPG, PNG (MAX 5MB)</p>
+                      <p className="text-sm font-bold text-slate-800">上傳身分證反面</p>
+                      <p className="text-xs text-slate-500 font-medium">支援 JPG、PNG 格式 (最大 5MB)</p>
                     </div>
                   )}
                 </label>

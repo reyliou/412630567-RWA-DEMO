@@ -351,7 +351,7 @@ export function AuthView({ onLogin }: AuthViewProps) {
                     ) : (
                       <>
                         <div className="w-16 h-14 bg-white rounded-2xl flex items-center justify-center shadow-sm mb-4 group-hover:scale-110 transition-transform"><FileText className="w-8 h-8 text-blue-500" /></div>
-                        <span className="text-[10px] font-black text-slate-800">身分證正面</span><span className="text-[8px] font-bold text-blue-400 uppercase mt-1">.JPG / .PNG (MAX 5MB)</span>
+                        <span className="text-sm font-bold text-slate-800">身分證正面</span><span className="text-xs font-bold text-blue-500 mt-1">JPG / PNG (最大 5MB)</span>
                       </>
                     )}
                   </label>
@@ -375,7 +375,7 @@ export function AuthView({ onLogin }: AuthViewProps) {
                     ) : (
                       <>
                         <div className="w-16 h-14 bg-white rounded-2xl flex items-center justify-center shadow-sm mb-4 group-hover:scale-110 transition-transform"><FileText className="w-8 h-8 text-blue-500" /></div>
-                        <span className="text-[10px] font-black text-slate-800">身分證背面</span><span className="text-[8px] font-bold text-blue-400 uppercase mt-1">.JPG / .PNG (MAX 5MB)</span>
+                        <span className="text-sm font-bold text-slate-800">身分證背面</span><span className="text-xs font-bold text-blue-500 mt-1">JPG / PNG (最大 5MB)</span>
                       </>
                     )}
                   </label>

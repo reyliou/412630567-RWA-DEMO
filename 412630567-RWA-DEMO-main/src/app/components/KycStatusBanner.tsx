@@ -36,14 +36,14 @@ export function KycStatusBanner({ profile, onOpenResubmit }: KycStatusBannerProp
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <h3 className="font-black text-base text-red-800">❌ KYC 實名認證未通過（退件需補件）</h3>
-              <span className="text-[10px] font-black bg-red-100 text-red-700 px-2.5 py-0.5 rounded-full uppercase">
-                REJECTED
+              <span className="text-xs font-bold bg-red-100 text-red-700 px-3 py-1 rounded-full">
+                審核退件
               </span>
             </div>
             <p className="text-xs font-bold text-red-600">
               行員審查退件備註：<span className="underline decoration-red-400">{kyc_rejection_reason || "證件影像不清晰或不符合規範"}</span>
             </p>
-            <p className="text-[11px] text-slate-500 font-medium">
+            <p className="text-xs text-slate-600 font-medium">
               依據法規，尚未通過實名認證之帳號暫時無法進行下單交易。請點擊右方按鈕重新拍攝並補繳證件。
             </p>
           </div>
@@ -69,15 +69,15 @@ export function KycStatusBanner({ profile, onOpenResubmit }: KycStatusBannerProp
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <h3 className="font-black text-base text-amber-800">⏳ KYC 實名認證審核中</h3>
-              <span className="text-[10px] font-black bg-amber-100 text-amber-700 px-2.5 py-0.5 rounded-full uppercase">
-                PENDING
+              <span className="text-xs font-bold bg-amber-100 text-amber-700 px-3 py-1 rounded-full">
+                審核中
               </span>
             </div>
             <p className="text-xs font-bold text-amber-700">
               您的身分證件已安全加密送交銀行合規人員審查，通常需 1 個工作天內完成。
             </p>
-            <p className="text-[11px] text-slate-500 font-medium">
-              審核通過後，系統將自動為您部署鏈上身分 (OnchainID) 並開通下單買賣權限。您目前可先行瀏覽市場與接收通知。
+            <p className="text-xs text-slate-600 font-medium">
+              審核通過後，系統將自動為您開通鏈上身分並開通下單買賣權限。您目前可先行瀏覽市場與接收通知。
             </p>
           </div>
         </div>
@@ -101,14 +101,14 @@ export function KycStatusBanner({ profile, onOpenResubmit }: KycStatusBannerProp
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <h3 className="font-black text-base text-blue-900">🛡️ 尚未完成 KYC 實名認證</h3>
-            <span className="text-[10px] font-black bg-blue-100 text-blue-700 px-2.5 py-0.5 rounded-full uppercase">
-              UNSUBMITTED
+            <span className="text-xs font-bold bg-blue-100 text-blue-700 px-3 py-1 rounded-full">
+              未認證
             </span>
           </div>
           <p className="text-xs font-bold text-blue-700">
             您已成功建立投資人帳戶！請上傳雙證件以開通 RWA 房產合規交易權限。
           </p>
-          <p className="text-[11px] text-slate-500 font-medium">
+          <p className="text-xs text-slate-600 font-medium">
             未完成認證前僅能瀏覽即時市場行情與接收系統公告，無法進行買賣下單。
           </p>
         </div>

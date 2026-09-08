@@ -187,7 +187,7 @@ export function OrderEntryForm({ userId, property, userProfile, selectedPrice, o
           <div className="space-y-2">
             <div className="flex items-center justify-between ml-2">
               <label className="text-xs font-bold text-slate-500">委託數量 (枚)</label>
-              <div className="text-[11px] font-black text-slate-500 flex items-center gap-1.5 bg-slate-50 px-3 py-1 rounded-lg border border-slate-100">
+              <div className="text-xs font-bold text-slate-600 flex items-center gap-1.5 bg-slate-50 px-3 py-1 rounded-xl border border-slate-200">
                 <Wallet className="w-3.5 h-3.5 text-blue-600" />
                 <span>可用現金：</span>
                 <span className="font-mono text-blue-600 font-bold">${cashBalance.toLocaleString()} TWD</span>
