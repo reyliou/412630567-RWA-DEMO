@@ -61,30 +61,30 @@ export function BlockchainDeployCard({ onLog }: BlockchainDeployCardProps) {
   const nodeReachable = status?.nodeReachable ?? false;
 
   return (
-    <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden flex flex-col">
-      <div className="p-4 border-b border-border bg-muted/20 flex items-center justify-between">
-        <h3 className="font-bold flex items-center gap-2 text-sm">
-          <Link2 className="w-4 h-4 text-indigo-600" />
-          區塊鏈開通 (ERC-3643)
+    <div className="bg-white border border-border rounded-[2rem] shadow-sm overflow-hidden flex flex-col justify-between ring-1 ring-slate-100">
+      <div className="p-6 border-b border-border bg-slate-50/50 flex items-center justify-between">
+        <h3 className="font-black flex items-center gap-2.5 text-base text-slate-800">
+          <Link2 className="w-5 h-5 text-indigo-600" />
+          區塊鏈核心 (ERC-3643)
         </h3>
         <span
-          className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
-            nodeReachable ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-600"
+          className={`text-xs font-bold px-3 py-1 rounded-full ${
+            nodeReachable ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-red-50 text-red-600 border border-red-200"
           }`}
         >
-          {nodeReachable ? "NODE_ONLINE" : "NODE_OFFLINE"}
+          {nodeReachable ? "節點在線" : "節點離線"}
         </span>
       </div>
 
-      <div className="p-6 flex-1 flex flex-col gap-4">
-        <div className="grid grid-cols-2 gap-3 text-xs">
+      <div className="p-8 flex-1 flex flex-col gap-4">
+        <div className="grid grid-cols-2 gap-3 text-xs font-bold">
           <div className="flex items-center gap-2">
             {status?.artifactsCompiled ? (
               <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
             ) : (
               <XCircle className="w-4 h-4 text-red-500 shrink-0" />
             )}
-            <span className="text-muted-foreground">合約已編譯</span>
+            <span className="text-slate-600">合約已編譯</span>
           </div>
           <div className="flex items-center gap-2">
             {infraDeployed ? (
@@ -92,23 +92,23 @@ export function BlockchainDeployCard({ onLog }: BlockchainDeployCardProps) {
             ) : (
               <XCircle className="w-4 h-4 text-yellow-500 shrink-0" />
             )}
-            <span className="text-muted-foreground">基礎設施已部署</span>
+            <span className="text-slate-600">基礎設施就緒</span>
           </div>
         </div>
 
         {status?.adminWallet && (
-          <div className="flex items-center gap-2 text-[11px] text-muted-foreground bg-muted/20 rounded-lg px-3 py-2">
-            <Wallet className="w-3.5 h-3.5 shrink-0" />
+          <div className="flex items-center gap-2 text-xs text-slate-600 bg-slate-50 rounded-xl px-3 py-2.5 border border-slate-100">
+            <Wallet className="w-4 h-4 text-indigo-600 shrink-0" />
             <span className="truncate font-mono">{status.adminWallet}</span>
           </div>
         )}
 
         {status?.properties && status.properties.length > 0 && (
-          <div className="space-y-1 max-h-24 overflow-y-auto text-[11px]">
+          <div className="space-y-1.5 max-h-24 overflow-y-auto text-xs">
             {status.properties.map((p) => (
               <div key={p.id} className="flex items-center justify-between">
-                <span className="text-muted-foreground truncate">{p.title}</span>
-                <span className={p.tokenAddress ? "text-green-600" : "text-slate-400"}>
+                <span className="text-slate-600 truncate font-medium">{p.title}</span>
+                <span className={p.tokenAddress ? "text-emerald-600 font-bold" : "text-slate-400 font-medium"}>
                   {p.tokenAddress ? `${p.tokenAddress.slice(0, 8)}…` : "未鑄造"}
                 </span>
               </div>
@@ -116,7 +116,7 @@ export function BlockchainDeployCard({ onLog }: BlockchainDeployCardProps) {
           </div>
         )}
 
-        {error && <p className="text-[11px] text-red-500">{error}</p>}
+        {error && <p className="text-xs text-red-500 font-medium">{error}</p>}
 
         <button
           onClick={handleDeploy}

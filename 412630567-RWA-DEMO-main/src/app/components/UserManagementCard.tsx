@@ -242,7 +242,7 @@ export function UserManagementCard() {
             }`}
           >
             ⏳ 待審核
-            <span className={`px-2 py-0.5 rounded-full text-[10px] ${
+            <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
               statusFilter === "PENDING" 
                 ? "bg-amber-700 text-white" 
                 : counts.pending > 0 
@@ -263,7 +263,7 @@ export function UserManagementCard() {
             }`}
           >
             ✅ 已通過
-            <span className={`px-2 py-0.5 rounded-full text-[10px] ${statusFilter === "VERIFIED" ? "bg-green-700 text-white" : "bg-slate-200 text-slate-600"}`}>
+            <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${statusFilter === "VERIFIED" ? "bg-green-700 text-white" : "bg-slate-200 text-slate-600"}`}>
               {counts.verified}
             </span>
           </button>
@@ -278,7 +278,7 @@ export function UserManagementCard() {
             }`}
           >
             ❌ 已退件
-            <span className={`px-2 py-0.5 rounded-full text-[10px] ${statusFilter === "REJECTED" ? "bg-red-700 text-white" : "bg-slate-200 text-slate-600"}`}>
+            <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${statusFilter === "REJECTED" ? "bg-red-700 text-white" : "bg-slate-200 text-slate-600"}`}>
               {counts.rejected}
             </span>
           </button>
@@ -293,7 +293,7 @@ export function UserManagementCard() {
             }`}
           >
             ⚪ 未提交
-            <span className={`px-2 py-0.5 rounded-full text-[10px] ${statusFilter === "UNSUBMITTED" ? "bg-slate-700 text-white" : "bg-slate-200 text-slate-600"}`}>
+            <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${statusFilter === "UNSUBMITTED" ? "bg-slate-700 text-white" : "bg-slate-200 text-slate-600"}`}>
               {counts.unsubmitted}
             </span>
           </button>
@@ -318,12 +318,12 @@ export function UserManagementCard() {
         <table className="w-full text-left border-collapse">
           <thead className="bg-slate-50/50 border-b border-border">
             <tr>
-              <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">用戶 ID</th>
-              <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">姓名</th>
-              <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">電子郵件</th>
-              <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">認證狀態</th>
-              <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">交易狀態</th>
-              <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-right pr-12">操作</th>
+              <th className="px-8 py-6 text-xs font-bold text-slate-600 tracking-wider">用戶 ID</th>
+              <th className="px-8 py-6 text-xs font-bold text-slate-600 tracking-wider">姓名</th>
+              <th className="px-8 py-6 text-xs font-bold text-slate-600 tracking-wider">電子郵件</th>
+              <th className="px-8 py-6 text-xs font-bold text-slate-600 tracking-wider text-center">認證狀態</th>
+              <th className="px-8 py-6 text-xs font-bold text-slate-600 tracking-wider text-center">交易狀態</th>
+              <th className="px-8 py-6 text-xs font-bold text-slate-600 tracking-wider text-right pr-12">操作</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -365,7 +365,7 @@ export function UserManagementCard() {
                 <td className="px-8 py-8 text-center">
                   <div className="flex flex-col items-center gap-1.5">
                     {/* KYC 審核狀態 Badge */}
-                    <span className={`inline-flex items-center gap-1 text-[11px] font-black px-3 py-1 rounded-full border ${
+                    <span className={`inline-flex items-center gap-1 text-xs font-bold px-3 py-1 rounded-full border ${
                       user.kycStatus === 'VERIFIED'
                         ? 'bg-green-50 text-green-700 border-green-200'
                         : user.kycStatus === 'PENDING'
@@ -381,7 +381,7 @@ export function UserManagementCard() {
                     </span>
 
                     {/* 白名單狀態 Badge */}
-                    <span className={`text-[9px] font-black uppercase tracking-wider ${
+                    <span className={`text-xs font-bold ${
                       user.status === 'Whitelisted' ? 'text-green-600' : 'text-slate-400'
                     }`}>
                       {user.status === 'Whitelisted' ? '● 白名單正常' : '○ 黑名單/未授權'}

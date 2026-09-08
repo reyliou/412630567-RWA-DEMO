@@ -59,10 +59,14 @@ function AppContent() {
             </div>
           </div>
           <div className="flex items-center gap-4 text-slate-800">
-             <div className="text-right hidden sm:block">
-                <div className="text-[11px] font-bold text-slate-400 leading-none mb-1">
+             <div className="text-right hidden sm:flex items-center gap-3">
+                <span className={`px-3 py-1 rounded-xl text-xs font-bold shadow-sm ${
+                  appMode === 'BUSINESS' ? 'bg-purple-100 text-purple-700 border border-purple-200' :
+                  appMode === 'TECHNICAL' ? 'bg-indigo-100 text-indigo-700 border border-indigo-200' :
+                  'bg-blue-100 text-blue-700 border border-blue-200'
+                }`}>
                   {appMode === 'BUSINESS' ? '業務審查專區' : appMode === 'TECHNICAL' ? '技術監控核心' : '投資人專區'}
-                </div>
+                </span>
                 <div className="text-base font-black">{userName}</div>
              </div>
              <div className="flex items-center gap-2">

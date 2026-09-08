@@ -60,7 +60,7 @@ export function OrderBook({ propertyId, currentPrice, onPriceSelect }: OrderBook
       </p>
 
       <div className="mb-8 space-y-3">
-        <div className="flex justify-between text-[11px] font-black uppercase tracking-widest px-1">
+        <div className="flex justify-between text-xs font-bold px-1">
           <span className="text-red-600 font-bold">委買 {bidRatio.toFixed(0)}%</span>
           <span className="text-green-600 font-bold">委賣 {askRatio.toFixed(0)}%</span>
         </div>
@@ -68,15 +68,15 @@ export function OrderBook({ propertyId, currentPrice, onPriceSelect }: OrderBook
           <div className="h-full bg-red-500 transition-all duration-1000 shadow-[0_0_10px_rgba(239,68,68,0.3)]" style={{ width: `${bidRatio}%` }} />
           <div className="h-full bg-green-500 transition-all duration-1000 shadow-[0_0_10px_rgba(34,197,94,0.3)]" style={{ width: `${askRatio}%` }} />
         </div>
-        <div className="flex justify-between text-xs font-bold text-slate-400 px-1">
+        <div className="flex justify-between text-xs font-bold text-slate-500 px-1">
           <span>委買總量: {bidTotal.toLocaleString()}</span>
           <span>委賣總量: {askTotal.toLocaleString()}</span>
         </div>
       </div>
 
-      <div className="grid grid-cols-4 text-center text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100 pb-4 mb-4">
+      <div className="grid grid-cols-4 text-center text-xs font-bold text-slate-600 border-b border-slate-100 pb-4 mb-4">
         <span>買量</span>
-        <span className="col-span-2 text-slate-500">價格 (點擊填入)</span>
+        <span className="col-span-2 text-slate-700">委託價格 (點選帶入)</span>
         <span>賣量</span>
       </div>
 

@@ -24,15 +24,20 @@ export function TechnicalPage() {
           <button onClick={openChat} className="bg-white text-slate-900 px-8 py-3 rounded-2xl text-sm font-black hover:bg-gray-100 transition-all shadow-xl uppercase">立即處理</button>
         </div>
       )}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8">
+      {/* 上排 3 核心監控卡片 */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <SystemHealthCard />
         <OracleMonitorCard />
+        <BlockchainDeployCard onLog={(type, message) => logRef.current?.addLog(type, message)} />
+      </div>
+
+      {/* 下排 2 重點操作卡片 (合約風控與跨部門審查通訊) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <ContractControlCard 
           onPauseToggle={openChat} 
           onReconcile={() => setIsReconcileModalOpen(true)} 
           isPaused={isPaused} 
         />
-        <BlockchainDeployCard onLog={(type, message) => logRef.current?.addLog(type, message)} />
         <StaffStatusCard onOpenChat={openChat} hasRequest={activeRequest !== "NONE"} unreadCount={unreadCount} userName={userName} requestType={activeRequest} />
       </div>
       <ThrottleTimerCard isActive={!isPaused} startTime={throttleStartTime} realActiveTransactions={activeTransactions} />

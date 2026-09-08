@@ -101,19 +101,19 @@ export function PropertyInfoModal({ isOpen, onClose, property }: PropertyInfoMod
           {/* 房產核心規格 4 格網格 */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-center">
-              <div className="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-1">規劃坪數</div>
+              <div className="text-xs font-bold text-slate-500 mb-1">規劃坪數</div>
               <div className="text-lg font-black text-slate-800">{sizePing} 坪</div>
             </div>
             <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-center">
-              <div className="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-1">實體每坪單價</div>
+              <div className="text-xs font-bold text-slate-500 mb-1">實體每坪單價</div>
               <div className="text-lg font-black text-blue-600">{unitPriceWan} 萬/坪</div>
             </div>
             <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-center">
-              <div className="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-1">收益發放週期</div>
+              <div className="text-xs font-bold text-slate-500 mb-1">收益發放週期</div>
               <div className="text-lg font-black text-emerald-600">{cycleDays} 天 (定期)</div>
             </div>
             <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-center">
-              <div className="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-1">總銷估值</div>
+              <div className="text-xs font-bold text-slate-500 mb-1">總銷估值</div>
               <div className="text-lg font-black text-slate-800">{(totalValue / 10000).toLocaleString()} 萬</div>
             </div>
           </div>
@@ -125,26 +125,26 @@ export function PropertyInfoModal({ isOpen, onClose, property }: PropertyInfoMod
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               <div className="flex justify-between p-2.5 bg-white/80 rounded-xl border border-blue-100/40">
-                <span className="text-slate-500 font-bold">總發行量</span>
+                <span className="text-slate-600 font-bold">總發行量</span>
                 <span className="font-mono font-black text-slate-800">{totalSupply.toLocaleString()} {tokenSymbol}</span>
               </div>
               <div className="flex justify-between p-2.5 bg-white/80 rounded-xl border border-blue-100/40">
-                <span className="text-slate-500 font-bold">單一帳戶持倉上限</span>
+                <span className="text-slate-600 font-bold">單一帳戶持倉上限</span>
                 <span className="font-mono font-black text-blue-600">5,000 份額 (5.0%)</span>
               </div>
               <div className="flex justify-between p-2.5 bg-white/80 rounded-xl border border-blue-100/40">
-                <span className="text-slate-500 font-bold">定價機制</span>
+                <span className="text-slate-600 font-bold">定價機制</span>
                 <span className="font-bold text-slate-800">AMM 動態做市 ($x \cdot y = k$)</span>
               </div>
               <div className="flex justify-between p-2.5 bg-white/80 rounded-xl border border-blue-100/40">
-                <span className="text-slate-500 font-bold">合規標準</span>
+                <span className="text-slate-600 font-bold">合規標準</span>
                 <span className="font-bold text-slate-800">ERC-3643 (T-REX v4)</span>
               </div>
             </div>
 
             {/* 智能合約地址 */}
             <div className="pt-1">
-              <div className="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-1">智能合約地址 (Token Contract)</div>
+              <div className="text-xs font-bold text-slate-500 mb-1">智能合約地址 (Token Contract)</div>
               <div className="flex items-center gap-2 bg-white p-2.5 rounded-xl border border-blue-100">
                 <span className="font-mono text-xs text-slate-600 truncate flex-1">{tokenAddress}</span>
                 <button

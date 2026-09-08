@@ -168,13 +168,13 @@ export function InvestorTransactions({ userId }: InvestorTransactionsProps) {
            <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-200">
               <History className="w-6 h-6" />
            </div>
-           <div>
-              <h2 className="text-3xl font-black text-slate-800 tracking-tighter uppercase font-sans">交易紀錄</h2>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] italic">Database Audit History // UID: {userId}</p>
-           </div>
-        </div>
+            <div>
+               <h2 className="text-3xl font-black text-slate-800 tracking-tighter uppercase font-sans">交易紀錄</h2>
+               <p className="text-xs font-bold text-slate-500 mt-1">用戶即時交易與撮合審計紀錄 ｜ 帳號 UID: {userId}</p>
+            </div>
+         </div>
 
-        <div className="flex bg-slate-100 p-2 rounded-[2rem] gap-1 font-sans">
+         <div className="flex bg-slate-100 p-2 rounded-[2rem] gap-1 font-sans">
           <button 
             onClick={() => setViewMode("PENDING")}
             className={`px-8 py-3 rounded-2xl text-xs font-black transition-all uppercase tracking-widest ${viewMode === "PENDING" ? 'bg-white shadow-lg text-blue-600 scale-105' : 'text-slate-400 hover:text-slate-600'}`}
@@ -195,11 +195,11 @@ export function InvestorTransactions({ userId }: InvestorTransactionsProps) {
         <table className="w-full text-left">
           <thead className="bg-slate-50 border-b border-border">
             <tr>
-              <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">案名 (Property)</th>
-              <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">類型</th>
-              <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">數量 (Tokens)</th>
-              <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">委託價格</th>
-              <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">狀態 / 時間</th>
+              <th className="px-10 py-6 text-xs font-bold text-slate-600 tracking-wider">建案名稱</th>
+              <th className="px-10 py-6 text-xs font-bold text-slate-600 tracking-wider text-center">委託類型</th>
+              <th className="px-10 py-6 text-xs font-bold text-slate-600 tracking-wider text-center">委託數量</th>
+              <th className="px-10 py-6 text-xs font-bold text-slate-600 tracking-wider text-center">委託價格</th>
+              <th className="px-10 py-6 text-xs font-bold text-slate-600 tracking-wider text-right">狀態 / 成交時間</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-slate-800">
@@ -222,7 +222,7 @@ export function InvestorTransactions({ userId }: InvestorTransactionsProps) {
                   </div>
                 </td>
                 <td className="px-10 py-8 text-center">
-                  <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest ${
+                  <span className={`px-4 py-1.5 rounded-xl text-xs font-bold ${
                     tx.tx_type === 'BUY' ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-green-50 text-green-600 border border-green-100'
                   }`}>
                     {tx.tx_type === 'BUY' ? '買入' : '賣出'}
@@ -235,8 +235,8 @@ export function InvestorTransactions({ userId }: InvestorTransactionsProps) {
                    <div className="font-mono font-black text-lg text-blue-600">${parseFloat(tx.price_per_token).toLocaleString()}</div>
                 </td>
                 <td className="px-10 py-8 text-right">
-                   <div className="font-black text-xs text-slate-800 uppercase tracking-tighter">{tx.status}</div>
-                   <div className="text-[10px] text-slate-400 font-bold mt-1 font-mono">{new Date(tx.created_at).toLocaleString()}</div>
+                   <div className="font-black text-sm text-slate-800">{tx.status}</div>
+                   <div className="text-xs text-slate-500 font-medium mt-1 font-mono">{new Date(tx.created_at).toLocaleString()}</div>
                 </td>
               </tr>
             )) : (
@@ -256,7 +256,7 @@ export function InvestorTransactions({ userId }: InvestorTransactionsProps) {
                     </div>
                   </td>
                   <td className="px-10 py-8 text-center">
-                    <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest ${
+                    <span className={`px-4 py-1.5 rounded-xl text-xs font-bold ${
                       order.tx_type === 'BUY' ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-green-50 text-green-600 border border-green-100'
                     }`}>
                       {order.tx_type === 'BUY' ? '買入' : '賣出'} (限價)
@@ -284,13 +284,13 @@ export function InvestorTransactions({ userId }: InvestorTransactionsProps) {
         
         {/* Footer info */}
         <div className="p-8 bg-slate-50/50 border-t border-border flex justify-between items-center">
-           <p className="text-[9px] text-slate-400 font-bold uppercase tracking-[0.2em] flex items-center gap-2">
+           <p className="text-xs text-slate-500 font-medium flex items-center gap-2">
               <Calendar className="w-4 h-4" /> 所有數據已同步至 RWA-BANK POSTGRES 稽核節點
            </p>
            <button 
              onClick={handleExportCSV}
              disabled={isExporting}
-             className="text-[10px] font-black text-blue-600 hover:text-blue-800 hover:underline uppercase tracking-widest flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-50"
+             className="text-xs font-bold text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-50"
            >
              {isExporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
              {isExporting ? "正在產生報表..." : "下載完整 CSV 稽核報表"}

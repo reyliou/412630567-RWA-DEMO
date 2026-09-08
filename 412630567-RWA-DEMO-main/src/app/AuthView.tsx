@@ -251,12 +251,12 @@ export function AuthView({ onLogin }: AuthViewProps) {
               </button>
             </div>
             
-            <div className="text-center pt-4 border-t border-slate-50">
-               <div className="text-[10px] text-slate-400 font-bold mb-2 uppercase tracking-wider">快速填入示範帳號</div>
-               <div className="grid grid-cols-3 gap-2">
-                  <button type="button" onClick={() => setUsername("test1")} className="bg-slate-50 hover:bg-blue-50 hover:text-blue-600 p-2 rounded-xl text-[10px] font-black text-slate-600 transition-colors border border-slate-100">test1 (技術)</button>
-                  <button type="button" onClick={() => setUsername("test2")} className="bg-slate-50 hover:bg-blue-50 hover:text-blue-600 p-2 rounded-xl text-[10px] font-black text-slate-600 transition-colors border border-slate-100">test2 (業務)</button>
-                  <button type="button" onClick={() => setUsername("test3")} className="bg-slate-50 hover:bg-blue-50 hover:text-blue-600 p-2 rounded-xl text-[10px] font-black text-slate-600 transition-colors border border-slate-100">test3 (投資)</button>
+            <div className="text-center pt-5 border-t border-slate-100">
+               <div className="text-xs text-slate-500 font-bold mb-3 tracking-wide">快速示範帳號切換 (DEMO)</div>
+               <div className="grid grid-cols-3 gap-2.5">
+                  <button type="button" onClick={() => setUsername("test1")} className="bg-slate-50 hover:bg-indigo-50 hover:text-indigo-700 p-3 rounded-xl text-xs font-bold text-slate-700 transition-all border border-slate-200 shadow-sm hover:border-indigo-300">test1 (技術)</button>
+                  <button type="button" onClick={() => setUsername("test2")} className="bg-slate-50 hover:bg-purple-50 hover:text-purple-700 p-3 rounded-xl text-xs font-bold text-slate-700 transition-all border border-slate-200 shadow-sm hover:border-purple-300">test2 (業務)</button>
+                  <button type="button" onClick={() => setUsername("test3")} className="bg-slate-50 hover:bg-blue-50 hover:text-blue-700 p-3 rounded-xl text-xs font-bold text-slate-700 transition-all border border-slate-200 shadow-sm hover:border-blue-300">test3 (投資)</button>
                </div>
             </div>
             

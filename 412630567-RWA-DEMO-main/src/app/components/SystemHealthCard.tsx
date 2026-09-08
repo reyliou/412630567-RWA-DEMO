@@ -43,18 +43,19 @@ export function SystemHealthCard() {
 
   return (
     <>
-      <div className="bg-card rounded-lg border border-border p-6 shadow-sm font-sans text-slate-800">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="flex items-center gap-2 font-bold uppercase tracking-tight">
-            <Activity className="w-5 h-5 text-blue-500" />
+      <div className="bg-white rounded-[2rem] border border-border p-8 shadow-sm font-sans text-slate-800 ring-1 ring-slate-100 flex flex-col justify-between">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="flex items-center gap-2.5 font-black text-lg text-slate-800">
+            <Activity className="w-5 h-5 text-blue-600" />
             系統核心運行狀態
           </h2>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setIsLogModalOpen(true)}
-              className="p-1.5 hover:bg-muted rounded-md transition-colors"
+              className="p-2 hover:bg-slate-100 rounded-xl transition-colors"
+              title="查看日誌"
             >
-              <FileText className="w-4 h-4 text-muted-foreground hover:text-foreground" />
+              <FileText className="w-4 h-4 text-slate-400 hover:text-slate-800" />
             </button>
             <CheckCircle2 className={`w-5 h-5 ${metrics.isSynced ? 'text-green-500' : 'text-red-500'}`} />
           </div>
@@ -63,40 +64,40 @@ export function SystemHealthCard() {
         <div className="space-y-4">
           <div className="flex items-center justify-between text-slate-800">
             <div className="flex items-center gap-3">
-              <Server className="w-5 h-5 text-green-500" />
-              <span className="text-muted-foreground text-sm font-black uppercase">API 響應時間</span>
+              <Server className="w-5 h-5 text-green-600" />
+              <span className="text-slate-500 text-sm font-bold">API 響應時間</span>
             </div>
-            <span className={`font-mono font-black ${metrics.apiResponse > 100 ? 'text-yellow-500' : 'text-green-500'}`}>
+            <span className={`font-mono text-base font-black ${metrics.apiResponse > 100 ? 'text-yellow-600' : 'text-green-600'}`}>
               {metrics.apiResponse} ms
             </span>
           </div>
 
           <div className="flex items-center justify-between text-slate-800">
             <div className="flex items-center gap-3">
-              <Database className="w-5 h-5 text-green-500" />
-              <span className="text-muted-foreground text-sm font-black uppercase">PostgreSQL 延遲</span>
+              <Database className="w-5 h-5 text-green-600" />
+              <span className="text-slate-500 text-sm font-bold">PostgreSQL 延遲</span>
             </div>
-            <span className={`font-mono font-black ${metrics.dbLatency > 50 ? 'text-yellow-500' : 'text-green-500'}`}>
+            <span className={`font-mono text-base font-black ${metrics.dbLatency > 50 ? 'text-yellow-600' : 'text-green-600'}`}>
               {metrics.dbLatency} ms
             </span>
           </div>
 
           <div className="flex items-center justify-between text-slate-800">
             <div className="flex items-center gap-3">
-              <Activity className="w-5 h-5 text-green-500" />
-              <span className="text-muted-foreground text-sm font-black uppercase">伺服器負載 (CPU)</span>
+              <Activity className="w-5 h-5 text-green-600" />
+              <span className="text-slate-500 text-sm font-bold">伺服器負載 (CPU)</span>
             </div>
-            <span className="font-mono font-black">{metrics.cpuLoad.toFixed(1)}%</span>
+            <span className="font-mono text-base font-black text-slate-800">{metrics.cpuLoad.toFixed(1)}%</span>
           </div>
 
-          <div className="mt-4 pt-4 border-t border-border">
+          <div className="mt-4 pt-4 border-t border-slate-100">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <HardDrive className="w-5 h-5 text-green-500" />
-                <span className="text-muted-foreground text-sm font-black uppercase">資料庫一致性</span>
+                <HardDrive className="w-5 h-5 text-green-600" />
+                <span className="text-slate-500 text-sm font-bold">資料庫一致性</span>
               </div>
-              <div className="flex items-center gap-2 text-green-500">
-                <span className="text-sm font-black uppercase tracking-tighter">Synced</span>
+              <div className="flex items-center gap-2 text-green-600 font-black">
+                <span className="text-sm font-bold">已即時校準</span>
                 <CheckCircle2 className="w-4 h-4" />
               </div>
             </div>
