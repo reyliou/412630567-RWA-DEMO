@@ -47,16 +47,16 @@ export function KLineChart({ currentPrice, dataLogs }: KLineChartProps) {
     try {
       if ((chart as any).addCandlestickSeries) {
         candlestickSeries = (chart as any).addCandlestickSeries({
-          upColor: '#26a69a', // 綠色上漲 (加密貨幣慣用)
-          downColor: '#ef5350', // 紅色下跌
+          upColor: '#ef4444', // 台灣習慣：紅色上漲 (red-500)
+          downColor: '#22c55e', // 台灣習慣：綠色下跌 (green-500)
           borderVisible: false,
-          wickUpColor: '#26a69a',
-          wickDownColor: '#ef5350',
+          wickUpColor: '#ef4444',
+          wickDownColor: '#22c55e',
         });
         candlestickSeriesRef.current = candlestickSeries;
 
         volumeSeries = (chart as any).addHistogramSeries({
-          color: '#26a69a',
+          color: '#ef4444',
           priceFormat: { type: 'volume' },
           priceScaleId: '', 
           // 修正 #8: 隱藏成交量的錯誤價格標籤
@@ -143,7 +143,7 @@ export function KLineChart({ currentPrice, dataLogs }: KLineChartProps) {
           const volumeData = data.map((d: any) => ({
             time: d.time,
             value: d.volume,
-            color: d.close >= d.open ? '#26a69a80' : '#ef535080' 
+            color: d.close >= d.open ? 'rgba(239, 68, 68, 0.5)' : 'rgba(34, 197, 94, 0.5)'
           }));
           volumeSeriesRef.current.setData(volumeData);
         }

@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
-import { ShieldAlert, Lock, AlertTriangle, Wallet } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { ShieldAlert, Lock, AlertTriangle, Wallet, Coins } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useSystemControl } from "../context/SystemControlContext";
+import { useHeartbeat } from "../context/SystemHeartbeatContext";
 import { TransactionSuccessModal } from "./TransactionSuccessModal";
 
 interface OrderEntryFormProps {
@@ -62,6 +63,32 @@ export function OrderEntryForm({ userId, property, userProfile, selectedPrice, o
   }, [selectedPrice]);
 
   const [tradeError, setTradeError] = useState<string | null>(null);
+  const [holdingBalance, setHoldingBalance] = useState<number>(0);
+  const { tick } = useHeartbeat();
+
+  const fetchHolding = useCallback(async () => {
+    if (!userId || !property?.id) return;
+    try {
+      const res = await apiFetch(`/api/portfolio/${userId}`);
+      if (res.ok) {
+        const data = await res.json();
+        const match = data?.holdings?.find((h: any) => Number(h.property_id || h.id) === Number(property.id));
+        setHoldingBalance(match ? parseFloat(String(match.balance || '0')) : 0);
+      }
+    } catch (err) {
+      console.error("Failed to fetch holdings", err);
+    }
+  }, [userId, property?.id, apiFetch]);
+
+  useEffect(() => {
+    fetchHolding();
+  }, [fetchHolding]);
+
+  useEffect(() => {
+    if (tick % 10 === 0) {
+      fetchHolding();
+    }
+  }, [tick, fetchHolding]);
 
   const cashBalance = parseFloat(String(localProfile?.cash_balance ?? localProfile?.total_asset_value ?? "0"));
   const totalTwdValue = parseFloat(tokenAmount || "0") * (orderType === "market" ? property.price : parseFloat(limitTokenPrice || "0"));
@@ -94,6 +121,11 @@ export function OrderEntryForm({ userId, property, userProfile, selectedPrice, o
       return;
     }
 
+    if (txType === 'SELL' && amount > holdingBalance) {
+      setTradeError(`持倉代幣不足！您目前持有 ${holdingBalance.toLocaleString()} 枚，無法委託賣出 ${amount.toLocaleString()} 枚。`);
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const response = await apiFetch(`/api/transactions`, {
@@ -115,6 +147,7 @@ export function OrderEntryForm({ userId, property, userProfile, selectedPrice, o
         setIsConfirmOpen(false);
         setIsSuccessOpen(true);
         refreshProfile?.();
+        fetchHolding();
         onSuccess?.();
       } else {
         setTradeError(data.message || "交易下單失敗，請檢查錢包或庫存");
@@ -185,12 +218,24 @@ export function OrderEntryForm({ userId, property, userProfile, selectedPrice, o
           )}
 
           <div className="space-y-2">
-            <div className="flex items-center justify-between ml-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 ml-2">
               <label className="text-xs font-bold text-slate-500">委託數量 (枚)</label>
-              <div className="text-xs font-bold text-slate-600 flex items-center gap-1.5 bg-slate-50 px-3 py-1 rounded-xl border border-slate-200">
-                <Wallet className="w-3.5 h-3.5 text-blue-600" />
-                <span>可用現金：</span>
-                <span className="font-mono text-blue-600 font-bold">${cashBalance.toLocaleString()} TWD</span>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="text-xs font-bold text-slate-600 flex items-center gap-1.5 bg-slate-50 px-3 py-1 rounded-xl border border-slate-200">
+                  <Wallet className="w-3.5 h-3.5 text-blue-600" />
+                  <span>可用現金：</span>
+                  <span className="font-mono text-blue-600 font-bold">${cashBalance.toLocaleString()} TWD</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setTokenAmount(holdingBalance.toString())}
+                  title="點擊帶入全部持倉數量"
+                  className="text-xs font-bold text-slate-600 hover:text-amber-700 flex items-center gap-1.5 bg-slate-50 hover:bg-amber-50 px-3 py-1 rounded-xl border border-slate-200 hover:border-amber-300 transition-colors cursor-pointer"
+                >
+                  <Coins className="w-3.5 h-3.5 text-amber-500" />
+                  <span>目前持有：</span>
+                  <span className="font-mono text-amber-600 font-bold">{holdingBalance.toLocaleString()} 枚</span>
+                </button>
               </div>
             </div>
             <input 
@@ -261,11 +306,24 @@ export function OrderEntryForm({ userId, property, userProfile, selectedPrice, o
                     <span>數量</span>
                     <span className="font-mono text-base text-slate-800">{parseFloat(tokenAmount || '0').toLocaleString()} 枚</span>
                  </div>
+                 {txType === 'SELL' && (
+                   <div className="flex justify-between items-center text-xs font-black uppercase text-slate-500">
+                      <span>目前持有</span>
+                      <span className="font-mono text-base text-slate-700">{holdingBalance.toLocaleString()} 枚</span>
+                   </div>
+                 )}
                  <div className="flex justify-between items-center text-xs font-black uppercase text-slate-500 border-t border-slate-200 pt-4">
                     <span>總計金額</span>
                     <span className="font-mono text-xl text-blue-600">${totalTwdValue.toLocaleString()} TWD</span>
                  </div>
               </div>
+
+              {txType === 'SELL' && parseFloat(tokenAmount || '0') > holdingBalance && (
+                 <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-2xl text-xs font-bold text-red-600 flex items-center gap-2 animate-in fade-in">
+                   <AlertTriangle className="w-4 h-4 shrink-0" />
+                   <span>持倉數量不足！您目前僅持有 {holdingBalance.toLocaleString()} 枚，無法委託賣出。</span>
+                 </div>
+              )}
 
               {tradeError && (
                  <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-2xl text-xs font-bold text-red-600 animate-in fade-in">
@@ -275,7 +333,7 @@ export function OrderEntryForm({ userId, property, userProfile, selectedPrice, o
 
               <div className="flex gap-4">
                  <button onClick={() => { setIsConfirmOpen(false); setTradeError(null); }} className="flex-1 py-5 bg-slate-100 text-slate-500 hover:text-slate-800 hover:bg-slate-200 rounded-2xl font-black uppercase transition-colors">取消</button>
-                 <button onClick={confirmOrder} disabled={isSubmitting} className={`flex-[2] py-5 rounded-2xl text-white font-black uppercase shadow-xl transition-all active:scale-95 disabled:opacity-50 ${txType === 'BUY' ? 'bg-red-600 hover:bg-red-700 shadow-red-200' : 'bg-green-600 hover:bg-green-700 shadow-green-200'}`}>
+                 <button onClick={confirmOrder} disabled={isSubmitting || (txType === 'SELL' && parseFloat(tokenAmount || '0') > holdingBalance) || (txType === 'BUY' && totalTwdValue > cashBalance)} className={`flex-[2] py-5 rounded-2xl text-white font-black uppercase shadow-xl transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${txType === 'BUY' ? 'bg-red-600 hover:bg-red-700 shadow-red-200' : 'bg-green-600 hover:bg-green-700 shadow-green-200'}`}>
                     {isSubmitting ? "正在下單..." : "確認下單"}
                  </button>
               </div>
