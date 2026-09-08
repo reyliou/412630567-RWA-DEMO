@@ -13,10 +13,10 @@ export function ContractControlCard({ onPauseToggle, onReconcile, isPaused, isRe
       <div className={`p-4 border-b border-border ${isPaused ? 'bg-red-500/10' : 'bg-muted/20'} flex items-center justify-between`}>
         <h3 className="font-bold flex items-center gap-2 text-sm">
           {isPaused ? <Lock className="w-4 h-4 text-red-600" /> : <Unlock className="w-4 h-4 text-green-600" />}
-          合約狀態控制 (Protocol Guard)
+          智慧合約狀態控制
         </h3>
         <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${isPaused ? 'bg-red-600 text-white animate-pulse' : 'bg-green-500/10 text-green-600'}`}>
-          {isPaused ? 'SYSTEM_PAUSED' : 'SYSTEM_ACTIVE'}
+          {isPaused ? '系統已暫停' : '系統正常運作'}
         </span>
       </div>
 
@@ -39,33 +39,26 @@ export function ContractControlCard({ onPauseToggle, onReconcile, isPaused, isRe
         <div className="w-full pt-2">
           <button
             onClick={() => onPauseToggle(!isPaused)}
-            className={`w-full py-3 rounded-xl font-black text-xs uppercase tracking-[0.2em] transition-all shadow-lg active:scale-95 ${
+            className={`w-full py-3 rounded-xl font-black text-xs uppercase tracking-wider transition-all shadow-lg active:scale-95 ${
               isPaused 
                 ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-600/20' 
                 : 'bg-red-600 hover:bg-red-700 text-white shadow-red-600/20'
             }`}
           >
-            {isPaused ? '請求解除暫停 (Request Unpause)' : '強制緊急暫停 (Force Pause)'}
+            {isPaused ? '請求解除暫停' : '強制緊急暫停'}
           </button>
           <button
             disabled={isReconciling}
             onClick={() => onReconcile()}
-            className="w-full mt-2 py-3 rounded-xl font-black text-xs uppercase tracking-[0.1em] transition-all shadow-lg active:scale-95 bg-slate-800 hover:bg-slate-900 text-white shadow-slate-900/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full mt-2 py-3 rounded-xl font-black text-xs uppercase tracking-wider transition-all shadow-lg active:scale-95 bg-slate-800 hover:bg-slate-900 text-white shadow-slate-900/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isReconciling ? (
               <><Loader2 className="w-4 h-4 animate-spin text-blue-400" /> 全節點對帳中...</>
             ) : (
-              <><RefreshCw className="w-4 h-4 text-blue-400" /> 啟動全節點對帳 (Reconcile)</>
+              <><RefreshCw className="w-4 h-4 text-blue-400" /> 啟動全節點對帳</>
             )}
           </button>
         </div>
-      </div>
-
-      <div className="px-4 py-2 bg-muted/10 border-t border-border flex items-center justify-center gap-2">
-        <AlertCircle className="w-3 h-3 text-muted-foreground" />
-        <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-tighter">
-          Security Level: High-Availability Standard
-        </span>
       </div>
     </div>
   );

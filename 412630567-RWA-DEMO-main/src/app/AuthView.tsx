@@ -198,7 +198,7 @@ export function AuthView({ onLogin }: AuthViewProps) {
             <Shield className="w-14 h-14 text-white" />
           </div>
           <h1 className="text-5xl font-black tracking-tighter text-slate-800 uppercase">RWA BANK</h1>
-          <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.4em] mt-4 italic text-center">Protocol Level Terminal</p>
+          <p className="text-slate-500 text-xs font-bold mt-3 text-center">真實世界資產代幣化平台</p>
         </div>
 
         {authNotice && (
@@ -213,8 +213,8 @@ export function AuthView({ onLogin }: AuthViewProps) {
         {view === "LOGIN" ? (
           <form onSubmit={handleManualLogin} className="px-12 py-12 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="text-center">
-               <h2 className="text-2xl font-black text-slate-800 tracking-tighter uppercase">身份驗證</h2>
-               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-2">Login with Verified Account</p>
+               <h2 className="text-2xl font-black text-slate-800 tracking-tighter">帳戶登入</h2>
+               <p className="text-xs text-slate-400 font-medium mt-1">請輸入您的帳號密碼進行身份驗證</p>
             </div>
 
             <div className="space-y-4">
@@ -281,7 +281,7 @@ export function AuthView({ onLogin }: AuthViewProps) {
 
             {kycStep === 1 && (
               <div className="space-y-6 animate-in fade-in">
-                <div className="text-center"><h3 className="text-3xl font-black text-slate-800 tracking-tight">建立個人帳戶</h3><p className="text-xs text-slate-400 mt-2 font-bold uppercase tracking-widest">Step 1: Account Info</p></div>
+                <div className="text-center"><h3 className="text-3xl font-black text-slate-800 tracking-tight">建立個人帳戶</h3><p className="text-xs text-slate-400 mt-2 font-bold">步驟一：基本帳戶資料</p></div>
                 <div className="grid grid-cols-1 gap-4">
                   <div className="relative">
                     <User className="absolute left-5 top-5 w-5 h-5 text-slate-300" />
@@ -329,7 +329,7 @@ export function AuthView({ onLogin }: AuthViewProps) {
 
             {kycStep === 2 && (
               <div className="space-y-6 animate-in fade-in">
-                <div className="text-center"><h3 className="text-3xl font-black text-slate-800">證件影像上傳</h3><p className="text-xs text-slate-400 mt-2 font-bold uppercase tracking-widest">Step 2: ID Verification</p></div>
+                <div className="text-center"><h3 className="text-3xl font-black text-slate-800">證件影像上傳</h3><p className="text-xs text-slate-400 mt-2 font-bold">步驟二：實名雙證件核驗</p></div>
                 <div className="grid grid-cols-2 gap-6">
                   <label className="relative aspect-square bg-slate-50 border-2 border-dashed border-slate-200 rounded-[2.5rem] flex flex-col items-center justify-center p-6 group hover:bg-blue-50 cursor-pointer transition-all overflow-hidden">
                     <input 

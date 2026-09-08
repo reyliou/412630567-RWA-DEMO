@@ -65,8 +65,8 @@ export function NotificationCenter({ userId }: { userId: number }) {
           <div className="absolute right-0 mt-4 w-96 bg-white border border-border rounded-[2.5rem] shadow-2xl z-50 overflow-hidden animate-in slide-in-from-top-4 duration-300">
             <div className="p-6 border-b border-border bg-slate-50/50 flex justify-between items-center">
                <div className="flex items-center gap-2">
-                  <h3 className="font-black text-sm text-slate-800 uppercase tracking-widest">通知中心</h3>
-                  <span className="text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-lg font-black uppercase tracking-tighter animate-pulse">Live Tick</span>
+                  <h3 className="font-black text-sm text-slate-800 tracking-wider">通知中心</h3>
+                  <span className="text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-lg font-bold">即時推播</span>
                </div>
                <button 
                 onClick={handleMarkAllRead} 
@@ -99,8 +99,8 @@ export function NotificationCenter({ userId }: { userId: number }) {
                )}
             </div>
 
-            <div className="p-4 bg-slate-50 border-t border-border text-center">
-               <button className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] hover:text-slate-800 italic">Centralized Heartbeat Enabled</button>
+            <div className="p-3 bg-slate-50 border-t border-border text-center text-xs font-bold text-slate-400">
+               即時通知推播連線中
             </div>
           </div>
         </>

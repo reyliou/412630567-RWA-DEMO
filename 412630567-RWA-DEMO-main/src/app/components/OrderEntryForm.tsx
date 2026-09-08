@@ -130,13 +130,13 @@ export function OrderEntryForm({ userId, property, userProfile, selectedPrice, o
     <>
       <div className={`bg-white border rounded-[3rem] p-10 shadow-2xl flex flex-col ring-1 ${isPaused ? 'ring-red-500/50' : !canTrade ? 'ring-amber-500/30 bg-slate-50/30' : 'ring-slate-100'} relative overflow-hidden`}>
         {isPaused && (
-           <div className="absolute top-0 left-0 right-0 bg-red-600 text-white text-center text-[10px] font-black tracking-[0.2em] py-1 uppercase animate-pulse">
-              SYSTEM LOCKED / 交易已暫停
+           <div className="absolute top-0 left-0 right-0 bg-red-600 text-white text-center text-xs font-bold py-1.5 animate-pulse">
+              系統維護中 ｜ 交易功能暫停
            </div>
         )}
         
         <div className="flex items-center justify-between border-b pb-4 mt-2 mb-6">
-          <h3 className="font-black text-2xl uppercase">Trading HUB</h3>
+          <h3 className="font-black text-2xl text-slate-800">代幣交易委託</h3>
           {!canTrade && (
             <span className="text-[10px] font-black bg-amber-100 text-amber-800 px-3 py-1 rounded-full uppercase flex items-center gap-1.5 border border-amber-200">
               <Lock className="w-3 h-3" /> KYC 未開通
@@ -169,7 +169,7 @@ export function OrderEntryForm({ userId, property, userProfile, selectedPrice, o
         <div className="space-y-6 mb-12">
           {orderType === "limit" && (
             <div className="space-y-2 animate-in slide-in-from-top-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase ml-2 tracking-widest">Target Price (TWD)</label>
+              <label className="text-xs font-bold text-slate-500 ml-2">目標限價 (TWD)</label>
               <div className="relative">
                 <span className="absolute left-6 top-6 text-xl text-slate-400 font-black">$</span>
                 <input 
@@ -186,7 +186,7 @@ export function OrderEntryForm({ userId, property, userProfile, selectedPrice, o
 
           <div className="space-y-2">
             <div className="flex items-center justify-between ml-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Amount (Tokens)</label>
+              <label className="text-xs font-bold text-slate-500">委託數量 (枚)</label>
               <div className="text-[11px] font-black text-slate-500 flex items-center gap-1.5 bg-slate-50 px-3 py-1 rounded-lg border border-slate-100">
                 <Wallet className="w-3.5 h-3.5 text-blue-600" />
                 <span>可用現金：</span>
@@ -204,7 +204,7 @@ export function OrderEntryForm({ userId, property, userProfile, selectedPrice, o
           </div>
           
           <div className="flex justify-between px-4 py-2 bg-slate-50 rounded-xl border border-slate-100">
-             <span className="text-xs font-bold text-slate-400 uppercase">預估總額 (Est. Value)</span>
+             <span className="text-xs font-bold text-slate-500">預估交易總額</span>
              <span className="font-mono font-black text-slate-800">${totalTwdValue.toLocaleString()} TWD</span>
           </div>
 
@@ -226,7 +226,7 @@ export function OrderEntryForm({ userId, property, userProfile, selectedPrice, o
                 : 'bg-red-600 hover:bg-red-700 shadow-red-200'
             } disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none`}
           >
-            {isSubmitting && txType === "BUY" ? "處理中..." : !canTrade ? <><Lock className="w-5 h-5"/> 申購 (鎖定)</> : "申購 BUY"}
+            {isSubmitting && txType === "BUY" ? "處理中..." : !canTrade ? <><Lock className="w-5 h-5"/> 申購 (鎖定)</> : "申購 (買入)"}
           </button>
           <button 
             disabled={!canTrade || isPaused || isSubmitting} 
@@ -237,7 +237,7 @@ export function OrderEntryForm({ userId, property, userProfile, selectedPrice, o
                 : 'bg-green-600 hover:bg-green-700 shadow-green-200'
             } disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none`}
           >
-            {isSubmitting && txType === "SELL" ? "處理中..." : !canTrade ? <><Lock className="w-5 h-5"/> 委賣 (鎖定)</> : "委賣 SELL"}
+            {isSubmitting && txType === "SELL" ? "處理中..." : !canTrade ? <><Lock className="w-5 h-5"/> 委賣 (鎖定)</> : "委賣 (賣出)"}
           </button>
         </div>
       </div>
@@ -250,7 +250,7 @@ export function OrderEntryForm({ userId, property, userProfile, selectedPrice, o
                     <ShieldAlert className="w-10 h-10" />
                  </div>
                  <h3 className="text-3xl font-black uppercase tracking-tighter text-slate-800">委託確認</h3>
-                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">{orderType === 'market' ? 'Instant Execution' : 'Pending Order Book'}</p>
+                 <p className="text-xs font-bold text-slate-400 mt-2">{orderType === 'market' ? '市價即時撮合' : '進入掛單簿等待撮合'}</p>
               </div>
               <div className="space-y-4 bg-slate-50 p-6 rounded-2xl mb-8 border border-slate-100">
                  <div className="flex justify-between items-center text-xs font-black uppercase text-slate-500">

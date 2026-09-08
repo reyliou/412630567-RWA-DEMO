@@ -50,13 +50,13 @@ export function StaffStatusCard({ onOpenChat, hasRequest = false, isBankerView =
         
         <div className="mb-4">
           <div className="font-black text-xl tracking-tight">{userName || (isBankerView ? '陳政齊' : '廖偉哲')}</div>
-          <div className="text-[10px] text-muted-foreground font-mono mt-1 uppercase tracking-widest bg-muted px-2 py-0.5 rounded inline-block">
-            {isBankerView ? 'BANK-STF-99' : 'TECH-LEAD-01'}
+          <div className="text-[11px] font-bold text-slate-500 mt-1 bg-slate-100 px-3 py-1 rounded-lg inline-block">
+            {isBankerView ? '審查業務組' : '技術工程組'}
           </div>
         </div>
 
         <div className="w-full space-y-3 mt-auto relative">
-          <div className={`p-2 rounded text-[10px] text-left border ${hasRequest && requestType === 'UNPAUSE_REQUEST' ? 'bg-yellow-50 border-yellow-200 text-yellow-700' : 'bg-muted/30 border-border/50 text-muted-foreground'} italic leading-relaxed font-bold`}>
+          <div className={`p-2.5 rounded-xl text-xs text-left border ${hasRequest && requestType === 'UNPAUSE_REQUEST' ? 'bg-yellow-50 border-yellow-200 text-yellow-700' : 'bg-muted/30 border-border/50 text-muted-foreground'} leading-relaxed font-bold`}>
             {isBankerView 
               ? (hasRequest ? '異常請求授權中...' : '當前業務正常。點擊下方開啟通訊頻道。')
               : (hasRequest ? (requestType === 'PAUSE_REQUEST' ? '警報：收到緊急暫停請求！' : '提醒：業務端請求恢復系統交易。') : '系統監控中，隨時可接收跨部門請求。')}
@@ -78,10 +78,6 @@ export function StaffStatusCard({ onOpenChat, hasRequest = false, isBankerView =
             )}
           </div>
         </div>
-      </div>
-      
-      <div className="px-4 py-2 bg-muted/10 border-t border-border text-[9px] text-muted-foreground text-center font-mono">
-        SECURE_CHANNEL: {isBankerView ? 'BANK_NODE_01' : 'TECH_NODE_01'}
       </div>
     </div>
   );

@@ -71,8 +71,13 @@ export function InvestorPropertyDetail({ userId, property, userProfile, onBack }
   return (
     <div className="max-w-7xl mx-auto animate-in fade-in duration-300 pb-20 text-slate-800 font-black">
       <div className="flex items-center justify-between mb-8 px-4">
-        <button onClick={onBack} className="flex items-center gap-2 text-slate-400 hover:text-blue-600"><ArrowLeft className="w-5 h-5" /> Back</button>
-        <span className="text-[10px] uppercase text-blue-500 bg-blue-50 px-5 py-2 rounded-full italic border border-blue-100">Live API Link: {API_BASE_URL}</span>
+        <button onClick={onBack} className="flex items-center gap-2 text-slate-500 hover:text-blue-600 transition-colors">
+          <ArrowLeft className="w-5 h-5" /> 返回市場
+        </button>
+        <div className="flex items-center gap-2 text-xs font-bold text-slate-500 bg-slate-100 px-4 py-1.5 rounded-full">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          市場即時撮合中
+        </div>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 px-4">
         <div className="lg:col-span-8 space-y-10">
@@ -88,17 +93,17 @@ export function InvestorPropertyDetail({ userId, property, userProfile, onBack }
               </button>
             </div>
             <div className="flex items-center gap-8 mb-10">
-               <div className="flex flex-col"><span className="text-[10px] text-slate-400 uppercase tracking-widest">Price</span><span className="font-mono text-blue-600 text-5xl tracking-tighter">${Number(livePrice).toFixed(4)}</span></div>
+               <div className="flex flex-col"><span className="text-xs text-slate-400 font-bold tracking-wider">即時現價</span><span className="font-mono text-blue-600 text-5xl tracking-tighter">${Number(livePrice).toFixed(4)}</span></div>
             </div>
             <div className="aspect-[21/9] bg-slate-900 border border-slate-800 rounded-[2.5rem] relative flex items-center justify-center p-2 overflow-hidden shadow-inner">
                <KLineChart currentPrice={livePrice} dataLogs={vLogs} />
             </div>
           </div>
           <div className="grid grid-cols-4 gap-6">
-             <div className="bg-white border p-8 rounded-[2rem] text-center shadow-sm"><div className="text-xs text-slate-400 uppercase mb-2">High</div><div className="text-3xl text-red-500">${marketStats.high}</div></div>
-             <div className="bg-white border p-8 rounded-[2rem] text-center shadow-sm"><div className="text-xs text-slate-400 uppercase mb-2">Low</div><div className="text-3xl text-green-500">${marketStats.low}</div></div>
-             <div className="bg-white border p-8 rounded-[2rem] text-center shadow-sm"><div className="text-xs text-slate-400 uppercase mb-2">Market Cap</div><div className="text-3xl text-slate-800">${((property.price * 100000)/10000).toLocaleString()}萬</div></div>
-             <div className="bg-white border p-8 rounded-[2rem] text-center shadow-sm"><div className="text-xs text-slate-400 uppercase mb-2">Supply</div><div className="text-3xl text-blue-500">{liveSupply.toLocaleString()}</div></div>
+             <div className="bg-white border p-8 rounded-[2rem] text-center shadow-sm"><div className="text-xs text-slate-400 font-bold mb-2">當日最高</div><div className="text-3xl text-red-500">${marketStats.high}</div></div>
+             <div className="bg-white border p-8 rounded-[2rem] text-center shadow-sm"><div className="text-xs text-slate-400 font-bold mb-2">當日最低</div><div className="text-3xl text-green-500">${marketStats.low}</div></div>
+             <div className="bg-white border p-8 rounded-[2rem] text-center shadow-sm"><div className="text-xs text-slate-400 font-bold mb-2">總銷估值</div><div className="text-3xl text-slate-800">${((property.price * 100000)/10000).toLocaleString()}萬</div></div>
+             <div className="bg-white border p-8 rounded-[2rem] text-center shadow-sm"><div className="text-xs text-slate-400 font-bold mb-2">發行總量</div><div className="text-3xl text-blue-500">{liveSupply.toLocaleString()}</div></div>
           </div>
         </div>
         <div className="lg:col-span-4 space-y-8">

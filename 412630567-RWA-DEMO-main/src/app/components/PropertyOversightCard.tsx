@@ -128,10 +128,10 @@ export function PropertyOversightCard() {
       <div className="p-6 border-b border-border bg-purple-500/5 flex items-center justify-between">
         <h3 className="font-black flex items-center gap-3 text-purple-700 dark:text-purple-400 text-lg uppercase tracking-tight">
           <Building2 className="w-6 h-6" />
-          房產資產營運終端 (Database Live)
+          房產信託資產營運
         </h3>
         <span className="text-xs font-black bg-purple-100 text-purple-700 px-4 py-1.5 rounded-xl uppercase tracking-widest shadow-sm">
-          Banker Mode
+          業務審查專區
         </span>
       </div>
 
@@ -145,7 +145,7 @@ export function PropertyOversightCard() {
             {/* Left: Stats & Ownership */}
             <div className="space-y-8">
               <div>
-                <div className="text-[10px] text-muted-foreground uppercase font-black tracking-[0.2em] mb-2">主標的資產規模 (DATABASE VALUE)</div>
+                <div className="text-xs text-muted-foreground font-bold tracking-wider mb-2">主標的資產規模</div>
                 <div className="text-5xl font-black text-slate-800 tracking-tighter">
                    ${(parseFloat(mainProperty.fundraising_goal) / 10000).toLocaleString()} <span className="text-lg font-bold text-slate-400 uppercase tracking-widest">萬 TWD</span>
                 </div>
@@ -164,15 +164,15 @@ export function PropertyOversightCard() {
                        <span className="text-xl font-mono font-black text-green-400">${parseFloat(mainProperty.current_cash_balance || 0).toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between items-end">
-                       <span className="text-xs font-bold text-slate-500">待發放租金 (Pending):</span>
+                       <span className="text-xs font-bold text-slate-500">待發放租金:</span>
                        <span className="text-xl font-mono font-black text-blue-400">${parseFloat(mainProperty.pending_rent_amount || 0).toLocaleString()}</span>
                     </div>
                  </div>
               </div>
               
               <div className="p-5 bg-purple-50 rounded-2xl border border-purple-100">
-                 <p className="text-[10px] font-black text-purple-800 uppercase italic tracking-widest">
-                    Asset ID: {mainProperty.token_symbol} // 收益週期: {mainProperty.payout_cycle_days || 30} 天 (定期月結)
+                 <p className="text-xs font-bold text-purple-800 tracking-wide">
+                    資產代幣：{mainProperty.token_symbol} ｜ 收益週期：{mainProperty.payout_cycle_days || 30} 天 (定期月結)
                  </p>
               </div>
             </div>
@@ -192,7 +192,7 @@ export function PropertyOversightCard() {
                         onChange={(e) => setPayoutPeriod(e.target.value)}
                         className="w-full pl-6 pr-12 py-4 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-purple-600/10 font-black text-lg transition-all" 
                       />
-                      <span className="absolute right-4 top-4.5 text-[10px] font-black text-slate-300 uppercase">Days</span>
+                      <span className="absolute right-4 top-4.5 text-xs font-bold text-slate-400">天</span>
                     </div>
                     <button 
                       onClick={handleUpdatePeriod}
@@ -212,14 +212,14 @@ export function PropertyOversightCard() {
                   </div>
                   <div>
                     <h4 className="font-black text-xl text-slate-800 uppercase tracking-tighter">租金收益撥付</h4>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Global Distribution</p>
+                    <p className="text-[10px] font-bold text-slate-400 tracking-wider">定期信託收益派發</p>
                   </div>
                 </div>
 
                 <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100">
                    <div className="flex justify-between items-center mb-1">
                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">預計總發放額度</span>
-                      <span className="text-xs font-black text-slate-300 uppercase">Verified</span>
+                      <span className="text-xs font-bold text-slate-400">合規核驗</span>
                    </div>
                    <div className="text-3xl font-mono font-black text-slate-800">${parseFloat(mainProperty.pending_rent_amount || 0).toLocaleString()}</div>
                 </div>
@@ -245,7 +245,7 @@ export function PropertyOversightCard() {
             <span className="w-1 h-1 rounded-full bg-purple-400 animate-pulse delay-75" />
             <span className="w-1 h-1 rounded-full bg-purple-400 animate-pulse delay-150" />
          </div>
-         <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em]">Backend Database Synchronized</span>
+         <span className="text-[10px] font-bold text-slate-400 tracking-wider">資產與銀行信託專戶數據已即時校準</span>
       </div>
 
       {/* 專屬操作回饋彈窗 */}

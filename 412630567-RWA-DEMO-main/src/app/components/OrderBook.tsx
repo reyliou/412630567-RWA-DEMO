@@ -53,10 +53,10 @@ export function OrderBook({ propertyId, currentPrice, onPriceSelect }: OrderBook
   return (
     <div className="bg-white border border-border rounded-[3rem] p-10 shadow-2xl flex flex-col ring-1 ring-slate-100">
       <h3 className="font-black text-2xl mb-2 tracking-tight text-slate-800">
-        市場委託單 (Order Book)
+        市場掛單簿
       </h3>
-      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-6 border-b border-slate-50 pb-4">
-        來自掛單追蹤系統的真實掛單 (Real-time DB Depth)
+      <p className="text-xs text-slate-400 font-medium mb-6 border-b border-slate-50 pb-4">
+        市場即時掛單深度 (五檔行情)
       </p>
 
       <div className="mb-8 space-y-3">
@@ -68,9 +68,9 @@ export function OrderBook({ propertyId, currentPrice, onPriceSelect }: OrderBook
           <div className="h-full bg-red-500 transition-all duration-1000 shadow-[0_0_10px_rgba(239,68,68,0.3)]" style={{ width: `${bidRatio}%` }} />
           <div className="h-full bg-green-500 transition-all duration-1000 shadow-[0_0_10px_rgba(34,197,94,0.3)]" style={{ width: `${askRatio}%` }} />
         </div>
-        <div className="flex justify-between text-[10px] font-black text-slate-400 px-1 uppercase tracking-tighter">
-          <span>Total Bids: {bidTotal.toLocaleString()}</span>
-          <span>Total Asks: {askTotal.toLocaleString()}</span>
+        <div className="flex justify-between text-xs font-bold text-slate-400 px-1">
+          <span>委買總量: {bidTotal.toLocaleString()}</span>
+          <span>委賣總量: {askTotal.toLocaleString()}</span>
         </div>
       </div>
 
@@ -147,12 +147,12 @@ export function OrderBook({ propertyId, currentPrice, onPriceSelect }: OrderBook
       </div>
 
       <div className="mt-8 pt-6 border-t border-slate-50 flex justify-center">
-         <div className="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em] flex items-center gap-3">
+         <div className="text-xs font-bold text-slate-400 flex items-center gap-2">
             <div className="flex gap-1">
                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
                <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse delay-75" />
             </div>
-            Real-time Order Matching
+            即時撮合中
          </div>
       </div>
     </div>

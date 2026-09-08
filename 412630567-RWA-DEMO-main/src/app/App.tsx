@@ -60,8 +60,10 @@ function AppContent() {
           </div>
           <div className="flex items-center gap-4 text-slate-800">
              <div className="text-right hidden sm:block">
-                <div className="text-[10px] font-black uppercase text-muted-foreground tracking-widest leading-none mb-1.5 opacity-60 italic">Session: {userId || 'Dev'}</div>
-                <div className="text-base font-black uppercase">{userName}</div>
+                <div className="text-[11px] font-bold text-slate-400 leading-none mb-1">
+                  {appMode === 'BUSINESS' ? '業務審查專區' : appMode === 'TECHNICAL' ? '技術監控核心' : '投資人專區'}
+                </div>
+                <div className="text-base font-black">{userName}</div>
              </div>
              <div className="flex items-center gap-2">
                 <button onClick={() => setIsSettingsOpen(true)} className="p-2.5 hover:bg-slate-100 rounded-xl transition-colors text-slate-400 hover:text-slate-800"><Settings className="w-6 h-6" /></button>

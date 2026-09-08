@@ -160,8 +160,8 @@ export function InvestorMarket({ onSelectProperty }: InvestorMarketProps) {
                      <div className="px-3 py-1 bg-white/90 backdrop-blur shadow-sm rounded-xl text-primary text-[10px] font-black uppercase tracking-widest border border-primary/10">
                       {prop.city_tag}
                      </div>
-                     <div className="px-3 py-1 bg-blue-600 text-white shadow-sm rounded-xl text-[10px] font-black uppercase tracking-widest">
-                      Live
+                     <div className="px-3 py-1 bg-blue-600 text-white shadow-sm rounded-xl text-[10px] font-bold">
+                      現貨
                      </div>
                   </div>
                   <button 
@@ -197,7 +197,7 @@ export function InvestorMarket({ onSelectProperty }: InvestorMarketProps) {
               <div className="p-7 pt-0">
                 <div className="flex items-center justify-between border-t border-slate-50 pt-4">
                   <div className="flex flex-col">
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Current Price</span>
+                    <span className="text-xs text-slate-400 font-bold mb-1">即時現價</span>
                     <span className="font-mono font-black text-blue-600 text-2xl">${prop.price}</span>
                   </div>
                   {/* 台灣股市：漲紅跌綠 */}
