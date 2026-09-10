@@ -63,7 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUserId(user.id);
       setUserName(user.username);
       setAppMode(user.role as AppMode);
-      const isDemo = user.username === 'test3' || user.username === 'reyliou' || user.username === 'test1' || user.username === 'test2';
+      const isDemo = user.username === 'investor' || user.username === 'technician' || user.username === 'banker' || user.username === 'test3' || user.username === 'reyliou' || user.username === 'test1' || user.username === 'test2';
       const isWhite = user.is_whitelisted !== undefined ? !!user.is_whitelisted : isDemo;
       const kycStat = user.kyc_status || (isWhite || isDemo ? 'VERIFIED' : 'UNSUBMITTED');
       setIsWhitelisted(isWhite);
@@ -86,7 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     userIsWhitelisted?: boolean, 
     userKycStatus?: string
   ) => {
-    const isDemo = name === 'test3' || name === 'reyliou' || name === 'test1' || name === 'test2';
+    const isDemo = name === 'investor' || name === 'technician' || name === 'banker' || name === 'test3' || name === 'reyliou' || name === 'test1' || name === 'test2';
     const effectiveWhite = userIsWhitelisted !== undefined ? !!userIsWhitelisted : isDemo;
     const effectiveKyc = userKycStatus || (effectiveWhite ? 'VERIFIED' : 'UNSUBMITTED');
 

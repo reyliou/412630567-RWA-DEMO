@@ -223,7 +223,7 @@ export function AuthView({ onLogin }: AuthViewProps) {
                   <User className="absolute left-6 top-5 w-5 h-5 text-slate-300 group-focus-within:text-blue-600 transition-colors" />
                   <input 
                     type="text" 
-                    placeholder="帳號 (test1, test2...)" 
+                    placeholder="帳號 (technician, banker...)" 
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     className="w-full pl-16 pr-6 py-5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-600/20 transition-all font-black text-lg text-slate-800" 
@@ -254,9 +254,9 @@ export function AuthView({ onLogin }: AuthViewProps) {
             <div className="text-center pt-5 border-t border-slate-100">
                <div className="text-xs text-slate-500 font-bold mb-3 tracking-wide">快速示範帳號切換 (DEMO)</div>
                <div className="grid grid-cols-3 gap-2.5">
-                  <button type="button" onClick={() => setUsername("test1")} className="bg-slate-50 hover:bg-indigo-50 hover:text-indigo-700 p-3 rounded-xl text-xs font-bold text-slate-700 transition-all border border-slate-200 shadow-sm hover:border-indigo-300">test1 (技術)</button>
-                  <button type="button" onClick={() => setUsername("test2")} className="bg-slate-50 hover:bg-purple-50 hover:text-purple-700 p-3 rounded-xl text-xs font-bold text-slate-700 transition-all border border-slate-200 shadow-sm hover:border-purple-300">test2 (業務)</button>
-                  <button type="button" onClick={() => setUsername("test3")} className="bg-slate-50 hover:bg-blue-50 hover:text-blue-700 p-3 rounded-xl text-xs font-bold text-slate-700 transition-all border border-slate-200 shadow-sm hover:border-blue-300">test3 (投資)</button>
+                  <button type="button" onClick={() => setUsername("technician")} className="bg-slate-50 hover:bg-indigo-50 hover:text-indigo-700 p-3 rounded-xl text-xs font-bold text-slate-700 transition-all border border-slate-200 shadow-sm hover:border-indigo-300">technician (技術)</button>
+                  <button type="button" onClick={() => setUsername("banker")} className="bg-slate-50 hover:bg-purple-50 hover:text-purple-700 p-3 rounded-xl text-xs font-bold text-slate-700 transition-all border border-slate-200 shadow-sm hover:border-purple-300">banker (業務)</button>
+                  <button type="button" onClick={() => setUsername("investor")} className="bg-slate-50 hover:bg-blue-50 hover:text-blue-700 p-3 rounded-xl text-xs font-bold text-slate-700 transition-all border border-slate-200 shadow-sm hover:border-blue-300">investor (投資)</button>
                </div>
             </div>
             

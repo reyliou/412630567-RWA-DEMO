@@ -44,7 +44,7 @@ export function OrderEntryForm({ userId, property, userProfile, selectedPrice, o
       .catch(() => {});
   }, [apiFetch, refreshProfile]);
 
-  const isDemoVerified = userName === 'test3' || userName === 'reyliou' || userName === 'test1' || userName === 'test2' || userId === 3 || userId === 4;
+  const isDemoVerified = userName === 'investor' || userName === 'technician' || userName === 'banker' || userName === 'test3' || userName === 'reyliou' || userName === 'test1' || userName === 'test2' || userId === 3 || userId === 4;
   const effectiveWhitelisted = localProfile?.is_whitelisted !== undefined 
     ? !!localProfile.is_whitelisted 
     : (isWhitelisted || isDemoVerified);
